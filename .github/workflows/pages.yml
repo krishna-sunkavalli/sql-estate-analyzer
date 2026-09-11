@@ -1,0 +1,59 @@
+name: Verify and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bundle must be self-contained
+        run: |
+          if grep -nEi 'fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|(src|href)="https?:' index.html; then
+            echo "::error::index.html contains a network, storage or external reference"
+            exit 1
+          fi
+          echo "index.html is inert: no network, storage or external references."
+
+      - name: index.html must match a fresh build from src/
+        shell: pwsh
+        run: |
+          ./src/build.ps1 -Output "$env:RUNNER_TEMP/rebuilt.html"
+          $a = (Get-Content index.html -Raw) -replace "`r", ''
+          $b = (Get-Content "$env:RUNNER_TEMP/rebuilt.html" -Raw) -replace "`r", ''
+          if ($a -ne $b) {
+            Write-Host "::error::index.html is stale. Run ./src/build.ps1 and commit the result."
+            exit 1
+          }
+          Write-Host 'index.html matches src/.'
+
+  deploy:
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

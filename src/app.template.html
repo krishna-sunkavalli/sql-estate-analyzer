@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL Estate Analyzer — Azure target sizing &amp; cost</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme = param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--cp-bg);
+  color: var(--cp-text);
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+code, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
+
+.wrap { max-width: 1580px; margin: 0 auto; padding: 20px 24px 64px; }
+
+/* ---------- header ---------- */
+header.app {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 16px 0 14px; border-bottom: 1px solid var(--cp-border); margin-bottom: 18px;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand .mark {
+  width: 38px; height: 38px; border-radius: 10px; flex: none;
+  background: var(--cp-accent); color: var(--cp-accent-fg);
+  display: grid; place-items: center; font-weight: 700; font-size: 15px;
+}
+h1 { font-size: 19px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+.sub { font-size: 12px; color: var(--cp-text-muted); margin-top: 1px; }
+.spacer { flex: 1 1 auto; }
+
+.privacy {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--cp-text-muted);
+  background: var(--cp-surface); border: 1px solid var(--cp-border);
+  border-radius: 999px; padding: 6px 13px;
+}
+.privacy b { color: var(--cp-success); font-weight: 600; }
+
+/* ---------- buttons ---------- */
+button, .btn {
+  font: inherit; font-size: 13px; cursor: pointer;
+  background: var(--cp-surface); color: var(--cp-text);
+  border: 1px solid var(--cp-border); border-radius: 0.625rem;
+  padding: 7px 14px; transition: background .12s, border-color .12s;
+}
+button:hover, .btn:hover { background: var(--cp-surface-soft); border-color: var(--cp-border-strong); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); font-weight: 600; }
+button.primary:hover { background: var(--cp-accent-hover); border-color: var(--cp-accent-hover); }
+button.ghost { background: transparent; }
+
+/* ---------- drop zone ---------- */
+.drop {
+  border: 2px dashed var(--cp-border-strong); border-radius: 16px;
+  background: var(--cp-bg-elevated);
+  padding: 44px 28px; text-align: center; transition: border-color .15s, background .15s;
+}
+.drop.over { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+.drop h2 { margin: 0 0 6px; font-size: 17px; font-weight: 620; }
+.drop p { margin: 0 0 16px; color: var(--cp-text-muted); font-size: 13px; }
+.drop .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+input[type=file] { display: none; }
+
+.getstarted {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px; margin-top: 22px;
+}
+.gs {
+  background: var(--cp-surface); border: 1px solid var(--cp-border);
+  border-radius: 16px; padding: 16px 18px;
+  box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+}
+.gs .n {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--cp-accent-soft);
+  color: var(--cp-accent); font-size: 12px; font-weight: 700;
+  display: grid; place-items: center; margin-bottom: 9px;
+}
+.gs h3 { margin: 0 0 5px; font-size: 13.5px; font-weight: 620; }
+.gs p { margin: 0; font-size: 12.5px; color: var(--cp-text-muted); line-height: 1.45; }
+
+/* ---------- tabs ---------- */
+nav.tabs {
+  display: flex; gap: 2px; border-bottom: 1px solid var(--cp-border);
+  margin: 4px 0 18px; overflow-x: auto;
+}
+nav.tabs button {
+  border: none; background: none; border-radius: 0;
+  border-bottom: 2px solid transparent; padding: 9px 15px;
+  color: var(--cp-text-muted); font-size: 13.5px; white-space: nowrap;
+}
+nav.tabs button:hover { background: var(--cp-surface-soft); border-color: transparent; }
+nav.tabs button.on { color: var(--cp-accent); border-bottom-color: var(--cp-accent); font-weight: 620; }
+.panel { display: none; }
+.panel.on { display: block; }
+
+/* ---------- cards & KPIs ---------- */
+.card {
+  background: var(--cp-surface); border: 1px solid var(--cp-border);
+  border-radius: 16px; padding: 17px 19px; margin-bottom: 16px;
+  box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+}
+.card > h3 {
+  margin: 0 0 13px; font-size: 14px; font-weight: 640;
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+}
+.card > h3 .hint { font-weight: 400; font-size: 12px; color: var(--cp-text-muted); }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi {
+  background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px;
+  padding: 14px 16px; box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14);
+}
+.kpi .lbl { font-size: 11.5px; color: var(--cp-text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi .val { font-size: 25px; font-weight: 660; margin-top: 3px; letter-spacing: -0.02em; }
+.kpi .val.sm { font-size: 19px; }
+.kpi .fnt { font-size: 11.5px; color: var(--cp-text-soft); margin-top: 2px; }
+.kpi.accent .val { color: var(--cp-accent); }
+.kpi.good .val { color: var(--cp-success); }
+.kpi.warn .val { color: var(--cp-warning); }
+.kpi.bad  .val { color: var(--cp-danger); }
+
+/* ---------- tables ---------- */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--cp-border); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+th, td { padding: 8px 11px; text-align: left; border-bottom: 1px solid var(--cp-border); white-space: nowrap; }
+th {
+  background: var(--cp-surface-soft); font-weight: 620; font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: .03em; color: var(--cp-text-muted);
+  position: sticky; top: 0; z-index: 2; cursor: pointer; user-select: none;
+}
+th.nosort { cursor: default; }
+th:hover:not(.nosort) { color: var(--cp-text); }
+th .arrow { opacity: .4; font-size: 9px; margin-left: 3px; }
+tbody tr:hover { background: var(--cp-surface-soft); }
+tbody tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.wrap-cell { white-space: normal; min-width: 220px; }
+
+/* ---------- pills / badges ---------- */
+.pill {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+}
+.pill.gray  { background: var(--cp-surface-soft); color: var(--cp-text-muted); border-color: var(--cp-border); }
+.pill.green { background: rgba(22,163,74,.12);  color: var(--cp-success); border-color: rgba(22,163,74,.3); }
+.pill.amber { background: rgba(245,158,11,.14); color: var(--cp-warning); border-color: rgba(245,158,11,.32); }
+.pill.red   { background: rgba(220,38,38,.12);  color: var(--cp-danger);  border-color: rgba(220,38,38,.3); }
+.pill.blue  { background: rgba(0,120,212,.12);  color: var(--cp-link);    border-color: rgba(0,120,212,.3); }
+.pill.accent{ background: var(--cp-accent-soft); color: var(--cp-accent); border-color: var(--cp-accent); }
+
+/* ---------- controls ---------- */
+.controls {
+  display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;
+  padding: 13px 16px; background: var(--cp-bg-elevated);
+  border: 1px solid var(--cp-border); border-radius: 12px; margin-bottom: 16px;
+}
+.ctl { display: flex; flex-direction: column; gap: 4px; }
+.ctl label { font-size: 11px; color: var(--cp-text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+select, input[type=text], input[type=number], input[type=search] {
+  font: inherit; font-size: 13px; padding: 6px 10px;
+  background: var(--cp-surface); color: var(--cp-text);
+  border: 1px solid var(--cp-border); border-radius: 0.625rem; min-width: 132px;
+}
+select:focus, input:focus { outline: 2px solid var(--cp-accent-soft); border-color: var(--cp-accent); }
+input[type=number] { min-width: 92px; }
+.chk { display: flex; align-items: center; gap: 7px; font-size: 13px; padding-bottom: 6px; cursor: pointer; }
+.chk input { accent-color: var(--cp-accent); width: 15px; height: 15px; cursor: pointer; }
+
+.chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 13px; }
+.chip {
+  font-size: 12.5px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--cp-border); background: var(--cp-surface);
+  color: var(--cp-text-muted); cursor: pointer;
+}
+.chip:hover { border-color: var(--cp-border-strong); }
+.chip.on { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); font-weight: 600; }
+
+/* ---------- misc ---------- */
+.bar-track { height: 7px; background: var(--cp-surface-soft); border-radius: 999px; overflow: hidden; min-width: 64px; }
+.bar-fill { height: 100%; border-radius: 999px; background: var(--cp-accent); }
+
+.note {
+  font-size: 12.5px; color: var(--cp-text-muted); line-height: 1.55;
+  background: var(--cp-surface-soft); border-left: 3px solid var(--cp-border-strong);
+  padding: 11px 14px; border-radius: 0 10px 10px 0; margin: 12px 0;
+}
+.note.warn { border-left-color: var(--cp-warning); background: rgba(245,158,11,.08); }
+.note.info { border-left-color: var(--cp-link); background: rgba(0,120,212,.07); }
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
+
+.empty { text-align: center; padding: 40px 20px; color: var(--cp-text-muted); font-size: 13.5px; }
+.hidden { display: none !important; }
+
+details.acc { border: 1px solid var(--cp-border); border-radius: 12px; padding: 10px 14px; margin-bottom: 9px; background: var(--cp-surface); }
+details.acc summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+details.acc[open] summary { margin-bottom: 9px; }
+
+.stack-bar { display: flex; height: 26px; border-radius: 7px; overflow: hidden; border: 1px solid var(--cp-border); }
+.stack-seg { display: grid; place-items: center; font-size: 10.5px; font-weight: 600; color: #fff; overflow: hidden; }
+
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--cp-text-muted); margin-top: 9px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+.src-tag { font-size: 10.5px; color: var(--cp-text-soft); font-weight: 400; }
+.tbl-cap { font-size: 12px; color: var(--cp-text-muted); margin: 0 0 9px; }
+.err-list { font-size: 12.5px; color: var(--cp-danger); margin: 8px 0 0; padding-left: 18px; }
+.err-list li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div class="brand">
+      <div class="mark">SQL</div>
+      <div>
+        <h1>SQL Estate Analyzer</h1>
+        <div class="sub">Azure target sizing &amp; cost modelling for SQL Server estates</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="privacy">🔒 <b>No data leaves your browser</b> · 100% client-side</div>
+    <button id="btnTheme" class="ghost" title="Toggle light/dark">◐</button>
+  </header>
+
+  <!-- ================= UPLOAD ================= -->
+  <section id="uploadView">
+    <div class="drop" id="drop">
+      <h2>Drop your SQL estate inventory here</h2>
+      <p>CSV or Excel produced by the discovery script — or any inventory with matching columns</p>
+      <div class="row">
+        <button class="primary" id="btnPick">Choose file…</button>
+        <button id="btnTemplate">Download CSV template</button>
+        <button id="btnScript">Download discovery script</button>
+        <button class="ghost" id="btnDemo">Load demo estate</button>
+      </div>
+      <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls" multiple>
+      <div id="loadErrors"></div>
+    </div>
+
+    <div class="getstarted">
+      <div class="gs">
+        <div class="n">1</div>
+        <h3>Run the discovery script</h3>
+        <p>Execute <code>SqlEstateDiscovery.sql</code> against each SQL Server instance. It is read-only and collects no schema, data or query text — only versions, sizes and feature flags.</p>
+      </div>
+      <div class="gs">
+        <div class="n">2</div>
+        <h3>Export to CSV</h3>
+        <p>In SSMS, right-click the results grid → <em>Save Results As…</em> → CSV. Repeat per instance; you can upload all the files together.</p>
+      </div>
+      <div class="gs">
+        <div class="n">3</div>
+        <h3>Review the options</h3>
+        <p>Get a recommended Azure target per database, the blockers behind every rejected option, and costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
+      </div>
+    </div>
+
+    <div class="note info" style="margin-top:22px">
+      <b>Not from the discovery script?</b> Any CSV/Excel works as long as it has one row per database.
+      The analyzer auto-detects common column names and you can remap anything it misses.
+      The essentials are: server/instance name, database name, SQL version, edition, core count and database size.
+    </div>
+  </section>
+
+  <!-- ================= RESULTS ================= -->
+  <section id="resultsView" class="hidden">
+    <nav class="tabs" id="tabs">
+      <button data-tab="summary" class="on">Summary</button>
+      <button data-tab="targets">Recommendations</button>
+      <button data-tab="cost">Cost model</button>
+      <button data-tab="risk">Support &amp; risk</button>
+      <button data-tab="inventory">Inventory</button>
+      <button data-tab="mapping">Column mapping</button>
+      <button data-tab="assumptions">Assumptions</button>
+    </nav>
+
+    <div class="panel on" id="panel-summary"></div>
+    <div class="panel" id="panel-targets"></div>
+    <div class="panel" id="panel-cost"></div>
+    <div class="panel" id="panel-risk"></div>
+    <div class="panel" id="panel-inventory"></div>
+    <div class="panel" id="panel-mapping"></div>
+    <div class="panel" id="panel-assumptions"></div>
+  </section>
+
+</div>
+<!--APP_SCRIPT-->
+</body>
+</html>
