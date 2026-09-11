@@ -366,6 +366,14 @@ details.acc[open] summary { margin-bottom: 9px; }
       The analyzer auto-detects common column names and you can remap anything it misses.
       The essentials are: server/instance name, database name, SQL version, edition, core count and database size.
     </div>
+
+    <div class="note" style="margin-top:12px">
+      <b>Built for large estates.</b> The sweep reads catalog views and DMVs only — no trace, no user data,
+      nothing that blocks — so it is safe to run during business hours. Budget about a second per instance
+      plus a few milliseconds per database: a thousand databases is minutes, not hours. This is triage
+      rather than a final compatibility ruling; once you have chosen the databases to move, confirm them
+      with the readiness assessment built into SSMS.
+    </div>
   </section>
 
   <!-- ================= RESULTS ================= -->

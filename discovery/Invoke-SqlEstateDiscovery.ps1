@@ -77,7 +77,7 @@ param(
     [System.Management.Automation.PSCredential]$Credential,
     [int]$ThrottleLimit = 8,
     [int]$ConnectTimeoutSec = 8,
-    [int]$QueryTimeoutSec = 120,
+    [int]$QueryTimeoutSec = 900,
     [switch]$Encrypt,
     [switch]$TrustServerCertificate,
     [switch]$ListOnly
@@ -331,12 +331,14 @@ if ($Credential) {
 # --------------------------------------------------------------------- collect
 
 $started = Get-Date
-Write-Host 'Collecting...' -ForegroundColor Cyan
+Write-Host "Collecting from $($targets.Count) instance$(if ($targets.Count -ne 1) { 's' })..." -ForegroundColor Cyan
 
 $argSet = @($sql, $ConnectTimeoutSec, $QueryTimeoutSec, [bool]$Encrypt, [bool]$TrustServerCertificate, $sqlUser, $sqlPass)
 
-if ($PSVersionTable.PSVersion.Major -ge 7 -and $targets.Count -gt 1) {
-    $results = $targets | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
+$total = $targets.Count
+
+$stream = if ($PSVersionTable.PSVersion.Major -ge 7 -and $targets.Count -gt 1) {
+    $targets | ForEach-Object -ThrottleLimit $ThrottleLimit -Parallel {
         $worker = [scriptblock]::Create($using:workerText)
         # Copy to a local first: @(...) would pass the array as one argument
         # rather than splatting it across the worker's parameters.
@@ -348,28 +350,56 @@ if ($PSVersionTable.PSVersion.Major -ge 7 -and $targets.Count -gt 1) {
         Write-Host '  (Windows PowerShell 5.1 — querying sequentially. Run under PowerShell 7 for a parallel sweep.)' -ForegroundColor DarkGray
     }
     $worker = [scriptblock]::Create($workerText)
-    $results = foreach ($t in $targets) { & $worker $t @argSet }
+    $targets | ForEach-Object { & $worker $_ @argSet }
 }
+
+# Results are written as they arrive rather than buffered to the end, so an
+# interrupted sweep of a large estate still leaves usable output on disk.
+# This loop drains the stream on one thread, so a plain counter is safe.
+$log       = New-Object System.Collections.Generic.List[object]
+$rowCount  = 0
+$done      = 0
+$wroteRows = $false
+$wroteLog  = $false
+
+foreach ($r in $stream) {
+    $log.Add($r.Log)
+    $done++
+
+    if ($r.Rows -and $r.Rows.Count) {
+        if ($wroteRows) { $r.Rows | Export-Csv -LiteralPath $OutputPath -NoTypeInformation -Encoding UTF8 -Append }
+        else            { $r.Rows | Export-Csv -LiteralPath $OutputPath -NoTypeInformation -Encoding UTF8; $wroteRows = $true }
+        $rowCount += $r.Rows.Count
+    }
+
+    if ($wroteLog) { $r.Log | Export-Csv -LiteralPath $logPath -NoTypeInformation -Encoding UTF8 -Append }
+    else           { $r.Log | Export-Csv -LiteralPath $logPath -NoTypeInformation -Encoding UTF8; $wroteLog = $true }
+
+    if ($total -gt 1) {
+        Write-Progress -Activity 'SQL estate discovery' -Status "$done of $total instances · $rowCount databases" `
+                       -PercentComplete (100 * $done / $total)
+    }
+}
+if ($total -gt 1) { Write-Progress -Activity 'SQL estate discovery' -Completed }
 
 # ---------------------------------------------------------------------- output
 
-$log  = @($results | ForEach-Object { $_.Log })
-$rows = @($results | ForEach-Object { $_.Rows } | Where-Object { $_ })
-
-$log | Export-Csv -LiteralPath $logPath -NoTypeInformation -Encoding UTF8
-
-$ok       = @($log | Where-Object Status -eq 'ok')
-$failed   = @($log | Where-Object Status -ne 'ok')
-$elapsed  = [math]::Round(((Get-Date) - $started).TotalSeconds, 1)
+$ok      = @($log | Where-Object Status -eq 'ok')
+$failed  = @($log | Where-Object Status -ne 'ok')
+$elapsed = [math]::Round(((Get-Date) - $started).TotalSeconds, 1)
 
 Write-Host ''
 Write-Host ('-' * 64)
 Write-Host ("Instances succeeded : {0} of {1}" -f $ok.Count, $targets.Count)
-Write-Host ("Databases collected : {0}" -f $rows.Count)
+Write-Host ("Databases collected : {0}" -f $rowCount)
 Write-Host ("Elapsed             : {0}s" -f $elapsed)
 
-if ($rows.Count) {
-    $rows | Export-Csv -LiteralPath $OutputPath -NoTypeInformation -Encoding UTF8
+if ($ok.Count) {
+    $slowest = $ok | Sort-Object Seconds -Descending | Select-Object -First 1
+    Write-Host ("Slowest instance    : {0} ({1}s, {2} databases)" -f $slowest.Instance, $slowest.Seconds, $slowest.Databases)
+}
+
+if ($rowCount) {
     Write-Host ''
     Write-Host "Inventory : $OutputPath" -ForegroundColor Green
     Write-Host "Run log   : $logPath"
@@ -384,9 +414,15 @@ if ($failed.Count) {
     Write-Host ''
     Write-Warning "$($failed.Count) instance$(if ($failed.Count -ne 1) { 's' }) could not be queried:"
     $failed | ForEach-Object { Write-Host ("  {0,-45} {1}" -f $_.Instance, $_.Message) -ForegroundColor DarkYellow }
+
+    $retryPath = Join-Path ([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($OutputPath))) `
+                           ([IO.Path]::GetFileNameWithoutExtension($OutputPath) + '-retry.txt')
+    $failed.Instance | Set-Content -LiteralPath $retryPath -Encoding UTF8
+
     Write-Host ''
     Write-Host 'Common causes: the host is decommissioned but its SPN remains, the SQL' -ForegroundColor DarkGray
     Write-Host 'Browser service is stopped on a named instance, a firewall blocks 1433,' -ForegroundColor DarkGray
-    Write-Host 'or your account lacks VIEW SERVER STATE. Retry just those with:' -ForegroundColor DarkGray
-    Write-Host "  .\$([IO.Path]::GetFileName($PSCommandPath)) -InputFile <list-of-failures.txt>" -ForegroundColor DarkGray
+    Write-Host 'or your account lacks VIEW SERVER STATE. A timeout usually means a very' -ForegroundColor DarkGray
+    Write-Host 'large instance — raise -QueryTimeoutSec. Retry just the failures with:' -ForegroundColor DarkGray
+    Write-Host "  .\$([IO.Path]::GetFileName($PSCommandPath)) -InputFile `"$retryPath`"" -ForegroundColor DarkGray
 }

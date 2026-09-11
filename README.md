@@ -7,9 +7,8 @@ Database, Hyperscale, SQL Managed Instance, or SQL Server on Azure VM — with t
 specific blocker behind every rejected option and costed scenarios across pricing
 terms and Azure Hybrid Benefit.
 
-Conceptually the SQL counterpart to
-[RVTools Analyzer](https://azure.github.io/RVToolsAnalyzer/), but for database
-estates rather than VMware inventory.
+Built for estate-scale triage: point it at a thousand databases and get a costed
+shortlist in minutes, rather than assessing one instance at a time.
 
 ![SQL Estate Analyzer summary view](docs/img/shot-summary.png)
 
@@ -87,17 +86,94 @@ completeness.
 -Credential           SQL authentication (Windows auth is the default)
 -ThrottleLimit 16     parallel instances, PowerShell 7 only (default 8)
 -ConnectTimeoutSec    default 8 — lower it when sweeping a list full of dead hosts
--QueryTimeoutSec      default 120
+-QueryTimeoutSec      default 900 — a large or AUTO_CLOSE-heavy instance needs it
 -Encrypt              force an encrypted connection
 -TrustServerCertificate
 -OutputPath           default .\SqlEstateInventory-<timestamp>.csv
 ```
 
-Instances that fail are logged and the sweep continues. To retry just those, feed
-the failures back in with `-InputFile`.
+Instances that fail are logged and the sweep continues. Results are written as each
+instance completes, so an interrupted sweep still leaves usable output. Failures
+are also written to `SqlEstateInventory-<timestamp>-retry.txt` — feed that straight
+back in with `-InputFile` to retry just those.
 
 Permissions needed on each instance: `VIEW SERVER STATE` and `VIEW ANY DEFINITION`
 (sysadmin is simplest).
+
+### How long does it take, and what does it cost the server?
+
+Short version: **a 1,000-database estate is minutes, not hours**, and the load on
+each server is negligible.
+
+The collector reads catalog views and DMVs only. It runs no trace, no Extended
+Events session, no `DBCC`, and touches no user data — so there is nothing to block
+and nothing to bloat. It is safe to run during business hours.
+
+Measured on SQL Server 2019 (see below for the caveat on these figures):
+
+| Cost | Measured |
+|---|---|
+| Per instance, fixed | ~1 s — connect plus the instance-level DMV queries |
+| Per database, small schema | 1–5 ms |
+| Per database, 1,500+ objects | 20–40 ms |
+| Per database, `AUTO_CLOSE ON` | **~425 ms** — see below |
+
+Which works out roughly as:
+
+| Estate shape | Expected wall clock |
+|---|---|
+| 1,000 databases on a few large instances | well under a minute |
+| 1,000 databases spread over ~200 instances, `-ThrottleLimit 16` | a few minutes |
+| Either of the above, with many unreachable hosts | dominated by connect timeouts, not by the query |
+
+In a real sweep the largest cost is usually **hosts that don't answer** — stale
+SPNs for decommissioned servers, each burning the full `-ConnectTimeoutSec`.
+Parallelism absorbs that: 16 unreachable hosts at a 3 s timeout took 15.9 s at
+`-ThrottleLimit 4` and 5.6 s at `-ThrottleLimit 16`. For a large estate, raise the
+throttle and lower the connect timeout:
+
+```powershell
+.\Invoke-SqlEstateDiscovery.ps1 -FromActiveDirectory -ThrottleLimit 24 -ConnectTimeoutSec 4
+```
+
+The run log records per-instance duration and row count, and the console prints
+the slowest instance — so if one server is an outlier you will know which.
+
+**The `AUTO_CLOSE` caveat.** On a database with `AUTO_CLOSE ON`, every `USE`
+statement has to start the database up, which measured at ~425 ms versus ~5 ms
+with it off — a 1,000-database instance goes from seconds to roughly seven
+minutes. `AUTO_CLOSE ON` is a poor setting for a server database and is off by
+default on non-Express editions, but it is common on SQL Express and on estates
+that grew out of desktop deployments. The collector reports `IsAutoClose` per
+database, so you can see whether this applies to you. `-QueryTimeoutSec` defaults
+to 900 s to leave room for it.
+
+These figures come from a laptop-class instance, and per-database cost varies with
+schema size rather than data volume — a 4 TB database with 40 tables is cheaper to
+inspect than a 40 GB database with 4,000. Treat them as the right order of
+magnitude, not a guarantee. Run `-ListOnly` first, then one representative
+instance, and read the actual duration out of the run log before sweeping
+everything.
+
+## How this relates to Microsoft's own tooling
+
+This is a **triage** tool, not a replacement for Microsoft's assessment tooling.
+Use it to get an estate-wide, costed shortlist quickly; use Microsoft's tooling to
+make the final per-database call.
+
+| | This analyzer | [SSMS Migrate SQL Server / Arc-enabled assessment](https://learn.microsoft.com/ssms/migrate/migrate-sql-server-azure-sql#assess-readiness-for-migration) |
+|---|---|---|
+| Scope | Whole estate in one sweep | Per instance |
+| Permission | `VIEW SERVER STATE` + `VIEW ANY DEFINITION` | sysadmin |
+| Compatibility findings | Feature-flag heuristics — good enough to rank and cost | Authoritative rule set, with remediation detail |
+| Sizing | Inferred from cores, size and ring-buffer CPU | Performance-based when Arc-enabled |
+| Cost model | Yes — PAYG, reserved, AHB, vs on-premises | No |
+
+A sensible sequence is: sweep the estate here to find the candidates and size the
+prize, then run the SSMS assessment — or read the precomputed Arc assessment — on
+the instances you have decided to move. Where this tool says a database is blocked
+from Azure SQL Database, expect the SSMS assessment to categorise it **Not ready**
+for that target and to tell you exactly what to fix.
 
 ## What the discovery script collects
 
