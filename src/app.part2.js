@@ -324,8 +324,8 @@ function renderSummary() {
   const deltaPct = op.monthly > 0 ? (100 * delta / op.monthly) : 0;
 
   const segs = [
-    { k: "sqldb", c: "var(--cp-success)" }, { k: "hs", c: "var(--cp-link)" },
-    { k: "mi", c: "var(--cp-accent)" }, { k: "vm", c: "var(--cp-warning)" },
+    { k: "sqldb", c: "var(--cp-viz-1)" }, { k: "hs", c: "var(--cp-viz-2)" },
+    { k: "mi", c: "var(--cp-viz-3)" }, { k: "vm", c: "var(--cp-viz-4)" },
   ];
   const stack = segs.filter(s => counts[s.k] > 0).map(s => {
     const pct = 100 * counts[s.k] / Math.max(1, S.rows.length);

@@ -11,6 +11,8 @@ Conceptually the SQL counterpart to
 [RVTools Analyzer](https://azure.github.io/RVToolsAnalyzer/), but for database
 estates rather than VMware inventory.
 
+![SQL Estate Analyzer summary view](docs/img/shot-summary.png)
+
 > **Your data never leaves your browser.** The page is a single static HTML file
 > with no network calls, no storage APIs and no telemetry. Files you drop in are
 > parsed in memory and discarded when you close the tab. Nothing is uploaded.
