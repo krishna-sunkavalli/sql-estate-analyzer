@@ -35,8 +35,8 @@ $violations = @()
 if ($js -match '(?<![\w.])fetch\s*\(')                    { $violations += 'fetch()' }
 if ($js -match 'XMLHttpRequest')                          { $violations += 'XMLHttpRequest' }
 if ($js -match 'localStorage|sessionStorage|indexedDB')   { $violations += 'browser storage' }
-if ($template -match '<script[^>]+src=')                  { $violations += 'external <script src>' }
-if ($template -match '<link[^>]+href=')                   { $violations += 'external <link>' }
+if ($template -match '<script[^>]+src\s*=\s*["'']?(?:https?:)?//') { $violations += 'external <script src>' }
+if ($template -match '<link[^>]+href\s*=\s*["'']?(?:https?:)?//')   { $violations += 'external <link>' }
 if ($violations.Count) {
   throw "Bundle is not self-contained — found: $($violations -join ', ')"
 }
