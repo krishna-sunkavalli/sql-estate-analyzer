@@ -438,6 +438,18 @@ function renderAssumptions() {
         on Azure VM. Hyperscale is proposed only where a database exceeds the 4 TB single-database limit.
         Business Critical is selected where the source uses In-Memory OLTP, is clustered, participates in an
         availability group, or runs Enterprise edition in production.</p></details>
+      <details class="acc"><summary>How readiness is categorised</summary>
+        <p style="font-size:12.5px;color:var(--cp-text-muted)">Every database is reported against every target
+        in the three categories used by the migration readiness assessment in SSMS.
+        <b>Ready</b> — nothing detected that needs changing. <b>Ready with warnings</b> — it can move, but
+        something needs attention first: a service tier requirement (In-Memory OLTP needs Business Critical,
+        columnstore is unavailable below Standard S3), a feature to re-enable afterwards (CDC, change
+        tracking, replication), key management to plan (TDE), or a compatibility level below 100 to raise.
+        <b>Not ready</b> — a feature rules the target out entirely until it is removed or reworked.
+        Where a target is blocked, its warnings are suppressed: there is no value in planning around a
+        feature on a platform you cannot use at all. These categories are derived from inventory flags, so
+        treat them as triage — confirm the databases you decide to move with the SSMS assessment, which
+        applies the full rule set and tells you how to remediate.</p></details>
       <details class="acc"><summary>How sizing is derived</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">By default the analyzer matches the existing
         core count, adds the configured headroom, and rounds up to a purchasable vCore size. Switching the
@@ -467,6 +479,9 @@ const EXPORT_COLS = [
   ["Memory GB", r => r.memoryGb], ["Size GB", r => (r.sizeGb || 0).toFixed(1)],
   ["Avg CPU %", r => r.cpuPct], ["Environment", r => r.environment],
   ["Recommended target", r => TARGETS[r.cost.target].name],
+  ["Readiness — SQL DB", r => READINESS[readinessFor(r, "sqldb")].label],
+  ["Readiness — SQL MI", r => READINESS[readinessFor(r, "mi")].label],
+  ["Readiness — SQL VM", r => READINESS[readinessFor(r, "vm")].label],
   ["Service tier", r => r.cost.target === "vm" ? "IaaS" : r.cost.tier === "bc" ? "Business Critical" : r.cost.target === "hs" ? "Hyperscale" : "General Purpose"],
   ["Sizing", r => r.cost.detail], ["vCores", r => r.cost.vcores],
   ["Storage GB", r => r.cost.storeGb],
@@ -477,6 +492,8 @@ const EXPORT_COLS = [
   ["Total $/yr", r => (r.cost.total * 12).toFixed(2)],
   ["Blockers — SQL DB", r => (r.blocked.sqldb || []).join("; ")],
   ["Blockers — SQL MI", r => (r.blocked.mi || []).join("; ")],
+  ["Warnings — SQL DB", r => (r.warned?.sqldb || []).join("; ")],
+  ["Warnings — SQL MI", r => (r.warned?.mi || []).join("; ")],
   ["Features", r => FEATURES.filter(f => r.f[f.key]).map(f => f.label).join("; ")],
 ];
 

@@ -165,7 +165,7 @@ make the final per-database call.
 |---|---|---|
 | Scope | Whole estate in one sweep | Per instance |
 | Permission | `VIEW SERVER STATE` + `VIEW ANY DEFINITION` | sysadmin |
-| Compatibility findings | Feature-flag heuristics — good enough to rank and cost | Authoritative rule set, with remediation detail |
+| Compatibility findings | Feature-flag heuristics, reported as Ready / Ready with warnings / Not ready | The same three categories, from the authoritative rule set, with remediation detail |
 | Sizing | Inferred from cores, size and ring-buffer CPU | Performance-based when Arc-enabled |
 | Cost model | Yes — PAYG, reserved, AHB, vs on-premises | No |
 
@@ -202,6 +202,33 @@ availability group, or runs Enterprise edition in production.
 Managed Instance and SQL-on-VM are instance-level products, so databases from the
 same source instance are consolidated onto one deployment and share its compute
 cost rather than each being billed a full instance.
+
+### Readiness
+
+Every database is also reported against **every** target using the same three
+categories as the [migration readiness assessment in
+SSMS](https://learn.microsoft.com/ssms/migrate/migrate-sql-server-azure-sql#assess-readiness-for-migration),
+so these results line up with what a per-instance assessment will tell your
+customer later:
+
+| Category | Meaning |
+|---|---|
+| **Ready** | Nothing detected that needs changing |
+| **Ready with warnings** | It can move, but something needs attention first |
+| **Not ready** | A feature rules that target out until it is removed or reworked |
+
+Warnings cover service-tier requirements (In-Memory OLTP needs Business Critical;
+columnstore is unavailable below Standard S3), features to re-enable afterwards
+(CDC, change tracking, replication), key management to plan (TDE), HA to
+re-architect (Always On and FCI become built-in HA plus auto-failover groups), and
+compatibility levels below 100 that must be raised.
+
+Where a target is blocked its warnings are suppressed — there is no value in
+planning around a feature on a platform you cannot use at all.
+
+The categories are useful in both directions. A SQL Server 2016 database with no
+blockers shows **Ready** for Azure SQL Database but **Ready with warnings** for SQL
+Server on Azure VM, because lifting it as-is carries an out-of-support build.
 
 ## Pricing
 

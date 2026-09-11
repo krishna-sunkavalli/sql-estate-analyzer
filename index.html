@@ -357,7 +357,7 @@ details.acc[open] summary { margin-bottom: 9px; }
       <div class="gs">
         <div class="n">3</div>
         <h3>Review the options</h3>
-        <p>Get a recommended Azure target per database, the blockers behind every rejected option, and costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
+        <p>Every database is scored <b>Ready</b>, <b>Ready with warnings</b> or <b>Not ready</b> against each Azure target — the same categories SSMS reports — with the finding behind every one, plus costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
       </div>
     </div>
 
@@ -636,6 +636,7 @@ const RULES = [
   { id: "external",    test: r => r.f.external,     blocks: ["sqldb", "hs", "mi"], why: "PolyBase / external tables require SQL Server on a VM" },
   { id: "mergerepl",   test: r => r.f.mergePub,     blocks: ["sqldb", "hs", "mi"], why: "Merge replication is not supported on Azure SQL PaaS" },
   { id: "distributor", test: r => r.i.distributor,  blocks: ["sqldb", "hs"],       why: "Replication distributor role requires Managed Instance or VM" },
+  { id: "txpub",       test: r => r.f.published,    blocks: ["sqldb", "hs"],       why: "Azure SQL Database cannot act as a replication publisher — Managed Instance or VM required" },
   { id: "ssrs",        test: r => r.i.ssrs,         blocks: ["sqldb", "hs", "mi"], why: "SSRS report server databases require SQL Server on a VM" },
   { id: "ssis",        test: r => r.i.ssis,         blocks: ["sqldb", "hs"],       why: "SSIS catalog (SSISDB) requires Managed Instance or VM" },
   { id: "clr",         test: r => r.f.clr,          blocks: ["sqldb", "hs"],       why: "SQLCLR assemblies require Managed Instance or VM" },
@@ -649,15 +650,60 @@ const RULES = [
   { id: "size_mi",     test: r => r.sizeGb > 16384, blocks: ["mi"],                why: "Database exceeds the 16 TB Managed Instance limit" },
 ];
 
+/* Non-blocking concerns: the database can move to this target, but something
+   needs attention first. This is the "Ready with warnings" category used by the
+   migration readiness assessment in SSMS — see
+   learn.microsoft.com/ssms/migrate/migrate-sql-server-azure-sql */
+const WARNINGS = [
+  { id: "w_cdc",      test: r => r.f.cdc,          warns: ["sqldb", "hs", "mi"], why: "Change data capture must be re-enabled after migration, and needs General Purpose or above on Azure SQL Database" },
+  { id: "w_ct",       test: r => r.f.changeTrack,  warns: ["sqldb", "hs", "mi"], why: "Change tracking must be re-enabled on the target after migration" },
+  { id: "w_fulltext", test: r => r.f.fullText,     warns: ["sqldb", "hs", "mi"], why: "Full-text search is supported, but custom word breakers, thesaurus files and filters do not carry over" },
+  { id: "w_tde",      test: r => r.f.tde,          warns: ["sqldb", "hs", "mi"], why: "TDE is supported but key management changes — plan for service-managed or customer-managed keys in Key Vault" },
+  { id: "w_txpub_mi", test: r => r.f.published,    warns: ["mi"],                why: "Replication publishing must be reconfigured against the Managed Instance after migration" },
+  { id: "w_sub",      test: r => r.f.subscribed,   warns: ["sqldb", "hs", "mi"], why: "Replication subscriptions must be recreated; Azure SQL Database can only be a push subscriber" },
+  { id: "w_memopt",   test: r => r.f.memOpt,       warns: ["sqldb", "mi"],       why: "In-Memory OLTP requires a Business Critical or Premium service tier on the target" },
+  { id: "w_colstore", test: r => r.f.columnStore,  warns: ["sqldb"],             why: "Columnstore indexes are not available on Basic or Standard S0–S2 service objectives" },
+  { id: "w_compat",   test: r => r.compat && r.compat < 100, warns: ["sqldb", "hs", "mi"], why: "Compatibility level is below 100 and must be raised — Azure SQL supports 100 and above" },
+  { id: "w_broker",   test: r => r.f.broker,       warns: ["mi"],                why: "Service Broker works on Managed Instance, but cross-instance conversations do not" },
+  { id: "w_hadr",     test: r => r.i.alwaysOn || r.f.inAg || r.i.fci, warns: ["sqldb", "hs", "mi"], why: "Always On and failover clustering are replaced by built-in HA — use Business Critical and auto-failover groups" },
+  { id: "w_dbmail",   test: r => r.i.dbMail,       warns: ["sqldb", "hs"],       why: "Database Mail is not available on Azure SQL Database — rework to Logic Apps or an external mail service" },
+  { id: "w_linked",   test: r => (r.i.linkedServers || 0) > 0, warns: ["mi"],    why: "Linked servers on Managed Instance can only target SQL Server and Azure SQL" },
+  { id: "w_eol_vm",   test: r => r.support && (r.support.state === "eol" || r.support.state === "esu"), warns: ["vm"], why: "Lifting this version as-is to a VM carries an unsupported SQL Server build — plan an in-place upgrade" },
+];
+
+const READINESS = {
+  ready:   { label: "Ready",               pill: "green" },
+  warn:    { label: "Ready with warnings", pill: "amber" },
+  blocked: { label: "Not ready",           pill: "red" },
+};
+
+/* Readiness for one target, in the same three categories SSMS reports. */
+function readinessFor(r, target) {
+  if (r.blocked?.[target]?.length) return "blocked";
+  if (r.warned?.[target]?.length) return "warn";
+  return "ready";
+}
+
 function evaluateRow(r) {
   const blocked = { sqldb: [], hs: [], mi: [], vm: [] };
+  const warned  = { sqldb: [], hs: [], mi: [], vm: [] };
   const fired = [];
+  const warnFired = [];
   for (const rule of RULES) {
     let hit = false;
     try { hit = !!rule.test(r); } catch { hit = false; }
     if (!hit || !rule.blocks.length) continue;
     fired.push(rule);
     for (const t of rule.blocks) blocked[t].push(rule.why);
+  }
+  for (const rule of WARNINGS) {
+    let hit = false;
+    try { hit = !!rule.test(r); } catch { hit = false; }
+    if (!hit) continue;
+    warnFired.push(rule);
+    // A blocker outranks a warning: no point telling someone to plan around a
+    // feature on a target they cannot use at all.
+    for (const t of rule.warns) if (!blocked[t].length) warned[t].push(rule.why);
   }
   // Most-managed target with no blockers wins. Hyperscale is only proposed for
   // large databases — otherwise plain SQL DB is the simpler choice.
@@ -668,7 +714,7 @@ function evaluateRow(r) {
     if (t === "hs" && r.sizeGb <= 4096) continue;
     rec = t; break;
   }
-  return { blocked, fired, rec };
+  return { blocked, warned, fired, warnFired, rec };
 }
 
 /* Service tier: Business Critical where the estate signals it needs it. */
@@ -1117,7 +1163,8 @@ function buildRows() {
 
   for (const r of rows) {
     const ev = evaluateRow(r);
-    r.blocked = ev.blocked; r.fired = ev.fired; r.rec = ev.rec;
+    r.blocked = ev.blocked; r.warned = ev.warned;
+    r.fired = ev.fired; r.warnFired = ev.warnFired; r.rec = ev.rec;
   }
 
   S.rows = rows;
@@ -1245,6 +1292,40 @@ function renderSummary() {
     </div>
 
     <div class="card">
+      <h3>Migration readiness by target <span class="hint">every database assessed against each platform</span></h3>
+      ${["sqldb", "mi", "vm"].map(k => {
+        const tally = { ready: 0, warn: 0, blocked: 0 };
+        for (const r of S.rows) tally[readinessFor(r, k)]++;
+        const n = Math.max(1, S.rows.length);
+        const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
+          const pct = 100 * tally[s] / n;
+          const bg = s === "ready" ? "var(--cp-success)" : s === "warn" ? "var(--cp-warning)" : "var(--cp-danger)";
+          return `<div class="stack-seg" style="width:${pct}%;background:${bg};color:#fff" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
+        }).join("");
+        return `
+          <div style="margin-bottom:11px">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+              <b>${TARGETS[k].name}</b>
+              <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
+            </div>
+            <div class="stack-bar">${segs}</div>
+          </div>`;
+      }).join("")}
+      <div class="legend">
+        <span><i style="background:var(--cp-success)"></i>Ready</span>
+        <span><i style="background:var(--cp-warning)"></i>Ready with warnings</span>
+        <span><i style="background:var(--cp-danger)"></i>Not ready</span>
+      </div>
+      <div class="note">
+        These are the same three categories the migration readiness assessment in SSMS reports, so they
+        line up with what a per-instance assessment will tell you later. <b>Ready with warnings</b> means
+        the database can move but something needs attention first — a service tier requirement, a feature
+        to re-enable, or key management to plan. Open the <b>Recommendations</b> tab for the finding
+        behind every database.
+      </div>
+    </div>
+
+    <div class="card">
       <h3>Estate by instance</h3>
       <div class="tbl-wrap">
         <table>
@@ -1307,6 +1388,7 @@ function renderTargets() {
             <th data-sort="instKey">Instance</th>
             <th data-sort="database">Database</th>
             <th class="num" data-sort="sizeGb">Size</th>
+            <th class="nosort">Readiness</th>
             <th data-sort="rec">Recommended</th>
             <th class="nosort">Override</th>
             <th class="nosort">Why not the tier above</th>
@@ -1319,10 +1401,18 @@ function renderTargets() {
                 if (k === t) break;
                 if (r.blocked[k]?.length) reasons.push(`<b>${TARGETS[k].short}:</b> ${esc(r.blocked[k][0])}`);
               }
+              const warnNote = r.warned?.[t]?.length
+                ? `<span class="src-tag">${TARGETS[t].short}: ${esc(r.warned[t][0])}${r.warned[t].length > 1 ? ` (+${r.warned[t].length - 1} more)` : ""}</span>`
+                : "";
               return `<tr>
                 <td>${esc(r.instKey)}</td>
                 <td><b>${esc(r.database)}</b>${r.application ? `<br><span class="src-tag">${esc(r.application)}</span>` : ""}</td>
                 <td class="num">${FMT.gb(r.sizeGb)}</td>
+                <td>${["sqldb", "mi", "vm"].map(k => {
+                      const s = readinessFor(r, k);
+                      const detail = s === "blocked" ? r.blocked[k][0] : s === "warn" ? r.warned[k].join(" · ") : "No issues detected";
+                      return `<span class="pill ${READINESS[s].pill}" title="${TARGETS[k].name} — ${READINESS[s].label}: ${esc(detail)}">${TARGETS[k].short}</span>`;
+                    }).join(" ")}</td>
                 <td><span class="pill ${t === "vm" ? "amber" : t === "mi" ? "accent" : "green"}">${TARGETS[t].short}</span>
                     <span class="src-tag"> ${r.cost.tier === "bc" && t !== "vm" && t !== "hs" ? "Business Critical" : ""}</span></td>
                 <td>
@@ -1332,7 +1422,7 @@ function renderTargets() {
                       `<option value="${k}" ${r.override === k ? "selected" : ""}>${TARGETS[k].short}${r.blocked[k]?.length ? " ⚠" : ""}</option>`).join("")}
                   </select>
                 </td>
-                <td class="wrap-cell">${reasons.length ? reasons.join("<br>") : '<span class="src-tag">No blockers — most managed option available</span>'}</td>
+                <td class="wrap-cell">${reasons.length ? reasons.join("<br>") : '<span class="src-tag">No blockers — most managed option available</span>'}${warnNote ? "<br>" + warnNote : ""}</td>
               </tr>`;
             }).join("")}
           </tbody>
@@ -1342,7 +1432,7 @@ function renderTargets() {
     </div>
 
     <div class="card">
-      <h3>Blockers across the estate</h3>
+      <h3>Blockers across the estate <span class="hint">features that rule a target out entirely</span></h3>
       ${(() => {
         const tally = {};
         for (const r of S.rows) for (const f of r.fired) {
@@ -1351,6 +1441,27 @@ function renderTargets() {
         }
         const list = Object.entries(tally).sort((a, b) => b[1].n - a[1].n);
         if (!list.length) return '<div class="empty">No migration blockers detected in this estate.</div>';
+        return list.map(([id, v]) => `
+          <details class="acc">
+            <summary>${esc(v.why)} <span class="pill red">${v.n} database${v.n === 1 ? "" : "s"}</span></summary>
+            <div style="font-size:12.5px;color:var(--cp-text-muted)">${v.dbs.slice(0, 40).map(esc).join(", ")}${v.dbs.length > 40 ? ` … +${v.dbs.length - 40} more` : ""}</div>
+          </details>`).join("");
+      })()}
+    </div>
+
+    <div class="card">
+      <h3>Warnings across the estate <span class="hint">migration proceeds, but plan for these</span></h3>
+      ${(() => {
+        const tally = {};
+        for (const r of S.rows) for (const w of (r.warnFired || [])) {
+          // Only count it where it actually applies — a warning suppressed by a
+          // blocker on every target it covers is noise.
+          if (!w.warns.some(t => r.warned[t]?.length && r.warned[t].includes(w.why))) continue;
+          (tally[w.id] ||= { why: w.why, n: 0, dbs: [] });
+          tally[w.id].n++; tally[w.id].dbs.push(r.database);
+        }
+        const list = Object.entries(tally).sort((a, b) => b[1].n - a[1].n);
+        if (!list.length) return '<div class="empty">No warnings — nothing in this estate needs pre-migration attention.</div>';
         return list.map(([id, v]) => `
           <details class="acc">
             <summary>${esc(v.why)} <span class="pill amber">${v.n} database${v.n === 1 ? "" : "s"}</span></summary>
@@ -1836,6 +1947,18 @@ function renderAssumptions() {
         on Azure VM. Hyperscale is proposed only where a database exceeds the 4 TB single-database limit.
         Business Critical is selected where the source uses In-Memory OLTP, is clustered, participates in an
         availability group, or runs Enterprise edition in production.</p></details>
+      <details class="acc"><summary>How readiness is categorised</summary>
+        <p style="font-size:12.5px;color:var(--cp-text-muted)">Every database is reported against every target
+        in the three categories used by the migration readiness assessment in SSMS.
+        <b>Ready</b> — nothing detected that needs changing. <b>Ready with warnings</b> — it can move, but
+        something needs attention first: a service tier requirement (In-Memory OLTP needs Business Critical,
+        columnstore is unavailable below Standard S3), a feature to re-enable afterwards (CDC, change
+        tracking, replication), key management to plan (TDE), or a compatibility level below 100 to raise.
+        <b>Not ready</b> — a feature rules the target out entirely until it is removed or reworked.
+        Where a target is blocked, its warnings are suppressed: there is no value in planning around a
+        feature on a platform you cannot use at all. These categories are derived from inventory flags, so
+        treat them as triage — confirm the databases you decide to move with the SSMS assessment, which
+        applies the full rule set and tells you how to remediate.</p></details>
       <details class="acc"><summary>How sizing is derived</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">By default the analyzer matches the existing
         core count, adds the configured headroom, and rounds up to a purchasable vCore size. Switching the
@@ -1865,6 +1988,9 @@ const EXPORT_COLS = [
   ["Memory GB", r => r.memoryGb], ["Size GB", r => (r.sizeGb || 0).toFixed(1)],
   ["Avg CPU %", r => r.cpuPct], ["Environment", r => r.environment],
   ["Recommended target", r => TARGETS[r.cost.target].name],
+  ["Readiness — SQL DB", r => READINESS[readinessFor(r, "sqldb")].label],
+  ["Readiness — SQL MI", r => READINESS[readinessFor(r, "mi")].label],
+  ["Readiness — SQL VM", r => READINESS[readinessFor(r, "vm")].label],
   ["Service tier", r => r.cost.target === "vm" ? "IaaS" : r.cost.tier === "bc" ? "Business Critical" : r.cost.target === "hs" ? "Hyperscale" : "General Purpose"],
   ["Sizing", r => r.cost.detail], ["vCores", r => r.cost.vcores],
   ["Storage GB", r => r.cost.storeGb],
@@ -1875,6 +2001,8 @@ const EXPORT_COLS = [
   ["Total $/yr", r => (r.cost.total * 12).toFixed(2)],
   ["Blockers — SQL DB", r => (r.blocked.sqldb || []).join("; ")],
   ["Blockers — SQL MI", r => (r.blocked.mi || []).join("; ")],
+  ["Warnings — SQL DB", r => (r.warned?.sqldb || []).join("; ")],
+  ["Warnings — SQL MI", r => (r.warned?.mi || []).join("; ")],
   ["Features", r => FEATURES.filter(f => r.f[f.key]).map(f => f.label).join("; ")],
 ];
 

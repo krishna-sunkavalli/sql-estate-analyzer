@@ -234,6 +234,7 @@ const RULES = [
   { id: "external",    test: r => r.f.external,     blocks: ["sqldb", "hs", "mi"], why: "PolyBase / external tables require SQL Server on a VM" },
   { id: "mergerepl",   test: r => r.f.mergePub,     blocks: ["sqldb", "hs", "mi"], why: "Merge replication is not supported on Azure SQL PaaS" },
   { id: "distributor", test: r => r.i.distributor,  blocks: ["sqldb", "hs"],       why: "Replication distributor role requires Managed Instance or VM" },
+  { id: "txpub",       test: r => r.f.published,    blocks: ["sqldb", "hs"],       why: "Azure SQL Database cannot act as a replication publisher — Managed Instance or VM required" },
   { id: "ssrs",        test: r => r.i.ssrs,         blocks: ["sqldb", "hs", "mi"], why: "SSRS report server databases require SQL Server on a VM" },
   { id: "ssis",        test: r => r.i.ssis,         blocks: ["sqldb", "hs"],       why: "SSIS catalog (SSISDB) requires Managed Instance or VM" },
   { id: "clr",         test: r => r.f.clr,          blocks: ["sqldb", "hs"],       why: "SQLCLR assemblies require Managed Instance or VM" },
@@ -247,15 +248,60 @@ const RULES = [
   { id: "size_mi",     test: r => r.sizeGb > 16384, blocks: ["mi"],                why: "Database exceeds the 16 TB Managed Instance limit" },
 ];
 
+/* Non-blocking concerns: the database can move to this target, but something
+   needs attention first. This is the "Ready with warnings" category used by the
+   migration readiness assessment in SSMS — see
+   learn.microsoft.com/ssms/migrate/migrate-sql-server-azure-sql */
+const WARNINGS = [
+  { id: "w_cdc",      test: r => r.f.cdc,          warns: ["sqldb", "hs", "mi"], why: "Change data capture must be re-enabled after migration, and needs General Purpose or above on Azure SQL Database" },
+  { id: "w_ct",       test: r => r.f.changeTrack,  warns: ["sqldb", "hs", "mi"], why: "Change tracking must be re-enabled on the target after migration" },
+  { id: "w_fulltext", test: r => r.f.fullText,     warns: ["sqldb", "hs", "mi"], why: "Full-text search is supported, but custom word breakers, thesaurus files and filters do not carry over" },
+  { id: "w_tde",      test: r => r.f.tde,          warns: ["sqldb", "hs", "mi"], why: "TDE is supported but key management changes — plan for service-managed or customer-managed keys in Key Vault" },
+  { id: "w_txpub_mi", test: r => r.f.published,    warns: ["mi"],                why: "Replication publishing must be reconfigured against the Managed Instance after migration" },
+  { id: "w_sub",      test: r => r.f.subscribed,   warns: ["sqldb", "hs", "mi"], why: "Replication subscriptions must be recreated; Azure SQL Database can only be a push subscriber" },
+  { id: "w_memopt",   test: r => r.f.memOpt,       warns: ["sqldb", "mi"],       why: "In-Memory OLTP requires a Business Critical or Premium service tier on the target" },
+  { id: "w_colstore", test: r => r.f.columnStore,  warns: ["sqldb"],             why: "Columnstore indexes are not available on Basic or Standard S0–S2 service objectives" },
+  { id: "w_compat",   test: r => r.compat && r.compat < 100, warns: ["sqldb", "hs", "mi"], why: "Compatibility level is below 100 and must be raised — Azure SQL supports 100 and above" },
+  { id: "w_broker",   test: r => r.f.broker,       warns: ["mi"],                why: "Service Broker works on Managed Instance, but cross-instance conversations do not" },
+  { id: "w_hadr",     test: r => r.i.alwaysOn || r.f.inAg || r.i.fci, warns: ["sqldb", "hs", "mi"], why: "Always On and failover clustering are replaced by built-in HA — use Business Critical and auto-failover groups" },
+  { id: "w_dbmail",   test: r => r.i.dbMail,       warns: ["sqldb", "hs"],       why: "Database Mail is not available on Azure SQL Database — rework to Logic Apps or an external mail service" },
+  { id: "w_linked",   test: r => (r.i.linkedServers || 0) > 0, warns: ["mi"],    why: "Linked servers on Managed Instance can only target SQL Server and Azure SQL" },
+  { id: "w_eol_vm",   test: r => r.support && (r.support.state === "eol" || r.support.state === "esu"), warns: ["vm"], why: "Lifting this version as-is to a VM carries an unsupported SQL Server build — plan an in-place upgrade" },
+];
+
+const READINESS = {
+  ready:   { label: "Ready",               pill: "green" },
+  warn:    { label: "Ready with warnings", pill: "amber" },
+  blocked: { label: "Not ready",           pill: "red" },
+};
+
+/* Readiness for one target, in the same three categories SSMS reports. */
+function readinessFor(r, target) {
+  if (r.blocked?.[target]?.length) return "blocked";
+  if (r.warned?.[target]?.length) return "warn";
+  return "ready";
+}
+
 function evaluateRow(r) {
   const blocked = { sqldb: [], hs: [], mi: [], vm: [] };
+  const warned  = { sqldb: [], hs: [], mi: [], vm: [] };
   const fired = [];
+  const warnFired = [];
   for (const rule of RULES) {
     let hit = false;
     try { hit = !!rule.test(r); } catch { hit = false; }
     if (!hit || !rule.blocks.length) continue;
     fired.push(rule);
     for (const t of rule.blocks) blocked[t].push(rule.why);
+  }
+  for (const rule of WARNINGS) {
+    let hit = false;
+    try { hit = !!rule.test(r); } catch { hit = false; }
+    if (!hit) continue;
+    warnFired.push(rule);
+    // A blocker outranks a warning: no point telling someone to plan around a
+    // feature on a target they cannot use at all.
+    for (const t of rule.warns) if (!blocked[t].length) warned[t].push(rule.why);
   }
   // Most-managed target with no blockers wins. Hyperscale is only proposed for
   // large databases — otherwise plain SQL DB is the simpler choice.
@@ -266,7 +312,7 @@ function evaluateRow(r) {
     if (t === "hs" && r.sizeGb <= 4096) continue;
     rec = t; break;
   }
-  return { blocked, fired, rec };
+  return { blocked, warned, fired, warnFired, rec };
 }
 
 /* Service tier: Business Critical where the estate signals it needs it. */

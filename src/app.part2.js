@@ -252,7 +252,8 @@ function buildRows() {
 
   for (const r of rows) {
     const ev = evaluateRow(r);
-    r.blocked = ev.blocked; r.fired = ev.fired; r.rec = ev.rec;
+    r.blocked = ev.blocked; r.warned = ev.warned;
+    r.fired = ev.fired; r.warnFired = ev.warnFired; r.rec = ev.rec;
   }
 
   S.rows = rows;
@@ -380,6 +381,40 @@ function renderSummary() {
     </div>
 
     <div class="card">
+      <h3>Migration readiness by target <span class="hint">every database assessed against each platform</span></h3>
+      ${["sqldb", "mi", "vm"].map(k => {
+        const tally = { ready: 0, warn: 0, blocked: 0 };
+        for (const r of S.rows) tally[readinessFor(r, k)]++;
+        const n = Math.max(1, S.rows.length);
+        const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
+          const pct = 100 * tally[s] / n;
+          const bg = s === "ready" ? "var(--cp-success)" : s === "warn" ? "var(--cp-warning)" : "var(--cp-danger)";
+          return `<div class="stack-seg" style="width:${pct}%;background:${bg};color:#fff" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
+        }).join("");
+        return `
+          <div style="margin-bottom:11px">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+              <b>${TARGETS[k].name}</b>
+              <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
+            </div>
+            <div class="stack-bar">${segs}</div>
+          </div>`;
+      }).join("")}
+      <div class="legend">
+        <span><i style="background:var(--cp-success)"></i>Ready</span>
+        <span><i style="background:var(--cp-warning)"></i>Ready with warnings</span>
+        <span><i style="background:var(--cp-danger)"></i>Not ready</span>
+      </div>
+      <div class="note">
+        These are the same three categories the migration readiness assessment in SSMS reports, so they
+        line up with what a per-instance assessment will tell you later. <b>Ready with warnings</b> means
+        the database can move but something needs attention first — a service tier requirement, a feature
+        to re-enable, or key management to plan. Open the <b>Recommendations</b> tab for the finding
+        behind every database.
+      </div>
+    </div>
+
+    <div class="card">
       <h3>Estate by instance</h3>
       <div class="tbl-wrap">
         <table>
@@ -442,6 +477,7 @@ function renderTargets() {
             <th data-sort="instKey">Instance</th>
             <th data-sort="database">Database</th>
             <th class="num" data-sort="sizeGb">Size</th>
+            <th class="nosort">Readiness</th>
             <th data-sort="rec">Recommended</th>
             <th class="nosort">Override</th>
             <th class="nosort">Why not the tier above</th>
@@ -454,10 +490,18 @@ function renderTargets() {
                 if (k === t) break;
                 if (r.blocked[k]?.length) reasons.push(`<b>${TARGETS[k].short}:</b> ${esc(r.blocked[k][0])}`);
               }
+              const warnNote = r.warned?.[t]?.length
+                ? `<span class="src-tag">${TARGETS[t].short}: ${esc(r.warned[t][0])}${r.warned[t].length > 1 ? ` (+${r.warned[t].length - 1} more)` : ""}</span>`
+                : "";
               return `<tr>
                 <td>${esc(r.instKey)}</td>
                 <td><b>${esc(r.database)}</b>${r.application ? `<br><span class="src-tag">${esc(r.application)}</span>` : ""}</td>
                 <td class="num">${FMT.gb(r.sizeGb)}</td>
+                <td>${["sqldb", "mi", "vm"].map(k => {
+                      const s = readinessFor(r, k);
+                      const detail = s === "blocked" ? r.blocked[k][0] : s === "warn" ? r.warned[k].join(" · ") : "No issues detected";
+                      return `<span class="pill ${READINESS[s].pill}" title="${TARGETS[k].name} — ${READINESS[s].label}: ${esc(detail)}">${TARGETS[k].short}</span>`;
+                    }).join(" ")}</td>
                 <td><span class="pill ${t === "vm" ? "amber" : t === "mi" ? "accent" : "green"}">${TARGETS[t].short}</span>
                     <span class="src-tag"> ${r.cost.tier === "bc" && t !== "vm" && t !== "hs" ? "Business Critical" : ""}</span></td>
                 <td>
@@ -467,7 +511,7 @@ function renderTargets() {
                       `<option value="${k}" ${r.override === k ? "selected" : ""}>${TARGETS[k].short}${r.blocked[k]?.length ? " ⚠" : ""}</option>`).join("")}
                   </select>
                 </td>
-                <td class="wrap-cell">${reasons.length ? reasons.join("<br>") : '<span class="src-tag">No blockers — most managed option available</span>'}</td>
+                <td class="wrap-cell">${reasons.length ? reasons.join("<br>") : '<span class="src-tag">No blockers — most managed option available</span>'}${warnNote ? "<br>" + warnNote : ""}</td>
               </tr>`;
             }).join("")}
           </tbody>
@@ -477,7 +521,7 @@ function renderTargets() {
     </div>
 
     <div class="card">
-      <h3>Blockers across the estate</h3>
+      <h3>Blockers across the estate <span class="hint">features that rule a target out entirely</span></h3>
       ${(() => {
         const tally = {};
         for (const r of S.rows) for (const f of r.fired) {
@@ -486,6 +530,27 @@ function renderTargets() {
         }
         const list = Object.entries(tally).sort((a, b) => b[1].n - a[1].n);
         if (!list.length) return '<div class="empty">No migration blockers detected in this estate.</div>';
+        return list.map(([id, v]) => `
+          <details class="acc">
+            <summary>${esc(v.why)} <span class="pill red">${v.n} database${v.n === 1 ? "" : "s"}</span></summary>
+            <div style="font-size:12.5px;color:var(--cp-text-muted)">${v.dbs.slice(0, 40).map(esc).join(", ")}${v.dbs.length > 40 ? ` … +${v.dbs.length - 40} more` : ""}</div>
+          </details>`).join("");
+      })()}
+    </div>
+
+    <div class="card">
+      <h3>Warnings across the estate <span class="hint">migration proceeds, but plan for these</span></h3>
+      ${(() => {
+        const tally = {};
+        for (const r of S.rows) for (const w of (r.warnFired || [])) {
+          // Only count it where it actually applies — a warning suppressed by a
+          // blocker on every target it covers is noise.
+          if (!w.warns.some(t => r.warned[t]?.length && r.warned[t].includes(w.why))) continue;
+          (tally[w.id] ||= { why: w.why, n: 0, dbs: [] });
+          tally[w.id].n++; tally[w.id].dbs.push(r.database);
+        }
+        const list = Object.entries(tally).sort((a, b) => b[1].n - a[1].n);
+        if (!list.length) return '<div class="empty">No warnings — nothing in this estate needs pre-migration attention.</div>';
         return list.map(([id, v]) => `
           <details class="acc">
             <summary>${esc(v.why)} <span class="pill amber">${v.n} database${v.n === 1 ? "" : "s"}</span></summary>
