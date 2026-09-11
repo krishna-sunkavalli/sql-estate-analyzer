@@ -325,12 +325,14 @@ function renderSummary() {
   const deltaPct = op.monthly > 0 ? (100 * delta / op.monthly) : 0;
 
   const segs = [
-    { k: "sqldb", c: "var(--cp-viz-1)" }, { k: "hs", c: "var(--cp-viz-2)" },
-    { k: "mi", c: "var(--cp-viz-3)" }, { k: "vm", c: "var(--cp-viz-4)" },
+    { k: "sqldb", c: "var(--cp-viz-1)", fg: "var(--cp-viz-1-fg)" },
+    { k: "hs",    c: "var(--cp-viz-2)", fg: "var(--cp-viz-2-fg)" },
+    { k: "mi",    c: "var(--cp-viz-3)", fg: "var(--cp-viz-3-fg)" },
+    { k: "vm",    c: "var(--cp-viz-4)", fg: "var(--cp-viz-4-fg)" },
   ];
   const stack = segs.filter(s => counts[s.k] > 0).map(s => {
     const pct = 100 * counts[s.k] / Math.max(1, S.rows.length);
-    return `<div class="stack-seg" style="width:${pct}%;background:${s.c}" title="${TARGETS[s.k].name}: ${counts[s.k]}">${pct > 8 ? counts[s.k] : ""}</div>`;
+    return `<div class="stack-seg" style="width:${pct}%;background:${s.c};color:${s.fg}" title="${TARGETS[s.k].name}: ${counts[s.k]}">${pct > 8 ? counts[s.k] : ""}</div>`;
   }).join("");
 
   $("#panel-summary").innerHTML = `
@@ -343,6 +345,7 @@ function renderSummary() {
     </div>
 
     <div class="split">
+      <div>
       <div class="card">
         <h3>Recommended Azure targets</h3>
         <div class="stack-bar">${stack || '<div class="stack-seg" style="width:100%;background:var(--cp-border)"></div>'}</div>
@@ -354,6 +357,38 @@ function renderSummary() {
           option when a specific feature blocks the one above it. Open the
           <b>Recommendations</b> tab to see the blocker behind every rejected option.
         </div>
+      </div>
+
+      <div class="card">
+        <h3>Migration readiness by target <span class="hint">every database, every platform</span></h3>
+        ${["sqldb", "mi", "vm"].map(k => {
+          const tally = { ready: 0, warn: 0, blocked: 0 };
+          for (const r of S.rows) tally[readinessFor(r, k)]++;
+          const n = Math.max(1, S.rows.length);
+          const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
+            const pct = 100 * tally[s] / n;
+            return `<div class="stack-seg" style="width:${pct}%;background:var(--cp-viz-${s});color:var(--cp-viz-${s}-fg)" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
+          }).join("");
+          return `
+            <div style="margin-bottom:11px">
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+                <b>${TARGETS[k].name}</b>
+                <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
+              </div>
+              <div class="stack-bar">${segs}</div>
+            </div>`;
+        }).join("")}
+        <div class="legend">
+          <span><i style="background:var(--cp-viz-ready)"></i>Ready</span>
+          <span><i style="background:var(--cp-viz-warn)"></i>Ready with warnings</span>
+          <span><i style="background:var(--cp-viz-blocked)"></i>Not ready</span>
+        </div>
+        <div class="note">
+          The same three categories the migration readiness assessment in SSMS reports.
+          <b>Ready with warnings</b> means the database can move but something needs attention
+          first — a service tier requirement, a feature to re-enable, or key management to plan.
+        </div>
+      </div>
       </div>
 
       <div class="card">
@@ -377,40 +412,6 @@ function renderSummary() {
             : `Azure is <b>${FMT.money(Math.abs(delta))}/mo higher</b> than the on-premises run-rate modelled here. Check the term and Hybrid Benefit settings on the Cost model tab.`}
           <br><span class="src-tag">The on-premises figure covers SQL Server SA/ESU only (plus optional hardware) — not datacentre, power, storage-array or staffing costs.</span>
         </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Migration readiness by target <span class="hint">every database assessed against each platform</span></h3>
-      ${["sqldb", "mi", "vm"].map(k => {
-        const tally = { ready: 0, warn: 0, blocked: 0 };
-        for (const r of S.rows) tally[readinessFor(r, k)]++;
-        const n = Math.max(1, S.rows.length);
-        const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
-          const pct = 100 * tally[s] / n;
-          const bg = s === "ready" ? "var(--cp-success)" : s === "warn" ? "var(--cp-warning)" : "var(--cp-danger)";
-          return `<div class="stack-seg" style="width:${pct}%;background:${bg};color:#fff" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
-        }).join("");
-        return `
-          <div style="margin-bottom:11px">
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
-              <b>${TARGETS[k].name}</b>
-              <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
-            </div>
-            <div class="stack-bar">${segs}</div>
-          </div>`;
-      }).join("")}
-      <div class="legend">
-        <span><i style="background:var(--cp-success)"></i>Ready</span>
-        <span><i style="background:var(--cp-warning)"></i>Ready with warnings</span>
-        <span><i style="background:var(--cp-danger)"></i>Not ready</span>
-      </div>
-      <div class="note">
-        These are the same three categories the migration readiness assessment in SSMS reports, so they
-        line up with what a per-instance assessment will tell you later. <b>Ready with warnings</b> means
-        the database can move but something needs attention first — a service tier requirement, a feature
-        to re-enable, or key management to plan. Open the <b>Recommendations</b> tab for the finding
-        behind every database.
       </div>
     </div>
 

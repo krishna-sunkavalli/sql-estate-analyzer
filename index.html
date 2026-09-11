@@ -37,7 +37,7 @@
   --cp-accent-fg: #ffffff;
   --cp-success: #107c10;
   --cp-danger: #a4262c;
-  --cp-warning: #d83b01;
+  --cp-warning: #b35900;
   --cp-link: #0078d4;
   --cp-shadow: 0 6.4px 14.4px rgba(0, 0, 0, 0.13), 0 1.2px 3.6px rgba(0, 0, 0, 0.11);
   --cp-shadow-sm: 0 0 2px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.14);
@@ -47,12 +47,19 @@
   --cp-sheen: rgba(255, 255, 255, 0.55);
   --cp-highlight: rgba(0, 120, 212, 0.12);
   --cp-brand-gradient: linear-gradient(135deg, #0078d4 0%, #0095e0 55%, #50e6ff 100%);
-  /* data-viz: most-managed to least */
-  --cp-viz-1: #0078d4;
-  --cp-viz-2: #038387;
-  --cp-viz-3: #5c2e91;
-  --cp-viz-4: #ca5010;
-  --cp-viz-fg: #ffffff;
+  /* Data-viz fills. Deliberately separate from the text tokens above: a colour
+     that passes contrast as 11px text is too dark to read as a large fill, and
+     vice versa. Each fill carries the foreground that is legible on it.
+     Targets use a sequential Azure ramp ending in neutral — most managed is
+     deepest blue, SQL-on-VM is grey because it is still IaaS. Avoiding the
+     categorical blue/purple/orange mix keeps it recognisably Azure. */
+  --cp-viz-1: #004578; --cp-viz-1-fg: #ffffff;
+  --cp-viz-2: #0f6cbd; --cp-viz-2-fg: #ffffff;
+  --cp-viz-3: #71afe5; --cp-viz-3-fg: #201f1e;
+  --cp-viz-4: #c8c6c4; --cp-viz-4-fg: #201f1e;
+  --cp-viz-ready:   #9fd89f; --cp-viz-ready-fg:   #0b3d0b;
+  --cp-viz-warn:    #f6d18a; --cp-viz-warn-fg:    #5c3a00;
+  --cp-viz-blocked: #f1a8ae; --cp-viz-blocked-fg: #5c1114;
 }
 html[data-theme="dark"] {
   color-scheme: dark;
@@ -81,11 +88,13 @@ html[data-theme="dark"] {
   --cp-sheen: rgba(255, 255, 255, 0.04);
   --cp-highlight: rgba(40, 153, 245, 0.14);
   --cp-brand-gradient: linear-gradient(135deg, #0078d4 0%, #0095e0 55%, #50e6ff 100%);
-  --cp-viz-1: #3aa0f3;
-  --cp-viz-2: #4cb3b7;
-  --cp-viz-3: #a180d8;
-  --cp-viz-4: #e8763a;
-  --cp-viz-fg: #10161c;
+  --cp-viz-1: #4da3e8; --cp-viz-1-fg: #10161c;
+  --cp-viz-2: #2b88d8; --cp-viz-2-fg: #ffffff;
+  --cp-viz-3: #1a6bb0; --cp-viz-3-fg: #ffffff;
+  --cp-viz-4: #797775; --cp-viz-4-fg: #ffffff;
+  --cp-viz-ready:   #2e6b2e; --cp-viz-ready-fg:   #e6f5e6;
+  --cp-viz-warn:    #7a5410; --cp-viz-warn-fg:    #ffeccc;
+  --cp-viz-blocked: #7a2b30; --cp-viz-blocked-fg: #ffdfe2;
 }
 
 * { box-sizing: border-box; }
@@ -281,7 +290,7 @@ input[type=number] { min-width: 92px; }
   .note.info { background: color-mix(in srgb, var(--cp-link)    9%, transparent); }
 }
 
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 @media (max-width: 1080px) { .split { grid-template-columns: 1fr; } }
 
 .empty { text-align: center; padding: 40px 20px; color: var(--cp-text-muted); font-size: 13.5px; }
@@ -291,8 +300,9 @@ details.acc { border: 1px solid var(--cp-border); border-radius: 12px; padding: 
 details.acc summary { cursor: pointer; font-size: 13px; font-weight: 600; }
 details.acc[open] summary { margin-bottom: 9px; }
 
-.stack-bar { display: flex; height: 26px; border-radius: 7px; overflow: hidden; border: 1px solid var(--cp-border); }
-.stack-seg { display: grid; place-items: center; font-size: 10.5px; font-weight: 600; color: var(--cp-viz-fg); overflow: hidden; }
+.stack-bar { display: flex; height: 22px; border-radius: 5px; overflow: hidden; border: 1px solid var(--cp-border); }
+.stack-seg { display: grid; place-items: center; font-size: 10.5px; font-weight: 600; overflow: hidden; }
+.stack-seg + .stack-seg { box-shadow: inset 1px 0 0 var(--cp-surface); }
 
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--cp-text-muted); margin-top: 9px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -1227,12 +1237,14 @@ function renderSummary() {
   const deltaPct = op.monthly > 0 ? (100 * delta / op.monthly) : 0;
 
   const segs = [
-    { k: "sqldb", c: "var(--cp-viz-1)" }, { k: "hs", c: "var(--cp-viz-2)" },
-    { k: "mi", c: "var(--cp-viz-3)" }, { k: "vm", c: "var(--cp-viz-4)" },
+    { k: "sqldb", c: "var(--cp-viz-1)", fg: "var(--cp-viz-1-fg)" },
+    { k: "hs",    c: "var(--cp-viz-2)", fg: "var(--cp-viz-2-fg)" },
+    { k: "mi",    c: "var(--cp-viz-3)", fg: "var(--cp-viz-3-fg)" },
+    { k: "vm",    c: "var(--cp-viz-4)", fg: "var(--cp-viz-4-fg)" },
   ];
   const stack = segs.filter(s => counts[s.k] > 0).map(s => {
     const pct = 100 * counts[s.k] / Math.max(1, S.rows.length);
-    return `<div class="stack-seg" style="width:${pct}%;background:${s.c}" title="${TARGETS[s.k].name}: ${counts[s.k]}">${pct > 8 ? counts[s.k] : ""}</div>`;
+    return `<div class="stack-seg" style="width:${pct}%;background:${s.c};color:${s.fg}" title="${TARGETS[s.k].name}: ${counts[s.k]}">${pct > 8 ? counts[s.k] : ""}</div>`;
   }).join("");
 
   $("#panel-summary").innerHTML = `
@@ -1245,6 +1257,7 @@ function renderSummary() {
     </div>
 
     <div class="split">
+      <div>
       <div class="card">
         <h3>Recommended Azure targets</h3>
         <div class="stack-bar">${stack || '<div class="stack-seg" style="width:100%;background:var(--cp-border)"></div>'}</div>
@@ -1256,6 +1269,38 @@ function renderSummary() {
           option when a specific feature blocks the one above it. Open the
           <b>Recommendations</b> tab to see the blocker behind every rejected option.
         </div>
+      </div>
+
+      <div class="card">
+        <h3>Migration readiness by target <span class="hint">every database, every platform</span></h3>
+        ${["sqldb", "mi", "vm"].map(k => {
+          const tally = { ready: 0, warn: 0, blocked: 0 };
+          for (const r of S.rows) tally[readinessFor(r, k)]++;
+          const n = Math.max(1, S.rows.length);
+          const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
+            const pct = 100 * tally[s] / n;
+            return `<div class="stack-seg" style="width:${pct}%;background:var(--cp-viz-${s});color:var(--cp-viz-${s}-fg)" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
+          }).join("");
+          return `
+            <div style="margin-bottom:11px">
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+                <b>${TARGETS[k].name}</b>
+                <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
+              </div>
+              <div class="stack-bar">${segs}</div>
+            </div>`;
+        }).join("")}
+        <div class="legend">
+          <span><i style="background:var(--cp-viz-ready)"></i>Ready</span>
+          <span><i style="background:var(--cp-viz-warn)"></i>Ready with warnings</span>
+          <span><i style="background:var(--cp-viz-blocked)"></i>Not ready</span>
+        </div>
+        <div class="note">
+          The same three categories the migration readiness assessment in SSMS reports.
+          <b>Ready with warnings</b> means the database can move but something needs attention
+          first — a service tier requirement, a feature to re-enable, or key management to plan.
+        </div>
+      </div>
       </div>
 
       <div class="card">
@@ -1279,40 +1324,6 @@ function renderSummary() {
             : `Azure is <b>${FMT.money(Math.abs(delta))}/mo higher</b> than the on-premises run-rate modelled here. Check the term and Hybrid Benefit settings on the Cost model tab.`}
           <br><span class="src-tag">The on-premises figure covers SQL Server SA/ESU only (plus optional hardware) — not datacentre, power, storage-array or staffing costs.</span>
         </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>Migration readiness by target <span class="hint">every database assessed against each platform</span></h3>
-      ${["sqldb", "mi", "vm"].map(k => {
-        const tally = { ready: 0, warn: 0, blocked: 0 };
-        for (const r of S.rows) tally[readinessFor(r, k)]++;
-        const n = Math.max(1, S.rows.length);
-        const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
-          const pct = 100 * tally[s] / n;
-          const bg = s === "ready" ? "var(--cp-success)" : s === "warn" ? "var(--cp-warning)" : "var(--cp-danger)";
-          return `<div class="stack-seg" style="width:${pct}%;background:${bg};color:#fff" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
-        }).join("");
-        return `
-          <div style="margin-bottom:11px">
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
-              <b>${TARGETS[k].name}</b>
-              <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
-            </div>
-            <div class="stack-bar">${segs}</div>
-          </div>`;
-      }).join("")}
-      <div class="legend">
-        <span><i style="background:var(--cp-success)"></i>Ready</span>
-        <span><i style="background:var(--cp-warning)"></i>Ready with warnings</span>
-        <span><i style="background:var(--cp-danger)"></i>Not ready</span>
-      </div>
-      <div class="note">
-        These are the same three categories the migration readiness assessment in SSMS reports, so they
-        line up with what a per-instance assessment will tell you later. <b>Ready with warnings</b> means
-        the database can move but something needs attention first — a service tier requirement, a feature
-        to re-enable, or key management to plan. Open the <b>Recommendations</b> tab for the finding
-        behind every database.
       </div>
     </div>
 
