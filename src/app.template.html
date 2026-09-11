@@ -336,7 +336,7 @@ details.acc[open] summary { margin-bottom: 9px; }
       <div class="row">
         <button class="primary" id="btnPick">Choose file…</button>
         <button id="btnTemplate">Download CSV template</button>
-        <button id="btnScript">Download discovery script</button>
+        <button id="btnScript">Get the discovery scripts</button>
         <button class="ghost" id="btnDemo">Load demo estate</button>
       </div>
       <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls" multiple>
@@ -346,13 +346,13 @@ details.acc[open] summary { margin-bottom: 9px; }
     <div class="getstarted">
       <div class="gs">
         <div class="n">1</div>
-        <h3>Run the discovery script</h3>
-        <p>Execute <code>SqlEstateDiscovery.sql</code> against each SQL Server instance. It is read-only and collects no schema, data or query text — only versions, sizes and feature flags.</p>
+        <h3>Sweep the estate</h3>
+        <p>Run <code>Invoke-SqlEstateDiscovery.ps1</code> once. It finds your SQL Servers from their Active Directory SPNs, a Central Management Server or your own list, queries them in parallel, and writes a single merged CSV. Read-only — no schema, data or query text, only versions, sizes and feature flags.</p>
       </div>
       <div class="gs">
         <div class="n">2</div>
-        <h3>Export to CSV</h3>
-        <p>In SSMS, right-click the results grid → <em>Save Results As…</em> → CSV. Repeat per instance; you can upload all the files together.</p>
+        <h3>Upload the CSV</h3>
+        <p>Drop the merged file above. Just one instance, or no PowerShell? Run <code>SqlEstateDiscovery.sql</code> in SSMS, save the grid as CSV, and upload as many of those as you like together.</p>
       </div>
       <div class="gs">
         <div class="n">3</div>

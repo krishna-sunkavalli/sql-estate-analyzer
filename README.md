@@ -23,14 +23,24 @@ estates rather than VMware inventory.
 
 ## How to use it
 
-1. Run [`discovery/SqlEstateDiscovery.sql`](discovery/SqlEstateDiscovery.sql)
-   against each SQL Server instance (SSMS or `sqlcmd`).
-2. Save the results as CSV — one file per instance is fine.
-3. Open the [analyzer](https://krishna-sunkavalli.github.io/sql-estate-analyzer/)
-   and drop the files in.
+**Whole estate, one command** — run the sweep and upload the single CSV it writes:
 
-No install, no sign-in, no agent. Works offline — use **Save Page As** if you
-need to run it on a disconnected network.
+```powershell
+# See what it finds, without querying anything
+.\discovery\Invoke-SqlEstateDiscovery.ps1 -FromActiveDirectory -ListOnly
+
+# Collect
+.\discovery\Invoke-SqlEstateDiscovery.ps1 -FromActiveDirectory
+```
+
+**One instance, or no PowerShell** — run
+[`discovery/SqlEstateDiscovery.sql`](discovery/SqlEstateDiscovery.sql) in SSMS,
+right-click the grid → *Save Results As…* → CSV. Upload as many of those as you
+like together.
+
+Either way, open the [analyzer](https://krishna-sunkavalli.github.io/sql-estate-analyzer/)
+and drop the files in. No install, no sign-in, no agent. Works offline — use
+**Save Page As** if you need to run it on a disconnected network.
 
 Prefer to fill in data by hand? Use
 [`templates/SqlEstateInventory-Template.csv`](templates/SqlEstateInventory-Template.csv).
@@ -40,6 +50,54 @@ cannot match can be mapped on the **Column mapping** tab, so inventories from
 Azure Migrate, MAP Toolkit or a hand-built spreadsheet work too.
 
 Want to see it first? Load [`samples/sample-localdb.csv`](samples/sample-localdb.csv).
+
+## Sweeping the estate
+
+`Invoke-SqlEstateDiscovery.ps1` runs the discovery script against every instance
+in one pass and merges the results. It needs **no PowerShell modules** — just
+`System.Data.SqlClient` and ADSI, both present in Windows PowerShell 5.1 and
+PowerShell 7. Under PowerShell 7 instances are queried in parallel.
+
+It writes two files:
+
+| File | Contents |
+|---|---|
+| `SqlEstateInventory-<timestamp>.csv` | One row per database, every instance — upload this |
+| `SqlEstateInventory-<timestamp>-log.csv` | Per-instance status, row count, duration and failure reason |
+
+### Finding the instances
+
+| Source | Switch | Notes |
+|---|---|---|
+| Active Directory | `-FromActiveDirectory` | Finds every SQL Server by its `MSSQLSvc` SPN. Any authenticated domain user can read SPNs — no elevated rights, no RSAT. Disabled computer accounts are skipped. |
+| Central Management Server | `-FromCentralManagementServer CMS01` | Reads the registered server list from the CMS `msdb`. |
+| A list you already have | `-InputFile .\servers.txt` | One instance per line, or a CSV with an `Instance` / `ServerInstance` / `ServerName` column. |
+| Named directly | `-Instance SQLPROD01,SQLPROD02\FIN` | |
+
+`-ListOnly` resolves the target list and stops — always worth running first.
+
+SPN discovery finds instances that have a Kerberos SPN registered, which covers
+the large majority. Instances running under a domain account whose SPN was never
+registered will not appear, so reconcile against a CMS or CMDB list if you need
+completeness.
+
+### Other options
+
+```
+-Credential           SQL authentication (Windows auth is the default)
+-ThrottleLimit 16     parallel instances, PowerShell 7 only (default 8)
+-ConnectTimeoutSec    default 8 — lower it when sweeping a list full of dead hosts
+-QueryTimeoutSec      default 120
+-Encrypt              force an encrypted connection
+-TrustServerCertificate
+-OutputPath           default .\SqlEstateInventory-<timestamp>.csv
+```
+
+Instances that fail are logged and the sweep continues. To retry just those, feed
+the failures back in with `-InputFile`.
+
+Permissions needed on each instance: `VIEW SERVER STATE` and `VIEW ANY DEFINITION`
+(sysadmin is simplest).
 
 ## What the discovery script collects
 
@@ -101,7 +159,7 @@ Microsoft account team before committing to a number.
 | Path | Purpose |
 |---|---|
 | `index.html` | The built, self-contained app served by GitHub Pages |
-| `discovery/` | Read-only T-SQL discovery script |
+| `discovery/` | Estate sweep (`Invoke-SqlEstateDiscovery.ps1`) and the read-only T-SQL script it runs |
 | `templates/` | Blank CSV inventory template |
 | `samples/` | Example inventory (CSV and XLSX) |
 | `src/` | Source: HTML template, JS parts, price puller, build script |

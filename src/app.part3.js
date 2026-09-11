@@ -736,8 +736,9 @@ function boot() {
     loadFiles([blob]);
   };
   $("#btnScript").onclick = () => {
-    alert("The discovery script ships alongside this file as SqlEstateDiscovery.sql.\n\n" +
-          "Run it against each SQL Server instance, then save the results as CSV and upload them here.");
+    // Navigation only — no estate data is transmitted. Opens the repo folder
+    // holding SqlEstateDiscovery.sql and Invoke-SqlEstateDiscovery.ps1.
+    window.open("https://github.com/krishna-sunkavalli/sql-estate-analyzer/tree/main/discovery", "_blank", "noopener");
   };
 
   $("#tabs").onclick = e => {
