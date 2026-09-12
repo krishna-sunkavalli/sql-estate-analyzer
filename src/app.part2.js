@@ -281,7 +281,7 @@ function kpi(label, value, opts = {}) {
 function renderAll() {
   recompute();
   renderSummary(); renderTargets(); renderCost();
-  renderRisk(); renderInventory(); renderMapping(); renderAssumptions();
+  renderInventory(); renderAssumptions();
 }
 
 function totals() {
@@ -512,32 +512,15 @@ function renderTargets() {
           <thead><tr>
             <th data-sort="instKey">Instance</th>
             <th data-sort="database">Database</th>
-            <th class="num" data-sort="sizeGb">Size</th>
-            <th class="nosort">Readiness</th>
-            <th data-sort="rec">Recommended</th>
+            <th data-sort="rec">Target</th>
             <th class="nosort">Override</th>
-            <th class="nosort">Why not the tier above</th>
           </tr></thead>
           <tbody>
             ${rows.map(r => {
               const t = r.cost.target;
-              const reasons = [];
-              for (const k of ["sqldb", "mi"]) {
-                if (k === t) break;
-                if (r.blocked[k]?.length) reasons.push(`<b>${TARGETS[k].short}:</b> ${esc(r.blocked[k][0])}`);
-              }
-              const warnNote = r.warned?.[t]?.length
-                ? `<span class="src-tag">${TARGETS[t].short}: ${esc(r.warned[t][0])}${r.warned[t].length > 1 ? ` (+${r.warned[t].length - 1} more)` : ""}</span>`
-                : "";
               return `<tr>
                 <td>${esc(r.instKey)}</td>
                 <td><b>${esc(r.database)}</b>${r.application ? `<br><span class="src-tag">${esc(r.application)}</span>` : ""}</td>
-                <td class="num">${FMT.gb(r.sizeGb)}</td>
-                <td>${["sqldb", "mi", "vm"].map(k => {
-                      const s = readinessFor(r, k);
-                      const detail = s === "blocked" ? r.blocked[k][0] : s === "warn" ? r.warned[k].join(" · ") : "No issues detected";
-                      return `<span class="pill ${READINESS[s].pill}" title="${TARGETS[k].name} — ${READINESS[s].label}: ${esc(detail)}">${TARGETS[k].short}</span>`;
-                    }).join(" ")}</td>
                 <td><span class="pill ${t === "vm" ? "amber" : t === "mi" ? "accent" : "green"}">${TARGETS[t].short}</span>
                     <span class="src-tag"> ${r.cost.tier === "bc" && t !== "vm" && t !== "hs" ? "Business Critical" : ""}</span></td>
                 <td>
@@ -547,7 +530,6 @@ function renderTargets() {
                       `<option value="${k}" ${r.override === k ? "selected" : ""}>${TARGETS[k].short}${r.blocked[k]?.length ? " ⚠" : ""}</option>`).join("")}
                   </select>
                 </td>
-                <td class="wrap-cell">${reasons.length ? reasons.join("<br>") : '<span class="src-tag">No blockers — most managed option available</span>'}${warnNote ? "<br>" + warnNote : ""}</td>
               </tr>`;
             }).join("")}
           </tbody>

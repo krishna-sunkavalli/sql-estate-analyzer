@@ -170,115 +170,6 @@ function renderCost() {
   wireSort("#costTable", renderCost);
 }
 
-function renderRisk() {
-  const groups = { eol: [], esu: [], ending: [], ok: [], unknown: [] };
-  for (const r of S.rows) (groups[r.support.state] ||= []).push(r);
-
-  const instSupport = {};
-  for (const inst of S.instances) {
-    const st = inst.rows[0].support.state;
-    (instSupport[st] ||= []).push(inst);
-  }
-
-  const op = onPremTotals();
-
-  $("#panel-risk").innerHTML = `
-    <div class="kpis">
-      ${kpi("End of life", FMT.num(groups.eol.length), { cls: groups.eol.length ? "bad" : "good", foot: "no security updates available" })}
-      ${kpi("ESU only", FMT.num(groups.esu.length), { cls: groups.esu.length ? "bad" : "good", foot: "paid extended updates" })}
-      ${kpi("Ending < 12 mo", FMT.num(groups.ending.length), { cls: groups.ending.length ? "warn" : "good" })}
-      ${kpi("In support", FMT.num(groups.ok.length), { cls: "good" })}
-      ${kpi("Annual ESU exposure", FMT.money(op.esu), { cls: op.esu > 0 ? "bad" : "good", foot: "at modelled list price" })}
-    </div>
-
-    <div class="card">
-      <h3>Support status by instance</h3>
-      <p class="tbl-cap">Migrating to Azure SQL PaaS removes version end-of-life entirely; moving to Azure VM grants free Extended Security Updates for out-of-support versions.</p>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th class="nosort">Instance</th><th class="nosort">Version</th><th class="nosort">Edition</th><th class="nosort">Support status</th><th class="nosort">Extended support ended/ends</th><th class="nosort num">DBs</th><th class="nosort">Recommended action</th></tr></thead>
-          <tbody>
-            ${S.instances.sort((a, b) => {
-              const rank = { eol: 0, esu: 1, ending: 2, unknown: 3, ok: 4 };
-              return rank[a.rows[0].support.state] - rank[b.rows[0].support.state];
-            }).map(inst => {
-              const r0 = inst.rows[0], s = r0.support;
-              const action = (s.state === "eol" || s.state === "esu")
-                ? "Migrate now — free ESU on Azure VM, or eliminate versioning on PaaS"
-                : s.state === "ending" ? "Plan migration this year"
-                : "Modernise opportunistically";
-              return `<tr>
-                <td><b>${esc(inst.key)}</b></td>
-                <td>${esc(r0.version || "—")}</td>
-                <td>${esc(editionKind(r0.edition))}</td>
-                <td><span class="pill ${s.cls}">${esc(s.label)}</span></td>
-                <td>${s.extEnd ? s.extEnd.toISOString().slice(0, 10) : "—"}</td>
-                <td class="num">${inst.rows.length}</td>
-                <td class="wrap-cell"><span class="src-tag">${action}</span></td>
-              </tr>`;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="split">
-      <div class="card">
-        <h3>Feature footprint</h3>
-        <p class="tbl-cap">How widely each migration-relevant feature is used across the estate.</p>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th class="nosort">Feature</th><th class="nosort num">Databases</th><th class="nosort">Spread</th><th class="nosort">Migration impact</th></tr></thead>
-            <tbody>
-              ${FEATURES.map(ft => {
-                const n = S.rows.filter(r => r.f[ft.key]).length;
-                if (!n) return "";
-                const rule = RULES.find(x => { try { return x.test({ f: { [ft.key]: true }, i: {}, sizeGb: 0 }); } catch { return false; } });
-                const impact = rule && rule.blocks.length
-                  ? `<span class="pill ${rule.blocks.includes("mi") ? "red" : "amber"}">blocks ${rule.blocks.map(b => TARGETS[b].short).join(", ")}</span>`
-                  : '<span class="pill green">supported everywhere</span>';
-                const pct = 100 * n / Math.max(1, S.rows.length);
-                return `<tr><td>${esc(ft.label)}</td><td class="num">${n}</td>
-                  <td><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div></td>
-                  <td>${impact}</td></tr>`;
-              }).join("") || '<tr><td colspan="4" class="empty">No special features detected.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Instance-level considerations</h3>
-        <p class="tbl-cap">These live outside the database and need a migration plan of their own.</p>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th class="nosort">Consideration</th><th class="nosort num">Instances</th><th class="nosort">Notes</th></tr></thead>
-            <tbody>
-              ${[
-                { k: "agentJobs", label: "SQL Agent jobs", note: "Supported natively on MI and VM; on SQL DB rebuild as Elastic Jobs or Azure Automation." },
-                { k: "ssis", label: "SSIS catalog", note: "Move to Azure-SSIS Integration Runtime in Data Factory, or keep on MI/VM." },
-                { k: "ssrs", label: "Reporting Services", note: "Migrate to Power BI Report Server or Paginated Reports in Power BI Premium." },
-                { k: "linkedServers", label: "Linked servers", note: "Supported on MI and VM. Not available on SQL Database." },
-                { k: "fci", label: "Failover cluster", note: "Replaced by built-in HA on PaaS; use Always On availability groups on VM." },
-                { k: "alwaysOn", label: "Always On AG", note: "PaaS provides HA/geo-replication natively — the AG topology is not carried over." },
-                { k: "distributor", label: "Replication distributor", note: "Requires MI or VM." },
-                { k: "dbMail", label: "Database Mail", note: "Supported on MI and VM; unavailable on SQL Database." },
-              ].map(x => {
-                const n = S.instances.filter(i => {
-                  const v = i.rows[0].i[x.k];
-                  return typeof v === "number" ? v > 0 : !!v;
-                }).length;
-                if (!n) return "";
-                return `<tr><td><b>${esc(x.label)}</b></td><td class="num">${n}</td>
-                        <td class="wrap-cell"><span class="src-tag">${esc(x.note)}</span></td></tr>`;
-              }).join("") || '<tr><td colspan="3" class="empty">No instance-level considerations detected.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>`;
-}
-
 function renderInventory() {
   $("#panel-inventory").innerHTML = `
     <div class="card">
@@ -311,56 +202,6 @@ function renderInventory() {
   wireSort("#invTable", renderInventory);
 }
 
-function renderMapping() {
-  const all = [
-    ...FIELDS.map(f => ({ ...f, group: "Core" })),
-    ...FEATURES.map(f => ({ key: "f_" + f.key, label: f.label, req: false, group: "Features" })),
-    ...INSTANCE_FIELDS.map(f => ({ key: "i_" + f.key, label: f.key, req: false, group: "Instance" })),
-  ];
-  const mapped = Object.keys(S.map).length;
-
-  $("#panel-mapping").innerHTML = `
-    <div class="card">
-      <h3>Column mapping <span class="hint">${mapped} of ${all.length} fields matched automatically</span></h3>
-      <p class="tbl-cap">Anything the analyzer could not match is left unset. Map it here if your inventory uses different column names.</p>
-      ${["Core", "Features", "Instance"].map(g => `
-        <details class="acc" ${g === "Core" ? "open" : ""}>
-          <summary>${g} fields</summary>
-          <div class="tbl-wrap"><table>
-            <thead><tr><th class="nosort">Field</th><th class="nosort">Your column</th><th class="nosort">Sample value</th></tr></thead>
-            <tbody>
-              ${all.filter(f => f.group === g).map(f => {
-                const cur = S.map[f.key] || "";
-                const sample = cur && S.rawRecords[0] ? S.rawRecords[0][cur] : "";
-                return `<tr>
-                  <td>${esc(f.label)} ${f.req ? '<span class="pill red">required</span>' : ""}</td>
-                  <td><select data-map="${f.key}">
-                    <option value="">— not mapped —</option>
-                    ${S.rawHeaders.map(h => `<option value="${esc(h)}" ${cur === h ? "selected" : ""}>${esc(h)}</option>`).join("")}
-                  </select></td>
-                  <td><span class="src-tag">${esc(String(sample ?? "").slice(0, 40))}</span></td>
-                </tr>`;
-              }).join("")}
-            </tbody>
-          </table></div>
-        </details>`).join("")}
-      <div style="margin-top:12px"><button class="primary" id="btnRemap">Apply mapping</button>
-        <button class="ghost" id="btnReset">Load a different file</button></div>
-    </div>`;
-
-  $("#btnRemap").onclick = () => {
-    $$("[data-map]").forEach(sel => {
-      if (sel.value) S.map[sel.dataset.map] = sel.value;
-      else delete S.map[sel.dataset.map];
-    });
-    buildRows(); renderAll();
-  };
-  $("#btnReset").onclick = () => {
-    $("#resultsView").classList.add("hidden");
-    $("#uploadView").classList.remove("hidden");
-    $("#file").value = "";
-  };
-}
 
 function renderAssumptions() {
   const fields = [
@@ -713,8 +554,8 @@ async function loadFiles(fileList) {
   if (!S.rows.length) {
     $("#loadErrors").innerHTML = `<ul class="err-list">
       <li>No usable database rows were found after mapping.</li>
-      ${missing.length ? `<li>Could not auto-detect: ${missing.map(m => esc(m.label)).join(", ")}.</li>` : ""}
-      <li>Load the file again and use the Column mapping tab to map them manually.</li></ul>`;
+      ${missing.length ? `<li>Could not auto-detect these required columns: ${missing.map(m => esc(m.label)).join(", ")}.</li>` : ""}
+      <li>Rename the columns in your file to match the CSV template and load it again.</li></ul>`;
     return;
   }
 
@@ -724,9 +565,9 @@ async function loadFiles(fileList) {
   renderAll();
   if (missing.length) {
     setTimeout(() => alert(
-      `Loaded ${S.rows.length} databases, but these fields were not auto-detected:\n\n` +
+      `Loaded ${S.rows.length} databases, but these columns were not auto-detected:\n\n` +
       missing.map(m => "  • " + m.label).join("\n") +
-      `\n\nOpen the "Column mapping" tab to map them.`), 200);
+      `\n\nResults will be incomplete. Rename them to match the CSV template and load the file again.`), 200);
   }
 }
 

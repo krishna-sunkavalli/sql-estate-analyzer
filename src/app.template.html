@@ -409,7 +409,8 @@ details.acc[open] summary { margin-bottom: 9px; }
 
     <div class="note info" style="margin-top:22px">
       <b>Not from the discovery script?</b> Any CSV/Excel works as long as it has one row per database.
-      The analyzer auto-detects common column names and you can remap anything it misses.
+      The analyzer auto-detects common column names, so exports from Azure Migrate, the MAP Toolkit
+      or a hand-built spreadsheet work too — match the template's column names for anything it misses.
       The essentials are: server/instance name, database name, SQL version, edition, core count and database size.
     </div>
 
@@ -428,18 +429,14 @@ details.acc[open] summary { margin-bottom: 9px; }
       <button data-tab="summary" class="on">Summary</button>
       <button data-tab="targets">Recommendations</button>
       <button data-tab="cost">Cost model</button>
-      <button data-tab="risk">Support &amp; risk</button>
       <button data-tab="inventory">Inventory</button>
-      <button data-tab="mapping">Column mapping</button>
       <button data-tab="assumptions">Assumptions</button>
     </nav>
 
     <div class="panel on" id="panel-summary"></div>
     <div class="panel" id="panel-targets"></div>
     <div class="panel" id="panel-cost"></div>
-    <div class="panel" id="panel-risk"></div>
     <div class="panel" id="panel-inventory"></div>
-    <div class="panel" id="panel-mapping"></div>
     <div class="panel" id="panel-assumptions"></div>
   </section>
 

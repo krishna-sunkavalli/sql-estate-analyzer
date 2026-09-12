@@ -44,9 +44,9 @@ and drop the files in. No install, no sign-in, no agent. Works offline — use
 Prefer to fill in data by hand? Use
 [`templates/SqlEstateInventory-Template.csv`](templates/SqlEstateInventory-Template.csv).
 
-The analyzer accepts CSV, TSV and XLSX and auto-detects column names. Anything it
-cannot match can be mapped on the **Column mapping** tab, so inventories from
-Azure Migrate, MAP Toolkit or a hand-built spreadsheet work too.
+The analyzer accepts CSV, TSV and XLSX and auto-detects column names, so
+inventories from Azure Migrate, MAP Toolkit or a hand-built spreadsheet work too —
+match the template's column names for anything it does not pick up.
 
 Want to see it first? Load [`samples/sample-localdb.csv`](samples/sample-localdb.csv).
 

@@ -100,7 +100,7 @@ function supportState(major, today = new Date()) {
 }
 
 /* ---------------------------------------------------------------------------
-   3. Column mapping — accepts our template and most hand-built inventories.
+   3. Column auto-detection — accepts our template and most hand-built inventories.
    --------------------------------------------------------------------------- */
 const FIELDS = [
   { key: "server",      label: "Server / host",     req: true,  aliases: ["servername", "server", "host", "hostname", "machinename", "computername", "sqlserver", "sourceserver"] },
