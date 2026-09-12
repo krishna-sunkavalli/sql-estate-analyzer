@@ -192,26 +192,47 @@ cross-database dependencies, replication, and so on) plus instance-scope signals
 | Working set per database | `sys.dm_os_buffer_descriptors` |
 | Read/write IOPS and throughput per database | `sys.dm_io_virtual_file_stats` |
 | Average and peak CPU, plus the number of samples behind them | `sys.dm_os_ring_buffers` |
+| **CPU seconds per database, over a window of up to 30 days** | **Query Store** |
+| CPU, memory and I/O pressure since restart | `sys.dm_os_wait_stats` |
 
-Two of these are worth understanding before you quote a number from them.
+### How CPU utilisation is established
 
-**CPU is a short window.** The scheduler-monitor ring buffer holds one sample per
-minute up to roughly 256, so a reading on a recently restarted instance is a
-snapshot of an idle server rather than a workload profile. The script reports
-`CpuSampleCount` alongside the percentages, and the analyzer flags any instance
-with under an hour of history as unreliable rather than letting it quietly drive
-right-sizing. Where real perfmon history exists, prefer it.
+There are three sources, in descending order of quality, and the analyzer uses
+the best one available for each database:
+
+1. **Query Store** — real CPU consumed *per database*, over a window of up to 30
+   days at default retention. This is what a credible right-sizing exercise needs,
+   and it is the only source that attributes CPU to a database rather than a host.
+   It is opt-in per database, so the summary reports how much of the estate has it
+   and a window shorter than an hour is ignored rather than trusted.
+2. **Scheduler ring buffer** — one sample per minute, up to roughly 256, for the
+   *whole instance*. Useful as a fallback, but it covers only the last few hours
+   and cannot separate one database from another. `CpuSampleCount` is reported
+   alongside it; under an hour of history is flagged as unreliable, because a
+   recently restarted server reports a plausible-looking 0%.
+3. **Wait statistics** — cumulative since restart, so the longest window of the
+   three, but they measure *pressure* rather than utilisation. `CpuPressurePct`
+   is signal wait as a share of total wait — time spent runnable but queued for a
+   scheduler, the classic CPU-starvation indicator. `MemPressurePct` is query
+   memory grants queueing, and `IoPressurePct` is reads waiting on storage. These
+   answer "what has this workload been starved of", which utilisation alone does
+   not.
+
+For sustained, guaranteed-coverage performance history, Azure Arc collects 30 days
+at a 95th-percentile grain and feeds it into the readiness assessment described
+below. This script is deliberately agentless, so it works with what the engine
+already keeps.
+
+Performance counters are deliberately avoided: `sys.dm_os_performance_counters`
+exposes only a partial set on some installs — LocalDB, for instance, carries just
+the In-Memory OLTP counters — so every resource signal above comes from a DMV that
+is present on all editions.
 
 **Working set is more useful than file size for memory.** A 4 TB database with a
 2 GB hot set has very different requirements from a 40 GB database that is fully
 cached, and `BufferPoolMB` is the difference between the two. It reflects the
 buffer pool at the moment of collection, so it is most meaningful on an instance
 that has been up long enough to reach a steady state.
-
-Performance counters are deliberately avoided: `sys.dm_os_performance_counters`
-exposes only a partial set on some installs — LocalDB, for instance, carries just
-the In-Memory OLTP counters — so every resource signal above comes from a DMV that
-is present on all editions.
 
 It is strictly read-only and collects **no schema, no data, no object names and no
 query text** — safe to hand to a DBA for review before running.

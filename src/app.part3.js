@@ -313,9 +313,13 @@ function renderAssumptions() {
       <details class="acc"><summary>How sizing is derived</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">By default the analyzer matches the existing
         core count, adds the configured headroom, and rounds up to a purchasable vCore size. Switching the
-        basis to <i>Right-size from CPU %</i> instead sizes against observed CPU demand (cores × average CPU),
-        which typically produces a materially smaller — and more realistic — target where the source hardware
-        is over-provisioned. Storage is the database size plus the configured growth allowance.</p></details>
+        basis to <i>Right-size from CPU %</i> sizes against observed demand instead, and prefers the best
+        evidence available per database: <b>Query Store</b> CPU where the database has it enabled — that is
+        real per-database consumption over a window of up to 30 days — falling back to the instance-wide
+        scheduler ring buffer, which covers only the last few hours and is shared across every database on
+        the instance. Query Store coverage is reported on the summary so you can see which basis was used.
+        Right-sizing typically produces a materially smaller — and more realistic — target where the source
+        hardware is over-provisioned. Storage is the database size plus the configured growth allowance.</p></details>
       <details class="acc"><summary>What this does not cover</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">Networking and egress, backup storage beyond the
         included allowance, geo-replication or failover groups, Defender for SQL, Purview, migration effort and

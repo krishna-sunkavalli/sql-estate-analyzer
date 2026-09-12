@@ -228,6 +228,9 @@ function buildRows() {
       memTargetGb: numOf(get(rec, "memTargetGb")),
       memInUseGb: numOf(get(rec, "memInUseGb")),
       bufferPoolMb: numOf(get(rec, "bufferPoolMb")),
+      qsCores: numOf(get(rec, "qsCores")),
+      qsWindowHrs: numOf(get(rec, "qsWindowHrs")),
+      cpuPressure: numOf(get(rec, "cpuPressure")),
       f, i: inst,
       override: null,
     };

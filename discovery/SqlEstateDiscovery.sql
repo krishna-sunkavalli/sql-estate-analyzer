@@ -75,6 +75,9 @@ DECLARE
     @SqlMemoryInUseGB    decimal(18,2),
     @SchedulerCount      int,
     @CpuSampleCount      int,
+    @CpuPressurePct      decimal(18,2),
+    @MemPressurePct      decimal(18,2),
+    @IoPressurePct       decimal(18,2),
     @OsPlatform          nvarchar(64),
     @OsVersion           nvarchar(128),
     @SqlStartTime        datetime,
@@ -188,6 +191,40 @@ BEGIN CATCH
     SET @SqlMemoryTargetGB = NULL; SET @SqlMemoryInUseGB = NULL; SET @SchedulerCount = NULL;
 END CATCH;
 
+/*  Resource pressure, as a share of total wait time since the instance started.
+    Cumulative wait stats cover the whole uptime rather than the ring buffer's
+    four-minute-resolution window, so they answer a different and more durable
+    question: not "how busy was it recently" but "what has this workload been
+    starved of". Signal wait is time spent runnable-but-waiting-for-CPU, which is
+    the classic CPU-pressure indicator; RESOURCE_SEMAPHORE is query memory grants
+    queueing; PAGEIOLATCH is reads waiting on storage.
+
+    Reported as percentages so they are comparable across instances of wildly
+    different uptimes. */
+BEGIN TRY
+    DECLARE @totalWaitMs decimal(38,2);
+    SELECT @totalWaitMs = NULLIF(SUM(CONVERT(decimal(38,2), wait_time_ms)), 0)
+    FROM sys.dm_os_wait_stats;
+
+    IF @totalWaitMs IS NOT NULL
+    BEGIN
+        SELECT @CpuPressurePct = CONVERT(decimal(18,2),
+                   100.0 * SUM(CONVERT(decimal(38,2), signal_wait_time_ms)) / @totalWaitMs)
+        FROM sys.dm_os_wait_stats;
+
+        SELECT @MemPressurePct = CONVERT(decimal(18,2),
+                   100.0 * ISNULL(SUM(CONVERT(decimal(38,2), wait_time_ms)), 0) / @totalWaitMs)
+        FROM sys.dm_os_wait_stats WHERE wait_type LIKE 'RESOURCE_SEMAPHORE%';
+
+        SELECT @IoPressurePct = CONVERT(decimal(18,2),
+                   100.0 * ISNULL(SUM(CONVERT(decimal(38,2), wait_time_ms)), 0) / @totalWaitMs)
+        FROM sys.dm_os_wait_stats WHERE wait_type LIKE 'PAGEIOLATCH%';
+    END
+END TRY
+BEGIN CATCH
+    SET @CpuPressurePct = NULL; SET @MemPressurePct = NULL; SET @IoPressurePct = NULL;
+END CATCH;
+
 -- sys.dm_os_host_info is 2017+; fall back to the Windows-only DMV before that.
 IF OBJECT_ID('sys.dm_os_host_info') IS NOT NULL
 BEGIN
@@ -291,6 +328,8 @@ CREATE TABLE #db (
     LogSizeGB             decimal(18,2) NULL,
     TotalSizeGB           decimal(18,2) NULL,
     BufferPoolMB          decimal(18,2) NULL,
+    QsCpuSeconds          decimal(18,2) NULL,
+    QsWindowHours         decimal(18,2) NULL,
     HasFileStream         bit           NULL,
     HasMemoryOptimized    bit           NULL,
     HasFileTable          bit           NULL,
@@ -334,6 +373,7 @@ BEGIN
                 @HasClr bit = 0, @HasFullText bit = 0, @HasColumnStore bit = 0,
                 @HasPartition bit = 0, @HasTemporal bit = 0, @HasExternal bit = 0,
                 @HasCrossDb bit = 0, @HasLinkedDep bit = 0, @HasBroker bit = 0,
+                @QsCpuSeconds decimal(18,2) = NULL, @QsWindowHours decimal(18,2) = NULL,
                 @TableCount int = 0, @ProcCount int = 0;
 
         SELECT @HasFileStream = CASE WHEN EXISTS (SELECT 1 FROM sys.filegroups WHERE type = ''FD'') THEN 1 ELSE 0 END;
@@ -387,11 +427,32 @@ BEGIN
             SET @HasCrossDb = NULL; SET @HasLinkedDep = NULL;
         END CATCH;
 
+        -- Query Store CPU, where the database has it enabled. This is the single
+        -- best resource signal the engine can offer: default retention is 30 days
+        -- against the scheduler ring buffer''s four hours, and it is per database
+        -- rather than per instance, so each database can be sized on what it
+        -- actually consumed instead of a share of the host. The window is reported
+        -- alongside it so a percentage can be derived honestly.
+        IF OBJECT_ID(''sys.database_query_store_options'') IS NOT NULL
+        BEGIN TRY
+            IF EXISTS (SELECT 1 FROM sys.database_query_store_options WHERE actual_state = 2)
+                SELECT @QsCpuSeconds = CONVERT(decimal(18,2), SUM(rs.avg_cpu_time * rs.count_executions) / 1000000.0),
+                       @QsWindowHours = CONVERT(decimal(18,2),
+                           DATEDIFF(minute, MIN(rsi.start_time), MAX(rsi.end_time)) / 60.0)
+                FROM sys.query_store_runtime_stats rs
+                JOIN sys.query_store_runtime_stats_interval rsi
+                  ON rsi.runtime_stats_interval_id = rs.runtime_stats_interval_id;
+        END TRY
+        BEGIN CATCH
+            SET @QsCpuSeconds = NULL; SET @QsWindowHours = NULL;
+        END CATCH;
+
         INSERT INTO #db (DatabaseName, DataSizeGB, LogSizeGB, TotalSizeGB,
                          HasFileStream, HasMemoryOptimized, HasFileTable, HasClrAssembly,
                          HasFullTextCatalog, HasColumnStoreIndex, HasPartitioning,
                          HasTemporalTable, HasExternalTable, HasCrossDbDependency,
-                         HasLinkedSvrDependency, IsBrokerEnabled, TableCount, ProcedureCount)
+                         HasLinkedSvrDependency, IsBrokerEnabled, TableCount, ProcedureCount,
+                         QsCpuSeconds, QsWindowHours)
         SELECT
             DB_NAME(),
             CONVERT(decimal(18,2), SUM(CASE WHEN type_desc = ''ROWS'' THEN CONVERT(bigint, size) ELSE 0 END) * 8.0 / 1048576.0),
@@ -400,7 +461,8 @@ BEGIN
             @HasFileStream, @HasMemOpt, @HasFileTable, @HasClr,
             @HasFullText, @HasColumnStore, @HasPartition,
             @HasTemporal, @HasExternal, @HasCrossDb,
-            @HasLinkedDep, @HasBroker, @TableCount, @ProcCount
+            @HasLinkedDep, @HasBroker, @TableCount, @ProcCount,
+            @QsCpuSeconds, @QsWindowHours
         FROM sys.database_files;';
 
         EXEC sp_executesql @q;
@@ -521,6 +583,9 @@ SELECT
     @AvgCpuPct                                                AS AvgCpuPct,
     @MaxCpuPct                                                AS PeakCpuPct,
     @CpuSampleCount                                           AS CpuSampleCount,
+    @CpuPressurePct                                           AS CpuPressurePct,
+    @MemPressurePct                                           AS MemPressurePct,
+    @IoPressurePct                                            AS IoPressurePct,
     @UptimeHours                                              AS UptimeHours,
     -- instance-scope migration signals
     @IsClustered                                              AS IsFailoverCluster,
@@ -542,6 +607,10 @@ SELECT
     d.DbCollation, d.CreateDate AS DatabaseCreateDate, d.IsReadOnly, d.IsTdeEncrypted,
     d.IsAutoClose, d.IsAutoShrink, d.ContainmentType, d.IsQueryStoreOn,
     d.DataSizeGB, d.LogSizeGB, d.TotalSizeGB, d.BufferPoolMB,
+    d.QsCpuSeconds, d.QsWindowHours,
+    CASE WHEN d.QsWindowHours > 0
+         THEN CONVERT(decimal(18,2), 100.0 * d.QsCpuSeconds / (d.QsWindowHours * 3600.0))
+    END AS QsAvgCpuCores,
     d.ReadIops, d.WriteIops, d.ThroughputMBps,
     d.TableCount, d.ProcedureCount,
     -- feature flags that drive Azure target eligibility

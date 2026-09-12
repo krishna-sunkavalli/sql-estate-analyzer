@@ -124,6 +124,9 @@ const FIELDS = [
   { key: "memTargetGb", label: "SQL memory target", req: false, aliases: ["sqlmemorytargetgb", "memorytargetgb"] },
   { key: "memInUseGb",  label: "SQL memory in use", req: false, aliases: ["sqlmemoryinusegb", "memoryinusegb"] },
   { key: "bufferPoolMb",label: "Buffer pool (MB)",  req: false, aliases: ["bufferpoolmb", "bufferpool"] },
+  { key: "qsCores",     label: "Query Store cores", req: false, aliases: ["qsavgcpucores", "querystoreavgcpucores"] },
+  { key: "qsWindowHrs", label: "Query Store window",req: false, aliases: ["qswindowhours", "querystorewindowhours"] },
+  { key: "cpuPressure", label: "CPU pressure %",    req: false, aliases: ["cpupressurepct"] },
 ];
 
 /* Boolean feature flags that drive target eligibility. */
@@ -236,6 +239,18 @@ function dataCoverage() {
       n: has(r => r.sizeGb > 0),
       effect: "storage cost and the size-based target limits cannot be evaluated" },
   ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n, kind: "missing" }));
+
+  // Query Store is the best CPU evidence available, but it is opt-in per
+  // database. Report how much of the estate carries it so the sizing basis can
+  // be judged, not just accepted.
+  const qs = has(r => qsCoresFor(r) != null);
+  if (qs < S.rows.length) {
+    out.push({ key: "qs", label: "Query Store CPU history", n: qs, total: S.rows.length,
+      pct: 100 * qs / n, kind: "missing",
+      effect: qs === 0
+        ? "no database has Query Store enabled — CPU sizing falls back to a share of the instance-wide ring buffer, which covers only the last few hours"
+        : `${S.rows.length - qs} database${S.rows.length - qs === 1 ? "" : "s"} without it fall back to the instance-wide ring-buffer sample; enabling Query Store gives per-database CPU over 30 days` });
+  }
 
   // The scheduler-monitor ring buffer keeps one sample per minute, up to 256.
   // A handful of samples is not a workload profile — it is a snapshot of an
@@ -361,10 +376,21 @@ function tierFor(r, target) {
 /* ---------------------------------------------------------------------------
    5. Sizing
    --------------------------------------------------------------------------- */
+/* Query Store gives per-database CPU over a real window — 30 days by default,
+   against the ring buffer's four hours — so where it is on, prefer it. Needs a
+   meaningful window: a few minutes of history is not a workload profile. */
+function qsCoresFor(r) {
+  if (r.qsCores == null || !(r.qsWindowHrs > 1)) return null;
+  return r.qsCores;
+}
+
 function vcoresFor(r) {
   let base;
-  if (A.sizingBasis === "cpu" && r.cores && r.cpuPct != null) {
-    base = (r.cores * r.cpuPct) / 100;          // observed demand
+  const qs = qsCoresFor(r);
+  if (A.sizingBasis === "cpu" && qs != null) {
+    base = qs;                                  // measured, per database
+  } else if (A.sizingBasis === "cpu" && r.cores && r.cpuPct != null) {
+    base = (r.cores * r.cpuPct) / 100;          // instance-wide ring-buffer sample
   } else {
     base = r.cores || A.minVcores;
   }
