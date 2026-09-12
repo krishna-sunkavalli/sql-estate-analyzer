@@ -195,44 +195,48 @@ cross-database dependencies, replication, and so on) plus instance-scope signals
 | **CPU seconds per database, over a window of up to 30 days** | **Query Store** |
 | CPU, memory and I/O pressure since restart | `sys.dm_os_wait_stats` |
 
-### How CPU utilisation is established
+### How CPU and memory evidence is used
 
-There are three sources, in descending order of quality, and the analyzer uses
-the best one available for each database:
+**Sizing is a slider, not an inference.** Target vCores are the source core count
+reduced by an explicit **right-sizing percentage**, defaulting to 20% — SQL Server
+estates are routinely provisioned for a peak that never arrives. Set it to 0 to
+model a straight lift-and-shift, or higher where you have grounds.
+
+This is deliberate. The engine does not keep utilisation history the way vCenter
+does, so a percentage derived from it would look measured without being reliable:
+Query Store is off on most estates, and the scheduler ring buffer covers only the
+last few hours of a single instance. Rather than dress a four-hour idle sample up
+as right-sizing evidence, the tool asks you for a number you can defend and shows
+it on every screen alongside the cost.
+
+The collector still gathers the evidence, so the number can be argued from
+something rather than picked at random:
 
 1. **Query Store** — real CPU consumed *per database*, over a window of up to 30
-   days at default retention. This is what a credible right-sizing exercise needs,
-   and it is the only source that attributes CPU to a database rather than a host.
-   It is opt-in per database, so the summary reports how much of the estate has it
-   and a window shorter than an hour is ignored rather than trusted.
+   days at default retention. The only source that attributes CPU to a database
+   rather than a host, but opt-in and commonly off.
 2. **Scheduler ring buffer** — one sample per minute, up to roughly 256, for the
-   *whole instance*. Useful as a fallback, but it covers only the last few hours
-   and cannot separate one database from another. `CpuSampleCount` is reported
-   alongside it; under an hour of history is flagged as unreliable, because a
-   recently restarted server reports a plausible-looking 0%.
+   whole instance. `CpuSampleCount` is reported alongside it, because a recently
+   restarted server reports a plausible-looking 0%.
 3. **Wait statistics** — cumulative since restart, so the longest window of the
-   three, but they measure *pressure* rather than utilisation. `CpuPressurePct`
-   is signal wait as a share of total wait — time spent runnable but queued for a
+   three, but measuring *pressure* rather than utilisation. `CpuPressurePct` is
+   signal wait as a share of total wait — time runnable but queued for a
    scheduler, the classic CPU-starvation indicator. `MemPressurePct` is query
-   memory grants queueing, and `IoPressurePct` is reads waiting on storage. These
-   answer "what has this workload been starved of", which utilisation alone does
-   not.
+   memory grants queueing; `IoPressurePct` is reads waiting on storage.
 
-For sustained, guaranteed-coverage performance history, Azure Arc collects 30 days
-at a 95th-percentile grain and feeds it into the readiness assessment described
-below. This script is deliberately agentless, so it works with what the engine
-already keeps.
+Plus `SqlMemoryTargetGB` against `SqlMemoryInUseGB`, and per-database
+`BufferPoolMB`. Target well above in-use on a long-running instance is the
+clearest sign the host is over-provisioned, and a 4 TB database with a 2 GB hot
+set is a very different sizing problem from a fully cached 40 GB one.
+
+If you need guaranteed 30-day history at a 95th-percentile grain, Azure Arc
+collects it and feeds the readiness assessment described below. This script is
+deliberately agentless and works with what the engine already keeps.
 
 Performance counters are deliberately avoided: `sys.dm_os_performance_counters`
 exposes only a partial set on some installs — LocalDB, for instance, carries just
 the In-Memory OLTP counters — so every resource signal above comes from a DMV that
 is present on all editions.
-
-**Working set is more useful than file size for memory.** A 4 TB database with a
-2 GB hot set has very different requirements from a 40 GB database that is fully
-cached, and `BufferPoolMB` is the difference between the two. It reflects the
-buffer pool at the moment of collection, so it is most meaningful on an instance
-that has been up long enough to reach a steady state.
 
 It is strictly read-only and collects **no schema, no data, no object names and no
 query text** — safe to hand to a DBA for review before running.
@@ -332,10 +336,12 @@ Microsoft account team before committing to a number.
 
 ## Limitations worth stating up front
 
-- Sizing is inferred from inventory signals; it cannot see query patterns, peak
-  concurrency or application behaviour.
-- Ring-buffer CPU covers roughly the last four hours, so it is indicative only.
-  Where real perfmon history exists, prefer it and override the headroom setting.
+- Sizing is a right-sizing percentage you set, not a measurement. The engine does
+  not keep utilisation history the way vCenter does, so the tool asks for a
+  judgement rather than inferring one from a four-hour sample. It cannot see query
+  patterns, peak concurrency or application behaviour.
+- Ring-buffer CPU covers roughly the last four hours, so treat it as indicative
+  context for choosing the right-sizing percentage, not as a measurement.
 - The on-premises comparison covers SQL Server SA and ESU (plus optional hardware)
   — not datacentre, power, storage-array or staffing costs. Real-world savings are
   therefore usually understated.

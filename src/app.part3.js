@@ -49,12 +49,10 @@ function renderCost() {
           `<option value="${k}" ${A.term === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
       <label class="chk"><input type="checkbox" id="cSqlAhb" ${A.sqlAhb ? "checked" : ""}> SQL Hybrid Benefit</label>
       <label class="chk"><input type="checkbox" id="cWinAhb" ${A.winAhb ? "checked" : ""}> Windows Hybrid Benefit</label>
-      <div class="ctl"><label>Sizing basis</label>
-        <select id="cBasis">
-          <option value="cores" ${A.sizingBasis === "cores" ? "selected" : ""}>Match existing cores</option>
-          <option value="cpu" ${A.sizingBasis === "cpu" ? "selected" : ""}>Right-size from CPU %</option>
-        </select></div>
-      <div class="ctl"><label>Headroom %</label><input type="number" id="cOver" value="${A.vcoreOverheadPct}" min="0" max="200" step="5"></div>
+      <div class="ctl" style="min-width:230px">
+        <label>Right-sizing <span id="cRsLabel" class="src-tag">${A.rightSizePct}% smaller than source</span></label>
+        <input type="range" id="cRightSize" value="${A.rightSizePct}" min="0" max="60" step="5" style="width:100%">
+      </div>
       <div class="ctl"><label>Storage growth %</label><input type="number" id="cStor" value="${A.storageOverheadPct}" min="0" max="200" step="5"></div>
       <label class="chk"><input type="checkbox" id="cConsol" ${A.consolidateToMi ? "checked" : ""}> Consolidate databases per instance</label>
       <div class="spacer"></div>
@@ -66,7 +64,7 @@ function renderCost() {
       ${kpi("Azure monthly", FMT.money(t.monthly), { cls: "accent", foot: termName[A.term] + (A.sqlAhb ? " · with AHB" : " · licence included") })}
       ${kpi("Annual", FMT.money(t.monthly * 12))}
       ${kpi("3-year", FMT.money(t.monthly * 36))}
-      ${kpi("Total vCores", FMT.num(t.vcores), { foot: `${t.deployments} deployment${t.deployments === 1 ? "" : "s"}` })}
+      ${kpi("Total vCores", FMT.num(t.vcores), { foot: `${t.deployments} deployment${t.deployments === 1 ? "" : "s"} · ${A.rightSizePct ? A.rightSizePct + "% right-sized" : "matched to source"}` })}
       ${kpi("vs on-prem / mo", FMT.money(op.monthly - t.monthly), { cls: (op.monthly - t.monthly) >= 0 ? "good" : "bad", foot: (op.monthly - t.monthly) >= 0 ? "saving" : "increase" })}
     </div>
 
@@ -161,8 +159,16 @@ function renderCost() {
   $("#cTerm").onchange = e => { A.term = e.target.value; renderAll(); };
   $("#cSqlAhb").onchange = e => { A.sqlAhb = e.target.checked; renderAll(); };
   $("#cWinAhb").onchange = e => { A.winAhb = e.target.checked; renderAll(); };
-  $("#cBasis").onchange = e => { A.sizingBasis = e.target.value; renderAll(); };
-  $("#cOver").onchange = e => { A.vcoreOverheadPct = +e.target.value || 0; renderAll(); };
+  // Live label while dragging; only recompute on release, since a full re-render
+  // per pixel would make the slider feel sticky on a large estate.
+  const rs = $("#cRightSize");
+  rs.oninput = e => {
+    const v = +e.target.value;
+    $("#cRsLabel").textContent = v === 0
+      ? "same core count as source"
+      : `${v}% smaller than source`;
+  };
+  rs.onchange = e => { A.rightSizePct = +e.target.value || 0; renderAll(); };
   $("#cStor").onchange = e => { A.storageOverheadPct = +e.target.value || 0; renderAll(); };
   $("#cConsol").onchange = e => { A.consolidateToMi = e.target.checked; renderAll(); };
   $("#btnExportCsv").onclick = exportCsv;
@@ -311,15 +317,18 @@ function renderAssumptions() {
         treat them as triage — confirm the databases you decide to move with the SSMS assessment, which
         applies the full rule set and tells you how to remediate.</p></details>
       <details class="acc"><summary>How sizing is derived</summary>
-        <p style="font-size:12.5px;color:var(--cp-text-muted)">By default the analyzer matches the existing
-        core count, adds the configured headroom, and rounds up to a purchasable vCore size. Switching the
-        basis to <i>Right-size from CPU %</i> sizes against observed demand instead, and prefers the best
-        evidence available per database: <b>Query Store</b> CPU where the database has it enabled — that is
-        real per-database consumption over a window of up to 30 days — falling back to the instance-wide
-        scheduler ring buffer, which covers only the last few hours and is shared across every database on
-        the instance. Query Store coverage is reported on the summary so you can see which basis was used.
-        Right-sizing typically produces a materially smaller — and more realistic — target where the source
-        hardware is over-provisioned. Storage is the database size plus the configured growth allowance.</p></details>
+        <p style="font-size:12.5px;color:var(--cp-text-muted)">Target vCores are the source core count
+        reduced by the <b>right-sizing</b> percentage on the Cost model tab, rounded up to a purchasable
+        size. The default is 20%, on the basis that SQL Server estates are routinely provisioned for a peak
+        that never arrives; set it to 0 to model a straight lift-and-shift, or higher where you have grounds.
+        <br><br>
+        This is deliberately a judgement you set rather than a figure inferred from telemetry. The engine
+        does not keep utilisation history the way vCenter does: Query Store is off on most estates, and the
+        scheduler ring buffer covers only the last few hours of a single instance, so a percentage derived
+        from it would look measured without being reliable. The collector still gathers that evidence —
+        CPU, CPU pressure, memory target versus in use, and per-database working set, all on the Inventory
+        tab — so the number you choose can be argued from something. Storage is the database size plus the
+        configured growth allowance.</p></details>
       <details class="acc"><summary>What this does not cover</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">Networking and egress, backup storage beyond the
         included allowance, geo-replication or failover groups, Defender for SQL, Purview, migration effort and

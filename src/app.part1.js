@@ -37,8 +37,7 @@ const A = {
   onPremHasSA: true,         // estate-wide: SQL cannot report licensing position
 
   // Right-sizing
-  sizingBasis: "cores",      // cores | cpu
-  vcoreOverheadPct: 20,      // headroom added on top of observed demand
+  rightSizePct: 20,          // cut this % off the source core count
   minVcores: 2,
   storageOverheadPct: 30,    // growth headroom on database size
   consolidateToMi: true,     // group an instance's DBs onto one MI
@@ -225,13 +224,10 @@ function editionKind(ed) {
 function dataCoverage() {
   const n = S.rows.length || 1;
   const has = (f) => S.rows.filter(f).length;
-  const out = [
-    { key: "cpuPct", label: "CPU utilisation",
-      n: has(r => r.cpuPct != null),
-      effect: "right-sizing from CPU is unavailable — sizing matches the existing core count" },
+  return [
     { key: "cores", label: "Cores",
       n: has(r => r.cores > 0),
-      effect: "sizing falls back to the minimum vCore count" },
+      effect: "sizing falls back to the minimum vCore count — right-sizing has nothing to reduce" },
     { key: "memoryGb", label: "Memory",
       n: has(r => r.memoryGb > 0),
       effect: "VM selection cannot honour a memory requirement" },
@@ -239,32 +235,6 @@ function dataCoverage() {
       n: has(r => r.sizeGb > 0),
       effect: "storage cost and the size-based target limits cannot be evaluated" },
   ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n, kind: "missing" }));
-
-  // Query Store is the best CPU evidence available, but it is opt-in per
-  // database. Report how much of the estate carries it so the sizing basis can
-  // be judged, not just accepted.
-  const qs = has(r => qsCoresFor(r) != null);
-  if (qs < S.rows.length) {
-    out.push({ key: "qs", label: "Query Store CPU history", n: qs, total: S.rows.length,
-      pct: 100 * qs / n, kind: "missing",
-      effect: qs === 0
-        ? "no database has Query Store enabled — CPU sizing falls back to a share of the instance-wide ring buffer, which covers only the last few hours"
-        : `${S.rows.length - qs} database${S.rows.length - qs === 1 ? "" : "s"} without it fall back to the instance-wide ring-buffer sample; enabling Query Store gives per-database CPU over 30 days` });
-  }
-
-  // The scheduler-monitor ring buffer keeps one sample per minute, up to 256.
-  // A handful of samples is not a workload profile — it is a snapshot of an
-  // instance that has only just started, and right-sizing from it would be
-  // guesswork dressed up as measurement.
-  const thin = has(r => r.cpuPct != null && (
-    (r.cpuSamples != null && r.cpuSamples < 60) ||
-    (r.cpuSamples == null && r.uptimeHours != null && r.uptimeHours < 4)));
-  if (thin) {
-    out.push({ key: "cpuwindow", label: "CPU history too short", n: S.rows.length - thin,
-      total: S.rows.length, pct: 100 * (S.rows.length - thin) / n, kind: "unreliable",
-      effect: `${thin} database${thin === 1 ? " sits" : "s sit"} on an instance with under an hour of CPU history — the reading reflects a recently restarted server, so do not right-size from it` });
-  }
-  return out;
 }
 
 /* ---------------------------------------------------------------------------
@@ -377,24 +347,28 @@ function tierFor(r, target) {
    5. Sizing
    --------------------------------------------------------------------------- */
 /* Query Store gives per-database CPU over a real window — 30 days by default,
-   against the ring buffer's four hours — so where it is on, prefer it. Needs a
-   meaningful window: a few minutes of history is not a workload profile. */
+   against the ring buffer's four hours. It is not used to size anything: it is
+   reported as evidence so the right-sizing percentage can be argued from
+   something, rather than being a number pulled out of the air. */
 function qsCoresFor(r) {
   if (r.qsCores == null || !(r.qsWindowHrs > 1)) return null;
   return r.qsCores;
 }
 
+/* Sizing is a deliberate, visible judgement rather than an inferred one.
+
+   The alternative was to right-size from collected CPU, but the evidence is too
+   uneven to carry that weight: Query Store is off on most estates, and the
+   scheduler ring buffer covers only the last few hours of a single instance. A
+   number derived from four hours of idle sampling looks measured and is not.
+
+   So: take the source core count and cut it by an explicit percentage the user
+   sets and can defend. 20% is the default because SQL Server estates are
+   routinely provisioned for a peak that never arrives. Set it to 0 to model a
+   straight lift-and-shift. */
 function vcoresFor(r) {
-  let base;
-  const qs = qsCoresFor(r);
-  if (A.sizingBasis === "cpu" && qs != null) {
-    base = qs;                                  // measured, per database
-  } else if (A.sizingBasis === "cpu" && r.cores && r.cpuPct != null) {
-    base = (r.cores * r.cpuPct) / 100;          // instance-wide ring-buffer sample
-  } else {
-    base = r.cores || A.minVcores;
-  }
-  let v = base * (1 + A.vcoreOverheadPct / 100);
+  const base = r.cores || A.minVcores;
+  let v = base * (1 - (A.rightSizePct || 0) / 100);
   v = Math.max(A.minVcores, v);
   const steps = [2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128];
   return steps.find(s => s >= v) || 128;

@@ -482,8 +482,7 @@ const A = {
   onPremHasSA: true,         // estate-wide: SQL cannot report licensing position
 
   // Right-sizing
-  sizingBasis: "cores",      // cores | cpu
-  vcoreOverheadPct: 20,      // headroom added on top of observed demand
+  rightSizePct: 20,          // cut this % off the source core count
   minVcores: 2,
   storageOverheadPct: 30,    // growth headroom on database size
   consolidateToMi: true,     // group an instance's DBs onto one MI
@@ -670,13 +669,10 @@ function editionKind(ed) {
 function dataCoverage() {
   const n = S.rows.length || 1;
   const has = (f) => S.rows.filter(f).length;
-  const out = [
-    { key: "cpuPct", label: "CPU utilisation",
-      n: has(r => r.cpuPct != null),
-      effect: "right-sizing from CPU is unavailable — sizing matches the existing core count" },
+  return [
     { key: "cores", label: "Cores",
       n: has(r => r.cores > 0),
-      effect: "sizing falls back to the minimum vCore count" },
+      effect: "sizing falls back to the minimum vCore count — right-sizing has nothing to reduce" },
     { key: "memoryGb", label: "Memory",
       n: has(r => r.memoryGb > 0),
       effect: "VM selection cannot honour a memory requirement" },
@@ -684,32 +680,6 @@ function dataCoverage() {
       n: has(r => r.sizeGb > 0),
       effect: "storage cost and the size-based target limits cannot be evaluated" },
   ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n, kind: "missing" }));
-
-  // Query Store is the best CPU evidence available, but it is opt-in per
-  // database. Report how much of the estate carries it so the sizing basis can
-  // be judged, not just accepted.
-  const qs = has(r => qsCoresFor(r) != null);
-  if (qs < S.rows.length) {
-    out.push({ key: "qs", label: "Query Store CPU history", n: qs, total: S.rows.length,
-      pct: 100 * qs / n, kind: "missing",
-      effect: qs === 0
-        ? "no database has Query Store enabled — CPU sizing falls back to a share of the instance-wide ring buffer, which covers only the last few hours"
-        : `${S.rows.length - qs} database${S.rows.length - qs === 1 ? "" : "s"} without it fall back to the instance-wide ring-buffer sample; enabling Query Store gives per-database CPU over 30 days` });
-  }
-
-  // The scheduler-monitor ring buffer keeps one sample per minute, up to 256.
-  // A handful of samples is not a workload profile — it is a snapshot of an
-  // instance that has only just started, and right-sizing from it would be
-  // guesswork dressed up as measurement.
-  const thin = has(r => r.cpuPct != null && (
-    (r.cpuSamples != null && r.cpuSamples < 60) ||
-    (r.cpuSamples == null && r.uptimeHours != null && r.uptimeHours < 4)));
-  if (thin) {
-    out.push({ key: "cpuwindow", label: "CPU history too short", n: S.rows.length - thin,
-      total: S.rows.length, pct: 100 * (S.rows.length - thin) / n, kind: "unreliable",
-      effect: `${thin} database${thin === 1 ? " sits" : "s sit"} on an instance with under an hour of CPU history — the reading reflects a recently restarted server, so do not right-size from it` });
-  }
-  return out;
 }
 
 /* ---------------------------------------------------------------------------
@@ -822,24 +792,28 @@ function tierFor(r, target) {
    5. Sizing
    --------------------------------------------------------------------------- */
 /* Query Store gives per-database CPU over a real window — 30 days by default,
-   against the ring buffer's four hours — so where it is on, prefer it. Needs a
-   meaningful window: a few minutes of history is not a workload profile. */
+   against the ring buffer's four hours. It is not used to size anything: it is
+   reported as evidence so the right-sizing percentage can be argued from
+   something, rather than being a number pulled out of the air. */
 function qsCoresFor(r) {
   if (r.qsCores == null || !(r.qsWindowHrs > 1)) return null;
   return r.qsCores;
 }
 
+/* Sizing is a deliberate, visible judgement rather than an inferred one.
+
+   The alternative was to right-size from collected CPU, but the evidence is too
+   uneven to carry that weight: Query Store is off on most estates, and the
+   scheduler ring buffer covers only the last few hours of a single instance. A
+   number derived from four hours of idle sampling looks measured and is not.
+
+   So: take the source core count and cut it by an explicit percentage the user
+   sets and can defend. 20% is the default because SQL Server estates are
+   routinely provisioned for a peak that never arrives. Set it to 0 to model a
+   straight lift-and-shift. */
 function vcoresFor(r) {
-  let base;
-  const qs = qsCoresFor(r);
-  if (A.sizingBasis === "cpu" && qs != null) {
-    base = qs;                                  // measured, per database
-  } else if (A.sizingBasis === "cpu" && r.cores && r.cpuPct != null) {
-    base = (r.cores * r.cpuPct) / 100;          // instance-wide ring-buffer sample
-  } else {
-    base = r.cores || A.minVcores;
-  }
-  let v = base * (1 + A.vcoreOverheadPct / 100);
+  const base = r.cores || A.minVcores;
+  let v = base * (1 - (A.rightSizePct || 0) / 100);
   v = Math.max(A.minVcores, v);
   const steps = [2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128];
   return steps.find(s => s >= v) || 128;
@@ -1751,12 +1725,10 @@ function renderCost() {
           `<option value="${k}" ${A.term === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
       <label class="chk"><input type="checkbox" id="cSqlAhb" ${A.sqlAhb ? "checked" : ""}> SQL Hybrid Benefit</label>
       <label class="chk"><input type="checkbox" id="cWinAhb" ${A.winAhb ? "checked" : ""}> Windows Hybrid Benefit</label>
-      <div class="ctl"><label>Sizing basis</label>
-        <select id="cBasis">
-          <option value="cores" ${A.sizingBasis === "cores" ? "selected" : ""}>Match existing cores</option>
-          <option value="cpu" ${A.sizingBasis === "cpu" ? "selected" : ""}>Right-size from CPU %</option>
-        </select></div>
-      <div class="ctl"><label>Headroom %</label><input type="number" id="cOver" value="${A.vcoreOverheadPct}" min="0" max="200" step="5"></div>
+      <div class="ctl" style="min-width:230px">
+        <label>Right-sizing <span id="cRsLabel" class="src-tag">${A.rightSizePct}% smaller than source</span></label>
+        <input type="range" id="cRightSize" value="${A.rightSizePct}" min="0" max="60" step="5" style="width:100%">
+      </div>
       <div class="ctl"><label>Storage growth %</label><input type="number" id="cStor" value="${A.storageOverheadPct}" min="0" max="200" step="5"></div>
       <label class="chk"><input type="checkbox" id="cConsol" ${A.consolidateToMi ? "checked" : ""}> Consolidate databases per instance</label>
       <div class="spacer"></div>
@@ -1768,7 +1740,7 @@ function renderCost() {
       ${kpi("Azure monthly", FMT.money(t.monthly), { cls: "accent", foot: termName[A.term] + (A.sqlAhb ? " · with AHB" : " · licence included") })}
       ${kpi("Annual", FMT.money(t.monthly * 12))}
       ${kpi("3-year", FMT.money(t.monthly * 36))}
-      ${kpi("Total vCores", FMT.num(t.vcores), { foot: `${t.deployments} deployment${t.deployments === 1 ? "" : "s"}` })}
+      ${kpi("Total vCores", FMT.num(t.vcores), { foot: `${t.deployments} deployment${t.deployments === 1 ? "" : "s"} · ${A.rightSizePct ? A.rightSizePct + "% right-sized" : "matched to source"}` })}
       ${kpi("vs on-prem / mo", FMT.money(op.monthly - t.monthly), { cls: (op.monthly - t.monthly) >= 0 ? "good" : "bad", foot: (op.monthly - t.monthly) >= 0 ? "saving" : "increase" })}
     </div>
 
@@ -1863,8 +1835,16 @@ function renderCost() {
   $("#cTerm").onchange = e => { A.term = e.target.value; renderAll(); };
   $("#cSqlAhb").onchange = e => { A.sqlAhb = e.target.checked; renderAll(); };
   $("#cWinAhb").onchange = e => { A.winAhb = e.target.checked; renderAll(); };
-  $("#cBasis").onchange = e => { A.sizingBasis = e.target.value; renderAll(); };
-  $("#cOver").onchange = e => { A.vcoreOverheadPct = +e.target.value || 0; renderAll(); };
+  // Live label while dragging; only recompute on release, since a full re-render
+  // per pixel would make the slider feel sticky on a large estate.
+  const rs = $("#cRightSize");
+  rs.oninput = e => {
+    const v = +e.target.value;
+    $("#cRsLabel").textContent = v === 0
+      ? "same core count as source"
+      : `${v}% smaller than source`;
+  };
+  rs.onchange = e => { A.rightSizePct = +e.target.value || 0; renderAll(); };
   $("#cStor").onchange = e => { A.storageOverheadPct = +e.target.value || 0; renderAll(); };
   $("#cConsol").onchange = e => { A.consolidateToMi = e.target.checked; renderAll(); };
   $("#btnExportCsv").onclick = exportCsv;
@@ -2013,15 +1993,18 @@ function renderAssumptions() {
         treat them as triage — confirm the databases you decide to move with the SSMS assessment, which
         applies the full rule set and tells you how to remediate.</p></details>
       <details class="acc"><summary>How sizing is derived</summary>
-        <p style="font-size:12.5px;color:var(--cp-text-muted)">By default the analyzer matches the existing
-        core count, adds the configured headroom, and rounds up to a purchasable vCore size. Switching the
-        basis to <i>Right-size from CPU %</i> sizes against observed demand instead, and prefers the best
-        evidence available per database: <b>Query Store</b> CPU where the database has it enabled — that is
-        real per-database consumption over a window of up to 30 days — falling back to the instance-wide
-        scheduler ring buffer, which covers only the last few hours and is shared across every database on
-        the instance. Query Store coverage is reported on the summary so you can see which basis was used.
-        Right-sizing typically produces a materially smaller — and more realistic — target where the source
-        hardware is over-provisioned. Storage is the database size plus the configured growth allowance.</p></details>
+        <p style="font-size:12.5px;color:var(--cp-text-muted)">Target vCores are the source core count
+        reduced by the <b>right-sizing</b> percentage on the Cost model tab, rounded up to a purchasable
+        size. The default is 20%, on the basis that SQL Server estates are routinely provisioned for a peak
+        that never arrives; set it to 0 to model a straight lift-and-shift, or higher where you have grounds.
+        <br><br>
+        This is deliberately a judgement you set rather than a figure inferred from telemetry. The engine
+        does not keep utilisation history the way vCenter does: Query Store is off on most estates, and the
+        scheduler ring buffer covers only the last few hours of a single instance, so a percentage derived
+        from it would look measured without being reliable. The collector still gathers that evidence —
+        CPU, CPU pressure, memory target versus in use, and per-database working set, all on the Inventory
+        tab — so the number you choose can be argued from something. Storage is the database size plus the
+        configured growth allowance.</p></details>
       <details class="acc"><summary>What this does not cover</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">Networking and egress, backup storage beyond the
         included allowance, geo-replication or failover groups, Defender for SQL, Purview, migration effort and
