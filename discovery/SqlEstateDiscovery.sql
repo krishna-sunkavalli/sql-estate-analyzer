@@ -254,7 +254,7 @@ CREATE TABLE #db (
     IsCdcEnabled          bit           NULL,
     IsChangeTrackingOn    bit           NULL,
     IsBrokerEnabled       bit           NULL,
-    IsInAvailabilityGroup bit           NULL,
+    IsInAvailabilityGroup bit           NULL DEFAULT 0,
     DataSizeGB            decimal(18,2) NULL,
     LogSizeGB             decimal(18,2) NULL,
     TotalSizeGB           decimal(18,2) NULL,
@@ -300,13 +300,21 @@ BEGIN
         DECLARE @HasFileStream bit = 0, @HasMemOpt bit = 0, @HasFileTable bit = 0,
                 @HasClr bit = 0, @HasFullText bit = 0, @HasColumnStore bit = 0,
                 @HasPartition bit = 0, @HasTemporal bit = 0, @HasExternal bit = 0,
-                @HasCrossDb bit = 0, @HasLinkedDep bit = 0,
+                @HasCrossDb bit = 0, @HasLinkedDep bit = 0, @HasBroker bit = 0,
                 @TableCount int = 0, @ProcCount int = 0;
 
         SELECT @HasFileStream = CASE WHEN EXISTS (SELECT 1 FROM sys.filegroups WHERE type = ''FD'') THEN 1 ELSE 0 END;
         SELECT @HasMemOpt     = CASE WHEN EXISTS (SELECT 1 FROM sys.filegroups WHERE type = ''FX'') THEN 1 ELSE 0 END;
         SELECT @HasClr        = CASE WHEN EXISTS (SELECT 1 FROM sys.assemblies WHERE is_user_defined = 1) THEN 1 ELSE 0 END;
         SELECT @HasFullText   = CASE WHEN EXISTS (SELECT 1 FROM sys.fulltext_catalogs) THEN 1 ELSE 0 END;
+
+        -- Service Broker: test for USER-CREATED queues, not sys.databases.is_broker_enabled.
+        -- That flag is inherited from model and is ON for essentially every database,
+        -- so keying off it would report Service Broker everywhere and wrongly block
+        -- the whole estate from Azure SQL Database. What actually blocks a migration
+        -- is a broker application, and that means user queues.
+        SELECT @HasBroker = CASE WHEN EXISTS (
+            SELECT 1 FROM sys.service_queues WHERE is_ms_shipped = 0) THEN 1 ELSE 0 END;
 
         -- Table count and the temporal flag come from ONE pass over sys.tables.
         -- Scanning it twice is the single most expensive thing this batch does on
@@ -350,7 +358,7 @@ BEGIN
                          HasFileStream, HasMemoryOptimized, HasFileTable, HasClrAssembly,
                          HasFullTextCatalog, HasColumnStoreIndex, HasPartitioning,
                          HasTemporalTable, HasExternalTable, HasCrossDbDependency,
-                         HasLinkedSvrDependency, TableCount, ProcedureCount)
+                         HasLinkedSvrDependency, IsBrokerEnabled, TableCount, ProcedureCount)
         SELECT
             DB_NAME(),
             CONVERT(decimal(18,2), SUM(CASE WHEN type_desc = ''ROWS'' THEN CONVERT(bigint, size) ELSE 0 END) * 8.0 / 1048576.0),
@@ -359,7 +367,7 @@ BEGIN
             @HasFileStream, @HasMemOpt, @HasFileTable, @HasClr,
             @HasFullText, @HasColumnStore, @HasPartition,
             @HasTemporal, @HasExternal, @HasCrossDb,
-            @HasLinkedDep, @TableCount, @ProcCount
+            @HasLinkedDep, @HasBroker, @TableCount, @ProcCount
         FROM sys.database_files;';
 
         EXEC sp_executesql @q;
@@ -391,8 +399,7 @@ UPDATE d SET
     d.IsPublished        = s.is_published,
     d.IsSubscribed       = s.is_subscribed,
     d.IsMergePublished   = s.is_merge_published,
-    d.IsCdcEnabled       = s.is_cdc_enabled,
-    d.IsBrokerEnabled    = s.is_broker_enabled
+    d.IsCdcEnabled       = s.is_cdc_enabled
 FROM #db d JOIN sys.databases s ON s.name = d.DatabaseName;
 
 IF COL_LENGTH('sys.databases', 'containment') IS NOT NULL
@@ -487,7 +494,8 @@ SELECT
     d.HasExternalTable, d.HasCrossDbDependency, d.HasLinkedSvrDependency,
     d.IsBrokerEnabled AS HasServiceBroker, d.IsCdcEnabled AS HasChangeDataCapture,
     d.IsChangeTrackingOn AS HasChangeTracking,
-    d.IsPublished, d.IsSubscribed, d.IsMergePublished, d.IsInAvailabilityGroup,
+    d.IsPublished, d.IsSubscribed, d.IsMergePublished,
+    ISNULL(d.IsInAvailabilityGroup, 0) AS IsInAvailabilityGroup,
     CONVERT(datetime, GETDATE()) AS CollectedAtUtc
 INTO #out
 FROM #db d;

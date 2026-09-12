@@ -48,7 +48,7 @@ answer for itself — whether the estate is under Software Assurance, for instan
 live on the **Assumptions** tab, where they are visible and adjustable rather than
 buried in a spreadsheet column.
 
-Want to see it first? Load [`samples/sample-localdb.csv`](samples/sample-localdb.csv).
+Want to see it first? Load [`samples/sample-discovery-output.csv`](samples/sample-discovery-output.csv).
 
 ## Sweeping the estate
 
