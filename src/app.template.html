@@ -312,8 +312,9 @@ details.acc[open] summary { margin-bottom: 9px; }
    Mirrors the assessment card in the Azure portal and SSMS: readiness headline,
    monthly estimate, then a thin unlabelled readiness bar with the counts listed
    beneath it rather than crammed inside. */
-.tcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
-@media (max-width: 1100px) { .tcards { grid-template-columns: 1fr; } }
+.tcards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+@media (max-width: 1400px) { .tcards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 760px)  { .tcards { grid-template-columns: 1fr; } }
 .tcard {
   background: var(--cp-surface); border: 1px solid var(--cp-border);
   border-radius: 10px; overflow: hidden; box-shadow: var(--cp-shadow-sm);

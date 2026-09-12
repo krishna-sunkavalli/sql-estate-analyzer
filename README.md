@@ -277,11 +277,54 @@ rather than a black box.
 
 Hyperscale is proposed only above the 4 TB single-database limit. Business Critical
 is selected where the source uses In-Memory OLTP, is clustered, participates in an
-availability group, or runs Enterprise edition in production.
+availability group, or runs Enterprise edition — except above 4 TB, where
+[standard-series Business Critical cannot go](https://learn.microsoft.com/azure/azure-sql/managed-instance/resource-limits),
+so those fall back to General Purpose.
 
 Managed Instance and SQL-on-VM are instance-level products, so databases from the
 same source instance are consolidated onto one deployment and share its compute
 cost rather than each being billed a full instance.
+
+### Sizing: only what the platform can actually be provisioned at
+
+Target vCores are the source core count reduced by the **right-sizing** percentage
+(default 20%), then rounded **up to a size the target actually offers**. These
+ladders differ by platform and are not interchangeable — Managed Instance on
+standard-series offers only 4, 8, 16, 24, 32, 40, 64 and 80 vCores, so a quote at
+6 or 12 vCores is not something a customer can buy.
+
+### Azure Hybrid Benefit is an entitlement, not a discount
+
+This is the part most estimates get wrong.
+[AHB](https://learn.microsoft.com/azure/azure-sql/azure-hybrid-benefit) converts
+owned cores into the right to run a number of vCores at the **base** rate:
+
+| On-prem licence (with SA) | General Purpose | Business Critical |
+|---|---|---|
+| **Enterprise** core | 1 core → **4 vCores** | 1 core → **1 vCore** |
+| **Standard** core | 1 core → **1 vCore** | 4 cores → **1 vCore** |
+
+So 8 Enterprise cores entitle you to 32 GP vCores at the base rate. vCores
+**beyond** the entitlement pay the licence-included rate. Treating AHB as a flat
+on/off discount overstates savings on estates that grow into Azure, and
+understates them on Enterprise estates with headroom to spare.
+
+**AHB does not apply to the serverless compute tier**, so serverless is always
+priced at its licence-inclusive rate.
+
+### Serverless
+
+[Serverless](https://learn.microsoft.com/azure/azure-sql/database/serverless-tier-overview)
+bills per second on the compute actually used and drops to storage-only while
+paused. It is **General Purpose and Hyperscale only — never Business Critical** —
+so anything needing In-Memory OLTP, clustering or an availability group is blocked
+from it.
+
+Its cost depends entirely on how many hours the database is active, which no
+inventory scan can measure, so that is a slider (default 25%). The break-even is
+the useful part: in East US serverless lists at **$0.522/vCore/hr** against
+**$0.362** for provisioned General Purpose with the licence included, so
+**serverless wins below roughly 69% active** and loses above it.
 
 ### Readiness
 

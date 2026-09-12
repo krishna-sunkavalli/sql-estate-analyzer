@@ -38,6 +38,7 @@ const A = {
 
   // Right-sizing
   rightSizePct: 20,          // cut this % off the source core count
+  serverlessActivePct: 25,   // hours/month a serverless DB is active, not paused
   minVcores: 2,
   storageOverheadPct: 30,    // growth headroom on database size
   consolidateToMi: true,     // group an instance's DBs onto one MI
@@ -242,10 +243,43 @@ function dataCoverage() {
    --------------------------------------------------------------------------- */
 const TARGETS = {
   sqldb: { name: "Azure SQL Database",       short: "SQL DB", managed: 3 },
+  sl:    { name: "SQL DB Serverless",        short: "Serverless", managed: 3 },
   hs:    { name: "SQL DB Hyperscale",        short: "Hyperscale", managed: 3 },
   mi:    { name: "SQL Managed Instance",     short: "SQL MI", managed: 2 },
   vm:    { name: "SQL Server on Azure VM",   short: "SQL VM", managed: 1 },
 };
+
+/* Provisionable vCore sizes. These are not a generic ladder: Managed Instance
+   on standard-series (Gen5) offers only these counts, and a quote at 6 or 12
+   vCores is not something the customer can actually buy.
+   learn.microsoft.com/azure/azure-sql/managed-instance/resource-limits */
+const VCORE_STEPS = {
+  mi:    [4, 8, 16, 24, 32, 40, 64, 80],       // Gen5 GP and BC; 2 only in instance pools
+  sqldb: [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 32, 40, 80],
+  hs:    [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 32, 40, 80],
+  sl:    [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 32, 40, 80],
+  vm:    [2, 4, 8, 16, 32, 48, 64],
+};
+
+/* Azure Hybrid Benefit converts owned on-premises cores into an ENTITLEMENT to
+   run a number of vCores at the base (compute-only) rate. It is not a blanket
+   discount — beyond the entitlement, vCores pay the licence-included rate.
+
+   learn.microsoft.com/azure/azure-sql/azure-hybrid-benefit
+     Enterprise + SA:  1 core -> 4 vCores General Purpose,  1 core -> 1 vCore Business Critical
+     Standard   + SA:  1 core -> 1 vCore General Purpose,  4 cores -> 1 vCore Business Critical
+
+   AHB does not apply to the serverless compute tier or the DTU model. */
+const AHB_RATIO = {
+  Enterprise: { gp: 4,    bc: 1 },
+  Standard:   { gp: 1,    bc: 0.25 },
+};
+
+function ahbVcoreEntitlement(cores, edition, tier) {
+  if (!A.sqlAhb || !A.onPremHasSA || !cores) return 0;
+  const r = AHB_RATIO[editionKind(edition) === "Enterprise" ? "Enterprise" : "Standard"];
+  return cores * (tier === "bc" ? r.bc : r.gp);
+}
 
 /* Each rule: which targets it rules out, and why. */
 const RULES = [
@@ -264,6 +298,11 @@ const RULES = [
   { id: "agentjobs",   test: r => (r.i.agentJobs || 0) > 0, blocks: ["sqldb", "hs"], why: "SQL Agent jobs require Managed Instance or VM (or rework as Elastic Jobs)" },
   { id: "cdc",         test: r => r.f.cdc,          blocks: [],                    why: "" },
   { id: "memopt_hs",   test: r => r.f.memOpt,       blocks: ["hs"],                why: "In-Memory OLTP is not available on Hyperscale" },
+  // Serverless is General Purpose / Hyperscale only, standard-series hardware only.
+  // learn.microsoft.com/azure/azure-sql/database/serverless-tier-overview
+  { id: "sl_memopt",   test: r => r.f.memOpt,       blocks: ["sl"],                why: "In-Memory OLTP needs Business Critical, which the serverless compute tier does not offer" },
+  { id: "sl_bc",       test: r => r.i.fci || r.i.alwaysOn || r.f.inAg, blocks: ["sl"], why: "Always On / clustering implies Business Critical, which serverless does not offer" },
+  { id: "sl_size",     test: r => r.sizeGb > 4096,  blocks: ["sl"],                why: "Database exceeds the 4 TB serverless General Purpose limit" },
   { id: "size_db",     test: r => r.sizeGb > 4096,  blocks: ["sqldb"],             why: "Database exceeds the 4 TB single-database limit — use Hyperscale, MI or VM" },
   { id: "size_mi",     test: r => r.sizeGb > 16384, blocks: ["mi"],                why: "Database exceeds the 16 TB Managed Instance limit" },
 ];
@@ -303,8 +342,9 @@ function readinessFor(r, target) {
 }
 
 function evaluateRow(r) {
-  const blocked = { sqldb: [], hs: [], mi: [], vm: [] };
-  const warned  = { sqldb: [], hs: [], mi: [], vm: [] };
+  const empty = () => Object.fromEntries(Object.keys(TARGETS).map(k => [k, []]));
+  const blocked = empty();
+  const warned  = empty();
   const fired = [];
   const warnFired = [];
   for (const rule of RULES) {
@@ -337,10 +377,33 @@ function evaluateRow(r) {
 
 /* Service tier: Business Critical where the estate signals it needs it. */
 function tierFor(r, target) {
-  if (target === "vm" || target === "hs") return "gp";
+  if (target === "vm" || target === "hs" || target === "sl") return "gp";
+  // Business Critical on standard-series tops out at 4 TB of instance storage, so
+  // a database above that cannot be placed there however much it wants the tier.
+  // learn.microsoft.com/azure/azure-sql/managed-instance/resource-limits
+  if (target === "mi" && r.sizeGb > 4096) return "gp";
   const needsBc = r.f.memOpt || r.i.fci || r.i.alwaysOn || r.f.inAg ||
                   editionKind(r.edition) === "Enterprise";
   return needsBc ? "bc" : "gp";
+}
+
+/* Sizing is a deliberate, visible judgement rather than an inferred one.
+
+   The alternative was to right-size from collected CPU, but the evidence is too
+   uneven to carry that weight: Query Store is off on most estates, and the
+   scheduler ring buffer covers only the last few hours of a single instance. A
+   number derived from four hours of idle sampling looks measured and is not.
+
+   So: take the source core count, cut it by an explicit percentage the user sets
+   and can defend, then round UP to a size the target can actually be provisioned
+   at — which differs per platform. 20% is the default because SQL Server estates
+   are routinely provisioned for a peak that never arrives. */
+function vcoresFor(r, target) {
+  const base = r.cores || A.minVcores;
+  let v = base * (1 - (A.rightSizePct || 0) / 100);
+  v = Math.max(A.minVcores, v);
+  const steps = VCORE_STEPS[target] || VCORE_STEPS.sqldb;
+  return steps.find(s => s >= v) || steps[steps.length - 1];
 }
 
 /* ---------------------------------------------------------------------------
@@ -353,25 +416,6 @@ function tierFor(r, target) {
 function qsCoresFor(r) {
   if (r.qsCores == null || !(r.qsWindowHrs > 1)) return null;
   return r.qsCores;
-}
-
-/* Sizing is a deliberate, visible judgement rather than an inferred one.
-
-   The alternative was to right-size from collected CPU, but the evidence is too
-   uneven to carry that weight: Query Store is off on most estates, and the
-   scheduler ring buffer covers only the last few hours of a single instance. A
-   number derived from four hours of idle sampling looks measured and is not.
-
-   So: take the source core count and cut it by an explicit percentage the user
-   sets and can defend. 20% is the default because SQL Server estates are
-   routinely provisioned for a peak that never arrives. Set it to 0 to model a
-   straight lift-and-shift. */
-function vcoresFor(r) {
-  const base = r.cores || A.minVcores;
-  let v = base * (1 - (A.rightSizePct || 0) / 100);
-  v = Math.max(A.minVcores, v);
-  const steps = [2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128];
-  return steps.find(s => s >= v) || 128;
 }
 
 const VM_CATALOG = [
@@ -409,19 +453,17 @@ function disksFor(gb) {
    --------------------------------------------------------------------------- */
 function px() { return PRICES.regions?.[A.region] || {}; }
 
+/* Returns the BASE (compute-only) rate. The licence component is added by
+   costRow() against the portion of vCores not covered by an AHB entitlement,
+   so it must not be folded in here. */
 function paasRate(target, tier) {
   const p = px();
   const key = target === "mi" ? (tier === "bc" ? "mi_bc_gen5" : "mi_gp_gen5")
             : target === "hs" ? "db_hs_gen5"
             : (tier === "bc" ? "db_bc_gen5" : "db_gp_gen5");
-  let base;
-  if (A.term === "ri1y")      base = p.ri?.[key + "_1y"] ?? p.paas?.[key];
-  else if (A.term === "ri3y") base = p.ri?.[key + "_3y"] ?? p.paas?.[key];
-  else                        base = p.paas?.[key];
-  base = base ?? 0;
-  // Base rate is the AHB rate; add the licence component when AHB is not applied.
-  const uplift = A.sqlAhb ? 0 : (tier === "bc" ? A.paasLicUpliftBc : A.paasLicUpliftGp);
-  return base + uplift;
+  if (A.term === "ri1y")      return p.ri?.[key + "_1y"] ?? p.paas?.[key] ?? 0;
+  if (A.term === "ri3y")      return p.ri?.[key + "_3y"] ?? p.paas?.[key] ?? 0;
+  return p.paas?.[key] ?? 0;
 }
 
 function storageRate(target, tier) {
@@ -444,7 +486,7 @@ const VM_RI_FACTOR = { payg: 1, ri1y: 0.58, ri3y: 0.38 };
 function costRow(r, share, forceTarget) {
   const target = forceTarget || r.override || r.rec;
   const tier = tierFor(r, target);
-  const vcores = vcoresFor(r);
+  const vcores = vcoresFor(r, target);
   const storeGb = Math.max(1, Math.ceil((r.sizeGb || 1) * (1 + A.storageOverheadPct / 100)));
   const hours = A.hoursPerMonth;
 
@@ -467,11 +509,30 @@ function costRow(r, share, forceTarget) {
     storage = disks.reduce((a, d) => a + (dp[d.sku] ?? 0), 0);
     detail = `${vm.sku} · ${vm.vcpu} vCPU / ${vm.memGb} GB · ${disks.length}× ${disks[0].sku}`;
     groupVcores = vm.vcpu;
+
+  } else if (target === "sl") {
+    // Serverless bills per second on vCores actually used, and drops to storage
+    // only while paused. Azure Hybrid Benefit does not apply, so the published
+    // rate already includes the licence — no uplift and no entitlement offset.
+    // learn.microsoft.com/azure/azure-sql/database/serverless-tier-overview
+    const activeHrs = hours * (A.serverlessActivePct / 100);
+    compute = (px().paas?.db_sl_gen5 ?? 0) * vcores * activeHrs;
+    storage = storageRate("sqldb", "gp") * storeGb;
+    detail = `Serverless · General Purpose · up to ${vcores} vCore · ${A.serverlessActivePct}% active`;
+
   } else {
-    compute = paasRate(target, tier) * vcores * hours;
+    // Provisioned PaaS. AHB is an entitlement earned from owned cores, not a
+    // blanket discount: vCores inside the entitlement pay the base rate, and
+    // anything beyond it pays the licence-included rate.
+    const baseRate = paasRate(target, tier);
+    const entitled = Math.min(vcores, ahbVcoreEntitlement(r.cores, r.edition, tier));
+    const uplift = tier === "bc" ? A.paasLicUpliftBc : A.paasLicUpliftGp;
+    compute = baseRate * vcores * hours;
+    license = uplift * Math.max(0, vcores - entitled) * hours;
     storage = storageRate(target, tier) * storeGb;
     const tierName = target === "hs" ? "Hyperscale" : (tier === "bc" ? "Business Critical" : "General Purpose");
-    detail = `${TARGETS[target].short} · ${tierName} · ${vcores} vCore`;
+    detail = `${TARGETS[target].short} · ${tierName} · ${vcores} vCore`
+           + (entitled > 0 ? ` · AHB covers ${Math.floor(entitled)}` : "");
   }
 
   // Shared deployment: this row carries only its slice of the instance compute.

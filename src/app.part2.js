@@ -390,13 +390,15 @@ function renderSummary() {
     ${(() => {
       const KIND = {
         sqldb: { kind: "Platform as a Service (PaaS)", desc: "Modernise your databases to Azure SQL Database" },
+        sl:    { kind: "Platform as a Service (PaaS)", desc: "Auto-scaling, billed per second on the compute actually used" },
         mi:    { kind: "Platform as a Service (PaaS)", desc: "Modernise your instances to Azure SQL Managed Instance" },
         vm:    { kind: "Infrastructure as a Service (IaaS)", desc: "Migrate your instances to SQL Server on Azure VM" },
       };
+      const shown = ["sqldb", "sl", "mi", "vm"];
       // Banner the platform the plan actually sends most databases to.
       const best = ["sqldb", "mi", "vm"].reduce((a, k) => (counts[k] || 0) > (counts[a] || 0) ? k : a, "sqldb");
 
-      return `<div class="tcards">${["sqldb", "mi", "vm"].map(k => {
+      return `<div class="tcards">${shown.map(k => {
         const tally = { ready: 0, warn: 0, blocked: 0 };
         for (const r of S.rows) tally[readinessFor(r, k)]++;
         const canMove = tally.ready + tally.warn;
@@ -428,7 +430,7 @@ function renderSummary() {
               </div>
               <div class="hl">
                 <div class="v">${est.dbs ? FMT.money(est.monthly) : "—"}</div>
-                <div class="l">Monthly estimate${est.dbs && est.dbs < S.rows.length ? ` for the ${est.dbs} that can move` : ""}</div>
+                <div class="l">Monthly estimate${k === "sl" ? ` at ${A.serverlessActivePct}% active` : est.dbs && est.dbs < S.rows.length ? ` for the ${est.dbs} that can move` : ""}</div>
               </div>
 
               <hr>

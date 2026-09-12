@@ -53,6 +53,10 @@ function renderCost() {
         <label>Right-sizing <span id="cRsLabel" class="src-tag">${A.rightSizePct}% smaller than source</span></label>
         <input type="range" id="cRightSize" value="${A.rightSizePct}" min="0" max="60" step="5" style="width:100%">
       </div>
+      <div class="ctl" style="min-width:230px">
+        <label>Serverless active <span id="cSlLabel" class="src-tag">${A.serverlessActivePct}% of the month</span></label>
+        <input type="range" id="cServerless" value="${A.serverlessActivePct}" min="5" max="100" step="5" style="width:100%">
+      </div>
       <div class="ctl"><label>Storage growth %</label><input type="number" id="cStor" value="${A.storageOverheadPct}" min="0" max="200" step="5"></div>
       <label class="chk"><input type="checkbox" id="cConsol" ${A.consolidateToMi ? "checked" : ""}> Consolidate databases per instance</label>
       <div class="spacer"></div>
@@ -169,6 +173,10 @@ function renderCost() {
       : `${v}% smaller than source`;
   };
   rs.onchange = e => { A.rightSizePct = +e.target.value || 0; renderAll(); };
+
+  const sl = $("#cServerless");
+  sl.oninput = e => { $("#cSlLabel").textContent = `${e.target.value}% of the month`; };
+  sl.onchange = e => { A.serverlessActivePct = +e.target.value || 25; renderAll(); };
   $("#cStor").onchange = e => { A.storageOverheadPct = +e.target.value || 0; renderAll(); };
   $("#cConsol").onchange = e => { A.consolidateToMi = e.target.checked; renderAll(); };
   $("#btnExportCsv").onclick = exportCsv;

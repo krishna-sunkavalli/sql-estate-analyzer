@@ -85,6 +85,11 @@ $PaasTiers = [ordered]@{
   'db_gp_gen5'  = 'SQL Database Single/Elastic Pool General Purpose - Compute Gen5'
   'db_bc_gen5'  = 'SQL Database Single/Elastic Pool Business Critical - Compute Gen5'
   'db_hs_gen5'  = 'SQL Database SingleDB/Elastic Pool Hyperscale - Compute Gen5'
+  # Serverless is billed per vCore-second on actual usage and is NOT eligible for
+  # Azure Hybrid Benefit, so this rate is licence-inclusive and is deliberately
+  # kept separate from the provisioned base rates above.
+  'db_sl_gen5'  = 'SQL Database General Purpose - Serverless - Compute Gen5'
+  'db_slhs_gen5' = 'SQL Database Hyperscale - Serverless - Compute Gen5'
 }
 
 $out = [ordered]@{
