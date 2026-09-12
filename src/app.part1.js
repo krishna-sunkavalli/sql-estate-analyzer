@@ -270,9 +270,9 @@ const WARNINGS = [
 ];
 
 const READINESS = {
-  ready:   { label: "Ready",               pill: "green" },
-  warn:    { label: "Ready with warnings", pill: "amber" },
-  blocked: { label: "Not ready",           pill: "red" },
+  ready:   { label: "Ready",        pill: "green" },
+  warn:    { label: "Needs review", pill: "amber" },
+  blocked: { label: "Not ready",    pill: "red" },
 };
 
 /* Readiness for one target, in the same three categories SSMS reports. */
@@ -406,8 +406,8 @@ const VM_RI_FACTOR = { payg: 1, ri1y: 0.58, ri3y: 0.38 };
    one source instance lands on a single MI/VM, so compute must be charged once
    and shared, not billed per database. computeEstate() handles that grouping;
    this function prices a standalone deployment. */
-function costRow(r, share) {
-  const target = r.override || r.rec;
+function costRow(r, share, forceTarget) {
+  const target = forceTarget || r.override || r.rec;
   const tier = tierFor(r, target);
   const vcores = vcoresFor(r);
   const storeGb = Math.max(1, Math.ceil((r.sizeGb || 1) * (1 + A.storageOverheadPct / 100)));
@@ -486,6 +486,38 @@ function computeEstate() {
   }
 
   for (const r of S.rows) if (!handled.has(r)) r.cost = costRow(r);
+}
+
+/* What the estate would cost if it all went to ONE target, counting only the
+   databases that can actually land there. Mirrors the sharing rule above: MI and
+   VM are instance-level, so their databases share a deployment. Used by the
+   per-target cards, which compare platforms the way the Azure portal assessment
+   does rather than only pricing the recommended plan. */
+function estateCostForTarget(target) {
+  const eligible = S.rows.filter(r => !r.blocked[target]?.length);
+  if (!eligible.length) return { monthly: 0, dbs: 0 };
+
+  let monthly = 0;
+  if (target === "mi" || target === "vm") {
+    const groups = {};
+    for (const r of eligible) (groups[r.instKey + "|" + tierFor(r, target)] ||= []).push(r);
+    for (const k in groups) {
+      const g = groups[k];
+      if (g.length < 2 || !A.consolidateToMi) {
+        for (const r of g) monthly += costRow(r, null, target).total;
+        continue;
+      }
+      const lead = g.reduce((a, b) => (b.sizeGb || 0) > (a.sizeGb || 0) ? b : a, g[0]);
+      const proto = costRow(lead, null, target);
+      const totalSize = g.reduce((a, r) => a + (r.sizeGb || 0), 0) || 1;
+      for (const r of g) {
+        monthly += costRow(r, { frac: (r.sizeGb || 0) / totalSize, detail: proto.detail }, target).total;
+      }
+    }
+  } else {
+    for (const r of eligible) monthly += costRow(r, null, target).total;
+  }
+  return { monthly, dbs: eligible.length };
 }
 
 /* On-prem baseline: SA renewal + ESU where out of support. Licence cost is

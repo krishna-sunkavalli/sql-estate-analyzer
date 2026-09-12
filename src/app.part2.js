@@ -345,7 +345,6 @@ function renderSummary() {
     </div>
 
     <div class="split">
-      <div>
       <div class="card">
         <h3>Recommended Azure targets</h3>
         <div class="stack-bar">${stack || '<div class="stack-seg" style="width:100%;background:var(--cp-border)"></div>'}</div>
@@ -357,38 +356,6 @@ function renderSummary() {
           option when a specific feature blocks the one above it. Open the
           <b>Recommendations</b> tab to see the blocker behind every rejected option.
         </div>
-      </div>
-
-      <div class="card">
-        <h3>Migration readiness by target <span class="hint">every database, every platform</span></h3>
-        ${["sqldb", "mi", "vm"].map(k => {
-          const tally = { ready: 0, warn: 0, blocked: 0 };
-          for (const r of S.rows) tally[readinessFor(r, k)]++;
-          const n = Math.max(1, S.rows.length);
-          const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
-            const pct = 100 * tally[s] / n;
-            return `<div class="stack-seg" style="width:${pct}%;background:var(--cp-viz-${s});color:var(--cp-viz-${s}-fg)" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
-          }).join("");
-          return `
-            <div style="margin-bottom:11px">
-              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
-                <b>${TARGETS[k].name}</b>
-                <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
-              </div>
-              <div class="stack-bar">${segs}</div>
-            </div>`;
-        }).join("")}
-        <div class="legend">
-          <span><i style="background:var(--cp-viz-ready)"></i>Ready</span>
-          <span><i style="background:var(--cp-viz-warn)"></i>Ready with warnings</span>
-          <span><i style="background:var(--cp-viz-blocked)"></i>Not ready</span>
-        </div>
-        <div class="note">
-          The same three categories the migration readiness assessment in SSMS reports.
-          <b>Ready with warnings</b> means the database can move but something needs attention
-          first — a service tier requirement, a feature to re-enable, or key management to plan.
-        </div>
-      </div>
       </div>
 
       <div class="card">
@@ -414,6 +381,74 @@ function renderSummary() {
         </div>
       </div>
     </div>
+
+    ${(() => {
+      const KIND = {
+        sqldb: { kind: "Platform as a Service (PaaS)", desc: "Modernise your databases to Azure SQL Database" },
+        mi:    { kind: "Platform as a Service (PaaS)", desc: "Modernise your instances to Azure SQL Managed Instance" },
+        vm:    { kind: "Infrastructure as a Service (IaaS)", desc: "Migrate your instances to SQL Server on Azure VM" },
+      };
+      // Banner the platform the plan actually sends most databases to.
+      const best = ["sqldb", "mi", "vm"].reduce((a, k) => (counts[k] || 0) > (counts[a] || 0) ? k : a, "sqldb");
+
+      return `<div class="tcards">${["sqldb", "mi", "vm"].map(k => {
+        const tally = { ready: 0, warn: 0, blocked: 0 };
+        for (const r of S.rows) tally[readinessFor(r, k)]++;
+        const canMove = tally.ready + tally.warn;
+        const n = Math.max(1, S.rows.length);
+        const est = estateCostForTarget(k);
+        const issues = new Set(), warns = new Set();
+        for (const r of S.rows) {
+          for (const w of (r.blocked[k] || [])) issues.add(w);
+          for (const w of (r.warned?.[k] || [])) warns.add(w);
+        }
+        // Warnings alone do not demote the headline: the portal still shows a
+        // green check for "Ready (1 warnings)". Only a blocker downgrades it.
+        const state = canMove === 0 ? "bad" : tally.blocked > 0 ? "warn" : "ok";
+        const glyph = state === "ok" ? "✓" : state === "warn" ? "!" : "✕";
+        const bar = ["ready", "warn", "blocked"].filter(s => tally[s] > 0)
+          .map(s => `<div style="width:${100 * tally[s] / n}%;background:var(--cp-viz-${s})" title="${READINESS[s].label}: ${tally[s]}"></div>`).join("");
+
+        return `
+          <div class="tcard ${k === best ? "rec" : ""}">
+            <div class="tcard-banner ${k === best ? "" : "ghost"}">★ Best fit for most databases</div>
+            <div class="tcard-pad">
+              <h4>${TARGETS[k].name}</h4>
+              <div class="kind">${KIND[k].kind}</div>
+              <div class="desc">${KIND[k].desc}</div>
+
+              <div class="hl">
+                <div class="v"><span class="rdot ${state}">${glyph}</span>${canMove} of ${S.rows.length} can move</div>
+                <div class="l">Migration readiness</div>
+              </div>
+              <div class="hl">
+                <div class="v">${est.dbs ? FMT.money(est.monthly) : "—"}</div>
+                <div class="l">Monthly estimate${est.dbs && est.dbs < S.rows.length ? ` for the ${est.dbs} that can move` : ""}</div>
+              </div>
+
+              <hr>
+              <div class="kv"><span>Migration issues</span><b>${issues.size}</b></div>
+              <div class="kv"><span>Migration warnings</span><b>${warns.size}</b></div>
+
+              <hr>
+              <div class="sec">Database readiness</div>
+              <div class="rbar">${bar}</div>
+              <div class="kv"><span>Ready</span><b>${tally.ready}</b></div>
+              <div class="kv"><span>Needs review</span><b>${tally.warn}</b></div>
+              <div class="kv"><span>Not ready</span><b>${tally.blocked}</b></div>
+            </div>
+          </div>`;
+      }).join("")}</div>
+
+      <div class="note info">
+        Readiness uses the same categories as the Azure portal and SSMS migration assessments, so these
+        results line up with what a per-instance assessment will tell you later.
+        <b>Needs review</b> — worded <i>Ready with warnings</i> in the SSMS report — means the database can
+        move but something needs attention first: a service tier requirement, a feature to re-enable, or key
+        management to plan. Monthly estimates price each platform independently, counting only the databases
+        that are not blocked from it, so they do not sum to the recommended plan.
+      </div>`;
+    })()}
 
     <div class="card">
       <h3>Estate by instance</h3>

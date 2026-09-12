@@ -57,9 +57,11 @@
   --cp-viz-2: #0f6cbd; --cp-viz-2-fg: #ffffff;
   --cp-viz-3: #71afe5; --cp-viz-3-fg: #201f1e;
   --cp-viz-4: #c8c6c4; --cp-viz-4-fg: #201f1e;
-  --cp-viz-ready:   #9fd89f; --cp-viz-ready-fg:   #0b3d0b;
-  --cp-viz-warn:    #f6d18a; --cp-viz-warn-fg:    #5c3a00;
-  --cp-viz-blocked: #f1a8ae; --cp-viz-blocked-fg: #5c1114;
+  --cp-viz-ready:   #107c10; --cp-viz-ready-fg:   #ffffff;
+  --cp-viz-warn:    #ca5010; --cp-viz-warn-fg:    #ffffff;
+  --cp-viz-blocked: #d13438; --cp-viz-blocked-fg: #ffffff;
+  --cp-rec-banner: #7719aa;
+  --cp-rec-tint: #faf7fd;
 }
 html[data-theme="dark"] {
   color-scheme: dark;
@@ -92,9 +94,11 @@ html[data-theme="dark"] {
   --cp-viz-2: #2b88d8; --cp-viz-2-fg: #ffffff;
   --cp-viz-3: #1a6bb0; --cp-viz-3-fg: #ffffff;
   --cp-viz-4: #797775; --cp-viz-4-fg: #ffffff;
-  --cp-viz-ready:   #2e6b2e; --cp-viz-ready-fg:   #e6f5e6;
-  --cp-viz-warn:    #7a5410; --cp-viz-warn-fg:    #ffeccc;
-  --cp-viz-blocked: #7a2b30; --cp-viz-blocked-fg: #ffdfe2;
+  --cp-viz-ready:   #359b35; --cp-viz-ready-fg:   #10161c;
+  --cp-viz-warn:    #d9722e; --cp-viz-warn-fg:    #10161c;
+  --cp-viz-blocked: #d9636b; --cp-viz-blocked-fg: #10161c;
+  --cp-rec-banner: #9a4dc7;
+  --cp-rec-tint: #2a2333;
 }
 
 * { box-sizing: border-box; }
@@ -304,6 +308,47 @@ details.acc[open] summary { margin-bottom: 9px; }
 .stack-seg { display: grid; place-items: center; font-size: 10.5px; font-weight: 600; overflow: hidden; }
 .stack-seg + .stack-seg { box-shadow: inset 1px 0 0 var(--cp-surface); }
 
+/* ---------- target comparison cards ----------
+   Mirrors the assessment card in the Azure portal and SSMS: readiness headline,
+   monthly estimate, then a thin unlabelled readiness bar with the counts listed
+   beneath it rather than crammed inside. */
+.tcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+@media (max-width: 1100px) { .tcards { grid-template-columns: 1fr; } }
+.tcard {
+  background: var(--cp-surface); border: 1px solid var(--cp-border);
+  border-radius: 10px; overflow: hidden; box-shadow: var(--cp-shadow-sm);
+  display: flex; flex-direction: column;
+}
+.tcard-banner {
+  background: var(--cp-rec-banner); color: #fff;
+  font-size: 12px; font-weight: 600; padding: 8px 16px; letter-spacing: .01em;
+}
+/* Reserve the banner's height on the other cards so all three bodies start on
+   the same line, the way the portal lays them out. */
+.tcard-banner.ghost { visibility: hidden; }
+.tcard-pad { padding: 16px 18px; flex: 1; }
+.tcard.rec .tcard-pad { background: var(--cp-rec-tint); }
+.tcard h4 { margin: 0; font-size: 15.5px; font-weight: 640; letter-spacing: -0.01em; }
+.tcard .kind { font-size: 11.5px; color: var(--cp-text-soft); margin-top: 2px; }
+.tcard .desc { font-size: 12px; color: var(--cp-text-muted); margin-top: 5px; line-height: 1.4; }
+.tcard .hl { margin-top: 14px; }
+.tcard .hl .v { font-size: 15px; font-weight: 640; display: flex; align-items: center; gap: 7px; }
+.tcard .hl .l { font-size: 11.5px; color: var(--cp-text-muted); margin-top: 1px; }
+.tcard hr { border: none; border-top: 1px solid var(--cp-border); margin: 15px 0 12px; }
+.tcard .sec { font-size: 11.5px; color: var(--cp-text-muted); margin-bottom: 7px; }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 3px 0; }
+.kv span { color: var(--cp-text-muted); }
+.kv b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.rbar { display: flex; height: 9px; overflow: hidden; margin: 2px 0 9px; background: var(--cp-surface-soft); }
+.rbar div { height: 100%; }
+.rdot {
+  width: 15px; height: 15px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff;
+}
+.rdot.ok { background: var(--cp-viz-ready); }
+.rdot.warn { background: var(--cp-viz-warn); }
+.rdot.bad { background: var(--cp-viz-blocked); }
+
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--cp-text-muted); margin-top: 9px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
@@ -358,7 +403,7 @@ details.acc[open] summary { margin-bottom: 9px; }
       <div class="gs">
         <div class="n">3</div>
         <h3>Review the options</h3>
-        <p>Every database is scored <b>Ready</b>, <b>Ready with warnings</b> or <b>Not ready</b> against each Azure target — the same categories SSMS reports — with the finding behind every one, plus costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
+        <p>Every database is scored <b>Ready</b>, <b>Needs review</b> or <b>Not ready</b> against each Azure target — the same categories the Azure portal and SSMS assessments use — with the finding behind every one, plus costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
       </div>
     </div>
 

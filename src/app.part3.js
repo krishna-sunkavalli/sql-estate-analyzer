@@ -440,11 +440,12 @@ function renderAssumptions() {
         availability group, or runs Enterprise edition in production.</p></details>
       <details class="acc"><summary>How readiness is categorised</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">Every database is reported against every target
-        in the three categories used by the migration readiness assessment in SSMS.
-        <b>Ready</b> — nothing detected that needs changing. <b>Ready with warnings</b> — it can move, but
-        something needs attention first: a service tier requirement (In-Memory OLTP needs Business Critical,
-        columnstore is unavailable below Standard S3), a feature to re-enable afterwards (CDC, change
-        tracking, replication), key management to plan (TDE), or a compatibility level below 100 to raise.
+        in the categories used by the Azure portal and SSMS migration assessments.
+        <b>Ready</b> — nothing detected that needs changing. <b>Needs review</b>, which the SSMS report words
+        <i>Ready with warnings</i> — it can move, but something needs attention first: a service tier
+        requirement (In-Memory OLTP needs Business Critical, columnstore is unavailable below Standard S3),
+        a feature to re-enable afterwards (CDC, change tracking, replication), key management to plan (TDE),
+        or a compatibility level below 100 to raise.
         <b>Not ready</b> — a feature rules the target out entirely until it is removed or reworked.
         Where a target is blocked, its warnings are suppressed: there is no value in planning around a
         feature on a platform you cannot use at all. These categories are derived from inventory flags, so

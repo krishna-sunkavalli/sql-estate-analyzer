@@ -165,7 +165,7 @@ make the final per-database call.
 |---|---|---|
 | Scope | Whole estate in one sweep | Per instance |
 | Permission | `VIEW SERVER STATE` + `VIEW ANY DEFINITION` | sysadmin |
-| Compatibility findings | Feature-flag heuristics, reported as Ready / Ready with warnings / Not ready | The same three categories, from the authoritative rule set, with remediation detail |
+| Compatibility findings | Feature-flag heuristics, reported as Ready / Needs review / Not ready | The same categories, from the authoritative rule set, with remediation detail |
 | Sizing | Inferred from cores, size and ring-buffer CPU | Performance-based when Arc-enabled |
 | Cost model | Yes — PAYG, reserved, AHB, vs on-premises | No |
 
@@ -205,17 +205,21 @@ cost rather than each being billed a full instance.
 
 ### Readiness
 
-Every database is also reported against **every** target using the same three
-categories as the [migration readiness assessment in
-SSMS](https://learn.microsoft.com/ssms/migrate/migrate-sql-server-azure-sql#assess-readiness-for-migration),
-so these results line up with what a per-instance assessment will tell your
-customer later:
+Every database is also reported against **every** target using the categories the
+[Azure portal](https://learn.microsoft.com/sql/sql-server/azure-arc/migration-assessment)
+and [SSMS](https://learn.microsoft.com/ssms/migrate/migrate-sql-server-azure-sql#assess-readiness-for-migration)
+migration assessments use, so these results line up with what a per-instance
+assessment will tell your customer later:
 
 | Category | Meaning |
 |---|---|
 | **Ready** | Nothing detected that needs changing |
-| **Ready with warnings** | It can move, but something needs attention first |
+| **Needs review** | It can move, but something needs attention first. The SSMS report words this *Ready with warnings* |
 | **Not ready** | A feature rules that target out until it is removed or reworked |
+
+The summary presents this as one card per target — readiness, monthly estimate,
+issue and warning counts, and the database readiness breakdown — mirroring the
+assessment cards in the Azure portal.
 
 Warnings cover service-tier requirements (In-Memory OLTP needs Business Critical;
 columnstore is unavailable below Standard S3), features to re-enable afterwards
@@ -227,8 +231,12 @@ Where a target is blocked its warnings are suppressed — there is no value in
 planning around a feature on a platform you cannot use at all.
 
 The categories are useful in both directions. A SQL Server 2016 database with no
-blockers shows **Ready** for Azure SQL Database but **Ready with warnings** for SQL
-Server on Azure VM, because lifting it as-is carries an out-of-support build.
+blockers shows **Ready** for Azure SQL Database but **Needs review** for SQL Server
+on Azure VM, because lifting it as-is carries an out-of-support build.
+
+Per-target monthly estimates price each platform independently, counting only the
+databases that are not blocked from it — so they answer "what would all-in on MI
+cost?" and deliberately do not sum to the recommended plan.
 
 ## Pricing
 

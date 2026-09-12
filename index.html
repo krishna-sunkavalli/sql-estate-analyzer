@@ -57,9 +57,11 @@
   --cp-viz-2: #0f6cbd; --cp-viz-2-fg: #ffffff;
   --cp-viz-3: #71afe5; --cp-viz-3-fg: #201f1e;
   --cp-viz-4: #c8c6c4; --cp-viz-4-fg: #201f1e;
-  --cp-viz-ready:   #9fd89f; --cp-viz-ready-fg:   #0b3d0b;
-  --cp-viz-warn:    #f6d18a; --cp-viz-warn-fg:    #5c3a00;
-  --cp-viz-blocked: #f1a8ae; --cp-viz-blocked-fg: #5c1114;
+  --cp-viz-ready:   #107c10; --cp-viz-ready-fg:   #ffffff;
+  --cp-viz-warn:    #ca5010; --cp-viz-warn-fg:    #ffffff;
+  --cp-viz-blocked: #d13438; --cp-viz-blocked-fg: #ffffff;
+  --cp-rec-banner: #7719aa;
+  --cp-rec-tint: #faf7fd;
 }
 html[data-theme="dark"] {
   color-scheme: dark;
@@ -92,9 +94,11 @@ html[data-theme="dark"] {
   --cp-viz-2: #2b88d8; --cp-viz-2-fg: #ffffff;
   --cp-viz-3: #1a6bb0; --cp-viz-3-fg: #ffffff;
   --cp-viz-4: #797775; --cp-viz-4-fg: #ffffff;
-  --cp-viz-ready:   #2e6b2e; --cp-viz-ready-fg:   #e6f5e6;
-  --cp-viz-warn:    #7a5410; --cp-viz-warn-fg:    #ffeccc;
-  --cp-viz-blocked: #7a2b30; --cp-viz-blocked-fg: #ffdfe2;
+  --cp-viz-ready:   #359b35; --cp-viz-ready-fg:   #10161c;
+  --cp-viz-warn:    #d9722e; --cp-viz-warn-fg:    #10161c;
+  --cp-viz-blocked: #d9636b; --cp-viz-blocked-fg: #10161c;
+  --cp-rec-banner: #9a4dc7;
+  --cp-rec-tint: #2a2333;
 }
 
 * { box-sizing: border-box; }
@@ -304,6 +308,47 @@ details.acc[open] summary { margin-bottom: 9px; }
 .stack-seg { display: grid; place-items: center; font-size: 10.5px; font-weight: 600; overflow: hidden; }
 .stack-seg + .stack-seg { box-shadow: inset 1px 0 0 var(--cp-surface); }
 
+/* ---------- target comparison cards ----------
+   Mirrors the assessment card in the Azure portal and SSMS: readiness headline,
+   monthly estimate, then a thin unlabelled readiness bar with the counts listed
+   beneath it rather than crammed inside. */
+.tcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+@media (max-width: 1100px) { .tcards { grid-template-columns: 1fr; } }
+.tcard {
+  background: var(--cp-surface); border: 1px solid var(--cp-border);
+  border-radius: 10px; overflow: hidden; box-shadow: var(--cp-shadow-sm);
+  display: flex; flex-direction: column;
+}
+.tcard-banner {
+  background: var(--cp-rec-banner); color: #fff;
+  font-size: 12px; font-weight: 600; padding: 8px 16px; letter-spacing: .01em;
+}
+/* Reserve the banner's height on the other cards so all three bodies start on
+   the same line, the way the portal lays them out. */
+.tcard-banner.ghost { visibility: hidden; }
+.tcard-pad { padding: 16px 18px; flex: 1; }
+.tcard.rec .tcard-pad { background: var(--cp-rec-tint); }
+.tcard h4 { margin: 0; font-size: 15.5px; font-weight: 640; letter-spacing: -0.01em; }
+.tcard .kind { font-size: 11.5px; color: var(--cp-text-soft); margin-top: 2px; }
+.tcard .desc { font-size: 12px; color: var(--cp-text-muted); margin-top: 5px; line-height: 1.4; }
+.tcard .hl { margin-top: 14px; }
+.tcard .hl .v { font-size: 15px; font-weight: 640; display: flex; align-items: center; gap: 7px; }
+.tcard .hl .l { font-size: 11.5px; color: var(--cp-text-muted); margin-top: 1px; }
+.tcard hr { border: none; border-top: 1px solid var(--cp-border); margin: 15px 0 12px; }
+.tcard .sec { font-size: 11.5px; color: var(--cp-text-muted); margin-bottom: 7px; }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 3px 0; }
+.kv span { color: var(--cp-text-muted); }
+.kv b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.rbar { display: flex; height: 9px; overflow: hidden; margin: 2px 0 9px; background: var(--cp-surface-soft); }
+.rbar div { height: 100%; }
+.rdot {
+  width: 15px; height: 15px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff;
+}
+.rdot.ok { background: var(--cp-viz-ready); }
+.rdot.warn { background: var(--cp-viz-warn); }
+.rdot.bad { background: var(--cp-viz-blocked); }
+
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--cp-text-muted); margin-top: 9px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
@@ -358,7 +403,7 @@ details.acc[open] summary { margin-bottom: 9px; }
       <div class="gs">
         <div class="n">3</div>
         <h3>Review the options</h3>
-        <p>Every database is scored <b>Ready</b>, <b>Ready with warnings</b> or <b>Not ready</b> against each Azure target — the same categories SSMS reports — with the finding behind every one, plus costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
+        <p>Every database is scored <b>Ready</b>, <b>Needs review</b> or <b>Not ready</b> against each Azure target — the same categories the Azure portal and SSMS assessments use — with the finding behind every one, plus costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
       </div>
     </div>
 
@@ -673,9 +718,9 @@ const WARNINGS = [
 ];
 
 const READINESS = {
-  ready:   { label: "Ready",               pill: "green" },
-  warn:    { label: "Ready with warnings", pill: "amber" },
-  blocked: { label: "Not ready",           pill: "red" },
+  ready:   { label: "Ready",        pill: "green" },
+  warn:    { label: "Needs review", pill: "amber" },
+  blocked: { label: "Not ready",    pill: "red" },
 };
 
 /* Readiness for one target, in the same three categories SSMS reports. */
@@ -809,8 +854,8 @@ const VM_RI_FACTOR = { payg: 1, ri1y: 0.58, ri3y: 0.38 };
    one source instance lands on a single MI/VM, so compute must be charged once
    and shared, not billed per database. computeEstate() handles that grouping;
    this function prices a standalone deployment. */
-function costRow(r, share) {
-  const target = r.override || r.rec;
+function costRow(r, share, forceTarget) {
+  const target = forceTarget || r.override || r.rec;
   const tier = tierFor(r, target);
   const vcores = vcoresFor(r);
   const storeGb = Math.max(1, Math.ceil((r.sizeGb || 1) * (1 + A.storageOverheadPct / 100)));
@@ -889,6 +934,38 @@ function computeEstate() {
   }
 
   for (const r of S.rows) if (!handled.has(r)) r.cost = costRow(r);
+}
+
+/* What the estate would cost if it all went to ONE target, counting only the
+   databases that can actually land there. Mirrors the sharing rule above: MI and
+   VM are instance-level, so their databases share a deployment. Used by the
+   per-target cards, which compare platforms the way the Azure portal assessment
+   does rather than only pricing the recommended plan. */
+function estateCostForTarget(target) {
+  const eligible = S.rows.filter(r => !r.blocked[target]?.length);
+  if (!eligible.length) return { monthly: 0, dbs: 0 };
+
+  let monthly = 0;
+  if (target === "mi" || target === "vm") {
+    const groups = {};
+    for (const r of eligible) (groups[r.instKey + "|" + tierFor(r, target)] ||= []).push(r);
+    for (const k in groups) {
+      const g = groups[k];
+      if (g.length < 2 || !A.consolidateToMi) {
+        for (const r of g) monthly += costRow(r, null, target).total;
+        continue;
+      }
+      const lead = g.reduce((a, b) => (b.sizeGb || 0) > (a.sizeGb || 0) ? b : a, g[0]);
+      const proto = costRow(lead, null, target);
+      const totalSize = g.reduce((a, r) => a + (r.sizeGb || 0), 0) || 1;
+      for (const r of g) {
+        monthly += costRow(r, { frac: (r.sizeGb || 0) / totalSize, detail: proto.detail }, target).total;
+      }
+    }
+  } else {
+    for (const r of eligible) monthly += costRow(r, null, target).total;
+  }
+  return { monthly, dbs: eligible.length };
 }
 
 /* On-prem baseline: SA renewal + ESU where out of support. Licence cost is
@@ -1257,7 +1334,6 @@ function renderSummary() {
     </div>
 
     <div class="split">
-      <div>
       <div class="card">
         <h3>Recommended Azure targets</h3>
         <div class="stack-bar">${stack || '<div class="stack-seg" style="width:100%;background:var(--cp-border)"></div>'}</div>
@@ -1269,38 +1345,6 @@ function renderSummary() {
           option when a specific feature blocks the one above it. Open the
           <b>Recommendations</b> tab to see the blocker behind every rejected option.
         </div>
-      </div>
-
-      <div class="card">
-        <h3>Migration readiness by target <span class="hint">every database, every platform</span></h3>
-        ${["sqldb", "mi", "vm"].map(k => {
-          const tally = { ready: 0, warn: 0, blocked: 0 };
-          for (const r of S.rows) tally[readinessFor(r, k)]++;
-          const n = Math.max(1, S.rows.length);
-          const segs = ["ready", "warn", "blocked"].filter(s => tally[s] > 0).map(s => {
-            const pct = 100 * tally[s] / n;
-            return `<div class="stack-seg" style="width:${pct}%;background:var(--cp-viz-${s});color:var(--cp-viz-${s}-fg)" title="${READINESS[s].label}: ${tally[s]}">${pct > 9 ? tally[s] : ""}</div>`;
-          }).join("");
-          return `
-            <div style="margin-bottom:11px">
-              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
-                <b>${TARGETS[k].name}</b>
-                <span class="src-tag">${tally.ready + tally.warn} of ${S.rows.length} can move</span>
-              </div>
-              <div class="stack-bar">${segs}</div>
-            </div>`;
-        }).join("")}
-        <div class="legend">
-          <span><i style="background:var(--cp-viz-ready)"></i>Ready</span>
-          <span><i style="background:var(--cp-viz-warn)"></i>Ready with warnings</span>
-          <span><i style="background:var(--cp-viz-blocked)"></i>Not ready</span>
-        </div>
-        <div class="note">
-          The same three categories the migration readiness assessment in SSMS reports.
-          <b>Ready with warnings</b> means the database can move but something needs attention
-          first — a service tier requirement, a feature to re-enable, or key management to plan.
-        </div>
-      </div>
       </div>
 
       <div class="card">
@@ -1326,6 +1370,74 @@ function renderSummary() {
         </div>
       </div>
     </div>
+
+    ${(() => {
+      const KIND = {
+        sqldb: { kind: "Platform as a Service (PaaS)", desc: "Modernise your databases to Azure SQL Database" },
+        mi:    { kind: "Platform as a Service (PaaS)", desc: "Modernise your instances to Azure SQL Managed Instance" },
+        vm:    { kind: "Infrastructure as a Service (IaaS)", desc: "Migrate your instances to SQL Server on Azure VM" },
+      };
+      // Banner the platform the plan actually sends most databases to.
+      const best = ["sqldb", "mi", "vm"].reduce((a, k) => (counts[k] || 0) > (counts[a] || 0) ? k : a, "sqldb");
+
+      return `<div class="tcards">${["sqldb", "mi", "vm"].map(k => {
+        const tally = { ready: 0, warn: 0, blocked: 0 };
+        for (const r of S.rows) tally[readinessFor(r, k)]++;
+        const canMove = tally.ready + tally.warn;
+        const n = Math.max(1, S.rows.length);
+        const est = estateCostForTarget(k);
+        const issues = new Set(), warns = new Set();
+        for (const r of S.rows) {
+          for (const w of (r.blocked[k] || [])) issues.add(w);
+          for (const w of (r.warned?.[k] || [])) warns.add(w);
+        }
+        // Warnings alone do not demote the headline: the portal still shows a
+        // green check for "Ready (1 warnings)". Only a blocker downgrades it.
+        const state = canMove === 0 ? "bad" : tally.blocked > 0 ? "warn" : "ok";
+        const glyph = state === "ok" ? "✓" : state === "warn" ? "!" : "✕";
+        const bar = ["ready", "warn", "blocked"].filter(s => tally[s] > 0)
+          .map(s => `<div style="width:${100 * tally[s] / n}%;background:var(--cp-viz-${s})" title="${READINESS[s].label}: ${tally[s]}"></div>`).join("");
+
+        return `
+          <div class="tcard ${k === best ? "rec" : ""}">
+            <div class="tcard-banner ${k === best ? "" : "ghost"}">★ Best fit for most databases</div>
+            <div class="tcard-pad">
+              <h4>${TARGETS[k].name}</h4>
+              <div class="kind">${KIND[k].kind}</div>
+              <div class="desc">${KIND[k].desc}</div>
+
+              <div class="hl">
+                <div class="v"><span class="rdot ${state}">${glyph}</span>${canMove} of ${S.rows.length} can move</div>
+                <div class="l">Migration readiness</div>
+              </div>
+              <div class="hl">
+                <div class="v">${est.dbs ? FMT.money(est.monthly) : "—"}</div>
+                <div class="l">Monthly estimate${est.dbs && est.dbs < S.rows.length ? ` for the ${est.dbs} that can move` : ""}</div>
+              </div>
+
+              <hr>
+              <div class="kv"><span>Migration issues</span><b>${issues.size}</b></div>
+              <div class="kv"><span>Migration warnings</span><b>${warns.size}</b></div>
+
+              <hr>
+              <div class="sec">Database readiness</div>
+              <div class="rbar">${bar}</div>
+              <div class="kv"><span>Ready</span><b>${tally.ready}</b></div>
+              <div class="kv"><span>Needs review</span><b>${tally.warn}</b></div>
+              <div class="kv"><span>Not ready</span><b>${tally.blocked}</b></div>
+            </div>
+          </div>`;
+      }).join("")}</div>
+
+      <div class="note info">
+        Readiness uses the same categories as the Azure portal and SSMS migration assessments, so these
+        results line up with what a per-instance assessment will tell you later.
+        <b>Needs review</b> — worded <i>Ready with warnings</i> in the SSMS report — means the database can
+        move but something needs attention first: a service tier requirement, a feature to re-enable, or key
+        management to plan. Monthly estimates price each platform independently, counting only the databases
+        that are not blocked from it, so they do not sum to the recommended plan.
+      </div>`;
+    })()}
 
     <div class="card">
       <h3>Estate by instance</h3>
@@ -1951,11 +2063,12 @@ function renderAssumptions() {
         availability group, or runs Enterprise edition in production.</p></details>
       <details class="acc"><summary>How readiness is categorised</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">Every database is reported against every target
-        in the three categories used by the migration readiness assessment in SSMS.
-        <b>Ready</b> — nothing detected that needs changing. <b>Ready with warnings</b> — it can move, but
-        something needs attention first: a service tier requirement (In-Memory OLTP needs Business Critical,
-        columnstore is unavailable below Standard S3), a feature to re-enable afterwards (CDC, change
-        tracking, replication), key management to plan (TDE), or a compatibility level below 100 to raise.
+        in the categories used by the Azure portal and SSMS migration assessments.
+        <b>Ready</b> — nothing detected that needs changing. <b>Needs review</b>, which the SSMS report words
+        <i>Ready with warnings</i> — it can move, but something needs attention first: a service tier
+        requirement (In-Memory OLTP needs Business Critical, columnstore is unavailable below Standard S3),
+        a feature to re-enable afterwards (CDC, change tracking, replication), key management to plan (TDE),
+        or a compatibility level below 100 to raise.
         <b>Not ready</b> — a feature rules the target out entirely until it is removed or reworked.
         Where a target is blocked, its warnings are suppressed: there is no value in planning around a
         feature on a platform you cannot use at all. These categories are derived from inventory flags, so
