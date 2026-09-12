@@ -187,6 +187,30 @@ query text** — safe to hand to a DBA for review before running.
 
 Requires SQL Server 2012 or later and `VIEW SERVER STATE` + `VIEW ANY DEFINITION`.
 
+### What it cannot collect, and why that matters
+
+Two columns change the numbers but cannot be read out of SQL Server. The script
+emits them blank for you to fill in, and the analyzer shows a **Source data
+coverage** card listing anything the inventory did not supply and the default
+applied — so a defaulted figure is never mistaken for a measured one.
+
+| Column | Blank means | Effect |
+|---|---|---|
+| `Environment` | Treated as **production** | Business Critical for Enterprise editions, full-month hours, no dev/test discount — raises the Azure estimate |
+| `HasSoftwareAssurance` | Treated as **covered** | An SA renewal is charged on every instance — raises the on-premises baseline |
+
+They pull in opposite directions, so filling both in is what turns the comparison
+from indicative into defensible. Marking dev and test databases lowers the Azure
+side; marking instances without SA lowers the on-premises side. An explicit `No`
+zeroes both the SA and ESU lines, since ESU cannot be bought without active SA.
+
+`LicenseModel`, `BusinessOwner`, `RtoHours`, `RpoMinutes`, `IsVirtualised` and
+`Notes` are emitted for your own planning and are not consumed by the model.
+
+`AvgCpuPct` and `PeakCpuPct` come from the ring buffer, which is empty on a
+recently restarted instance. Where they are missing, sizing falls back to matching
+the existing core count rather than right-sizing from observed demand.
+
 ## How recommendations are made
 
 Each database is tested against a rule set of features unsupported on specific

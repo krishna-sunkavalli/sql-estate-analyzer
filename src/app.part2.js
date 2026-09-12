@@ -367,7 +367,7 @@ function renderSummary() {
             ${t.license > 0 ? `<tr><td>Azure — SQL licence</td><td class="num">${FMT.money(t.license)}</td></tr>` : ""}
             <tr><td><b>Azure total</b></td><td class="num"><b>${FMT.money(t.monthly)}</b></td></tr>
             <tr><td colspan="2" style="border-bottom:2px solid var(--cp-border)"></td></tr>
-            <tr><td>On-prem — Software Assurance</td><td class="num">${FMT.money(op.sa / 12)}</td></tr>
+            <tr><td>On-prem — Software Assurance${op.sa > 0 ? "" : ' <span class="pill gray">not held</span>'}</td><td class="num">${FMT.money(op.sa / 12)}</td></tr>
             ${op.esu > 0 ? `<tr><td>On-prem — ESU <span class="pill red">out of support</span></td><td class="num">${FMT.money(op.esu / 12)}</td></tr>` : ""}
             ${op.hw > 0 ? `<tr><td>On-prem — hardware/hosting</td><td class="num">${FMT.money(op.hw / 12)}</td></tr>` : ""}
             <tr><td><b>On-prem total</b></td><td class="num"><b>${FMT.money(op.monthly)}</b></td></tr>
@@ -448,6 +448,38 @@ function renderSummary() {
         management to plan. Monthly estimates price each platform independently, counting only the databases
         that are not blocked from it, so they do not sum to the recommended plan.
       </div>`;
+    })()}
+
+    ${(() => {
+      const gaps = dataCoverage().filter(f => f.n < f.total);
+      if (!gaps.length) return "";
+      return `
+        <div class="card">
+          <h3>Source data coverage <span class="hint">what the inventory did not supply, and the default applied</span></h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th class="nosort">Field</th>
+                <th class="nosort num">Supplied</th>
+                <th class="nosort">Effect on this analysis</th>
+              </tr></thead>
+              <tbody>
+                ${gaps.map(f => `
+                  <tr>
+                    <td><b>${f.label}</b></td>
+                    <td class="num">${f.n} of ${f.total}</td>
+                    <td class="wrap-cell">${f.effect}</td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="note warn">
+            SQL Server cannot report <b>Environment</b> or <b>Software Assurance</b> — the discovery script
+            leaves those columns blank for you to fill in, and they move the numbers in opposite directions.
+            Marking non-production databases lowers the Azure estimate; marking instances without SA lowers
+            the on-premises baseline. Add them to the CSV and load it again for a defensible comparison.
+          </div>
+        </div>`;
     })()}
 
     <div class="card">

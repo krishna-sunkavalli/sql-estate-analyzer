@@ -662,6 +662,43 @@ function isProd(env) {
   return !/dev|test|qa|uat|stage|staging|sandbox|training|demo|poc/.test(s);
 }
 
+/* Software Assurance cannot be read from SQL Server, so the discovery script
+   leaves it blank for the customer to fill in. Blank means "assume covered",
+   which is the common enterprise case — but an explicit No must be honoured,
+   otherwise the on-premises baseline carries an SA renewal the customer does
+   not actually pay and Azure looks better than it is. */
+function hasSoftwareAssurance(r) {
+  const s = String(r?.hasSA ?? "").trim().toLowerCase();
+  if (!s) return true;
+  return !/^(no|n|false|0|none)$/.test(s);
+}
+
+/* Which influential fields the loaded inventory actually supplied. SQL Server
+   cannot report several of these, so they arrive blank from the discovery script
+   and the model falls back to a default. Surfaced on the summary so nobody reads
+   a defaulted number as a measured one. */
+function dataCoverage() {
+  const n = S.rows.length || 1;
+  const has = (f) => S.rows.filter(f).length;
+  return [
+    { key: "environment", label: "Environment",
+      n: has(r => String(r.environment || "").trim()),
+      effect: "every database priced as production — Business Critical for Enterprise editions, full-month hours, no dev/test discount" },
+    { key: "hasSA", label: "Software Assurance",
+      n: has(r => String(r.hasSA ?? "").trim()),
+      effect: "on-premises baseline assumes SA is renewed on every instance" },
+    { key: "cpuPct", label: "CPU utilisation",
+      n: has(r => r.cpuPct != null && r.cpuPct !== ""),
+      effect: "right-sizing from CPU is unavailable — sizing matches the existing core count" },
+    { key: "cores", label: "Cores",
+      n: has(r => r.cores > 0),
+      effect: "sizing falls back to the minimum vCore count" },
+    { key: "memoryGb", label: "Memory",
+      n: has(r => r.memoryGb > 0),
+      effect: "VM selection cannot honour a memory requirement" },
+  ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n }));
+}
+
 /* ---------------------------------------------------------------------------
    4. Target-fit rules engine
    --------------------------------------------------------------------------- */
@@ -975,9 +1012,12 @@ function onPremInstanceCost(rows) {
   const listPerPack = isEnt ? A.licEntPer2Core : A.licStdPer2Core;
   const licList = packs * listPerPack;
 
-  const saYr = licList * (A.saPctOfLicense / 100);
+  const saYr = hasSoftwareAssurance(r0) ? licList * (A.saPctOfLicense / 100) : 0;
   const sup = supportState(majorFrom(r0));
-  const esuYr = (sup.state === "esu" || sup.state === "eol") ? licList * (A.esuPctOfLicense / 100) : 0;
+  // ESU is only purchasable with active SA (or through Arc), so without SA there
+  // is no ESU line either — the exposure is that the estate simply runs unpatched.
+  const esuYr = (hasSoftwareAssurance(r0) && (sup.state === "esu" || sup.state === "eol"))
+    ? licList * (A.esuPctOfLicense / 100) : 0;
   const hwYr = (A.onPremHwPerCoreYr || 0) * cores;
 
   return { cores, packs, isEnt, licList, saYr, esuYr, hwYr, totalYr: saYr + esuYr + hwYr, sup };
@@ -1353,7 +1393,7 @@ function renderSummary() {
             ${t.license > 0 ? `<tr><td>Azure — SQL licence</td><td class="num">${FMT.money(t.license)}</td></tr>` : ""}
             <tr><td><b>Azure total</b></td><td class="num"><b>${FMT.money(t.monthly)}</b></td></tr>
             <tr><td colspan="2" style="border-bottom:2px solid var(--cp-border)"></td></tr>
-            <tr><td>On-prem — Software Assurance</td><td class="num">${FMT.money(op.sa / 12)}</td></tr>
+            <tr><td>On-prem — Software Assurance${op.sa > 0 ? "" : ' <span class="pill gray">not held</span>'}</td><td class="num">${FMT.money(op.sa / 12)}</td></tr>
             ${op.esu > 0 ? `<tr><td>On-prem — ESU <span class="pill red">out of support</span></td><td class="num">${FMT.money(op.esu / 12)}</td></tr>` : ""}
             ${op.hw > 0 ? `<tr><td>On-prem — hardware/hosting</td><td class="num">${FMT.money(op.hw / 12)}</td></tr>` : ""}
             <tr><td><b>On-prem total</b></td><td class="num"><b>${FMT.money(op.monthly)}</b></td></tr>
@@ -1434,6 +1474,38 @@ function renderSummary() {
         management to plan. Monthly estimates price each platform independently, counting only the databases
         that are not blocked from it, so they do not sum to the recommended plan.
       </div>`;
+    })()}
+
+    ${(() => {
+      const gaps = dataCoverage().filter(f => f.n < f.total);
+      if (!gaps.length) return "";
+      return `
+        <div class="card">
+          <h3>Source data coverage <span class="hint">what the inventory did not supply, and the default applied</span></h3>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th class="nosort">Field</th>
+                <th class="nosort num">Supplied</th>
+                <th class="nosort">Effect on this analysis</th>
+              </tr></thead>
+              <tbody>
+                ${gaps.map(f => `
+                  <tr>
+                    <td><b>${f.label}</b></td>
+                    <td class="num">${f.n} of ${f.total}</td>
+                    <td class="wrap-cell">${f.effect}</td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="note warn">
+            SQL Server cannot report <b>Environment</b> or <b>Software Assurance</b> — the discovery script
+            leaves those columns blank for you to fill in, and they move the numbers in opposite directions.
+            Marking non-production databases lowers the Azure estimate; marking instances without SA lowers
+            the on-premises baseline. Add them to the CSV and load it again for a defensible comparison.
+          </div>
+        </div>`;
     })()}
 
     <div class="card">

@@ -217,6 +217,43 @@ function isProd(env) {
   return !/dev|test|qa|uat|stage|staging|sandbox|training|demo|poc/.test(s);
 }
 
+/* Software Assurance cannot be read from SQL Server, so the discovery script
+   leaves it blank for the customer to fill in. Blank means "assume covered",
+   which is the common enterprise case — but an explicit No must be honoured,
+   otherwise the on-premises baseline carries an SA renewal the customer does
+   not actually pay and Azure looks better than it is. */
+function hasSoftwareAssurance(r) {
+  const s = String(r?.hasSA ?? "").trim().toLowerCase();
+  if (!s) return true;
+  return !/^(no|n|false|0|none)$/.test(s);
+}
+
+/* Which influential fields the loaded inventory actually supplied. SQL Server
+   cannot report several of these, so they arrive blank from the discovery script
+   and the model falls back to a default. Surfaced on the summary so nobody reads
+   a defaulted number as a measured one. */
+function dataCoverage() {
+  const n = S.rows.length || 1;
+  const has = (f) => S.rows.filter(f).length;
+  return [
+    { key: "environment", label: "Environment",
+      n: has(r => String(r.environment || "").trim()),
+      effect: "every database priced as production — Business Critical for Enterprise editions, full-month hours, no dev/test discount" },
+    { key: "hasSA", label: "Software Assurance",
+      n: has(r => String(r.hasSA ?? "").trim()),
+      effect: "on-premises baseline assumes SA is renewed on every instance" },
+    { key: "cpuPct", label: "CPU utilisation",
+      n: has(r => r.cpuPct != null && r.cpuPct !== ""),
+      effect: "right-sizing from CPU is unavailable — sizing matches the existing core count" },
+    { key: "cores", label: "Cores",
+      n: has(r => r.cores > 0),
+      effect: "sizing falls back to the minimum vCore count" },
+    { key: "memoryGb", label: "Memory",
+      n: has(r => r.memoryGb > 0),
+      effect: "VM selection cannot honour a memory requirement" },
+  ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n }));
+}
+
 /* ---------------------------------------------------------------------------
    4. Target-fit rules engine
    --------------------------------------------------------------------------- */
@@ -530,9 +567,12 @@ function onPremInstanceCost(rows) {
   const listPerPack = isEnt ? A.licEntPer2Core : A.licStdPer2Core;
   const licList = packs * listPerPack;
 
-  const saYr = licList * (A.saPctOfLicense / 100);
+  const saYr = hasSoftwareAssurance(r0) ? licList * (A.saPctOfLicense / 100) : 0;
   const sup = supportState(majorFrom(r0));
-  const esuYr = (sup.state === "esu" || sup.state === "eol") ? licList * (A.esuPctOfLicense / 100) : 0;
+  // ESU is only purchasable with active SA (or through Arc), so without SA there
+  // is no ESU line either — the exposure is that the estate simply runs unpatched.
+  const esuYr = (hasSoftwareAssurance(r0) && (sup.state === "esu" || sup.state === "eol"))
+    ? licList * (A.esuPctOfLicense / 100) : 0;
   const hwYr = (A.onPremHwPerCoreYr || 0) * cores;
 
   return { cores, packs, isEnt, licList, saYr, esuYr, hwYr, totalYr: saYr + esuYr + hwYr, sup };
