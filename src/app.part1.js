@@ -34,8 +34,7 @@ const A = {
   winAhb: false,             // apply Azure Hybrid Benefit for Windows Server
   term: "payg",              // payg | ri1y | ri3y
   hoursPerMonth: 730,
-  runHoursPerMonth: 730,     // non-production may run fewer hours
-  devTestDiscountPct: 0,     // applies to non-production rows if set
+  onPremHasSA: true,         // estate-wide: SQL cannot report licensing position
 
   // Right-sizing
   sizingBasis: "cores",      // cores | cpu
@@ -118,11 +117,9 @@ const FIELDS = [
   { key: "peakCpuPct",  label: "Peak CPU %",        req: false, aliases: ["peakcpupct", "maxcpupct", "maxcpu", "peakcpu"] },
   { key: "readIops",    label: "Read IOPS",         req: false, aliases: ["readiops", "reads"] },
   { key: "writeIops",   label: "Write IOPS",        req: false, aliases: ["writeiops", "writes"] },
-  { key: "environment", label: "Environment",       req: false, aliases: ["environment", "env", "tier", "stage", "envtype"] },
   { key: "compat",      label: "Compatibility lvl", req: false, aliases: ["compatibilitylevel", "compatlevel", "compat"] },
   { key: "os",          label: "OS platform",       req: false, aliases: ["osplatform", "os", "operatingsystem", "platform"] },
-  { key: "application", label: "Application",       req: false, aliases: ["application", "app", "appname", "workload", "service"] },
-  { key: "hasSA",       label: "Software Assurance",req: false, aliases: ["hassoftwareassurance", "softwareassurance", "sa", "hassa"] },
+  { key: "uptimeHours", label: "Uptime (hours)",    req: false, aliases: ["uptimehours", "uptime"] },
 ];
 
 /* Boolean feature flags that drive target eligibility. */
@@ -211,39 +208,19 @@ function editionKind(ed) {
   return "Standard";
 }
 
-function isProd(env) {
-  const s = String(env || "").toLowerCase();
-  if (!s) return true;                       // default to production when unknown
-  return !/dev|test|qa|uat|stage|staging|sandbox|training|demo|poc/.test(s);
-}
+/* Everything is priced as production. The collector cannot tell a dev database
+   from a production one, and rather than invite a human to annotate the CSV we
+   keep the inventory purely machine-generated and price conservatively. */
 
-/* Software Assurance cannot be read from SQL Server, so the discovery script
-   leaves it blank for the customer to fill in. Blank means "assume covered",
-   which is the common enterprise case — but an explicit No must be honoured,
-   otherwise the on-premises baseline carries an SA renewal the customer does
-   not actually pay and Azure looks better than it is. */
-function hasSoftwareAssurance(r) {
-  const s = String(r?.hasSA ?? "").trim().toLowerCase();
-  if (!s) return true;
-  return !/^(no|n|false|0|none)$/.test(s);
-}
-
-/* Which influential fields the loaded inventory actually supplied. SQL Server
-   cannot report several of these, so they arrive blank from the discovery script
-   and the model falls back to a default. Surfaced on the summary so nobody reads
-   a defaulted number as a measured one. */
+/* Signals the collector reports but which can legitimately come back empty — a
+   recently restarted instance has no ring-buffer CPU history, for example.
+   Surfaced on the summary so a fallback is never mistaken for a measurement. */
 function dataCoverage() {
   const n = S.rows.length || 1;
   const has = (f) => S.rows.filter(f).length;
-  return [
-    { key: "environment", label: "Environment",
-      n: has(r => String(r.environment || "").trim()),
-      effect: "every database priced as production — Business Critical for Enterprise editions, full-month hours, no dev/test discount" },
-    { key: "hasSA", label: "Software Assurance",
-      n: has(r => String(r.hasSA ?? "").trim()),
-      effect: "on-premises baseline assumes SA is renewed on every instance" },
+  const out = [
     { key: "cpuPct", label: "CPU utilisation",
-      n: has(r => r.cpuPct != null && r.cpuPct !== ""),
+      n: has(r => r.cpuPct != null),
       effect: "right-sizing from CPU is unavailable — sizing matches the existing core count" },
     { key: "cores", label: "Cores",
       n: has(r => r.cores > 0),
@@ -251,7 +228,21 @@ function dataCoverage() {
     { key: "memoryGb", label: "Memory",
       n: has(r => r.memoryGb > 0),
       effect: "VM selection cannot honour a memory requirement" },
-  ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n }));
+    { key: "sizeGb", label: "Database size",
+      n: has(r => r.sizeGb > 0),
+      effect: "storage cost and the size-based target limits cannot be evaluated" },
+  ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n, kind: "missing" }));
+
+  // Ring-buffer CPU covers roughly the last four hours. On an instance that has
+  // only just restarted the reading is present but meaningless — usually 0% —
+  // which would quietly under-size it if anyone switched to CPU-based sizing.
+  const fresh = has(r => r.cpuPct != null && r.uptimeHours != null && r.uptimeHours < 4);
+  if (fresh) {
+    out.push({ key: "uptime", label: "CPU history too short", n: S.rows.length - fresh,
+      total: S.rows.length, pct: 100 * (S.rows.length - fresh) / n, kind: "unreliable",
+      effect: `${fresh} database${fresh === 1 ? " sits" : "s sit"} on an instance restarted within the last 4 hours — its CPU reading reflects an idle server, so do not right-size from it` });
+  }
+  return out;
 }
 
 /* ---------------------------------------------------------------------------
@@ -356,7 +347,7 @@ function evaluateRow(r) {
 function tierFor(r, target) {
   if (target === "vm" || target === "hs") return "gp";
   const needsBc = r.f.memOpt || r.i.fci || r.i.alwaysOn || r.f.inAg ||
-                  (editionKind(r.edition) === "Enterprise" && isProd(r.environment));
+                  editionKind(r.edition) === "Enterprise";
   return needsBc ? "bc" : "gp";
 }
 
@@ -448,7 +439,7 @@ function costRow(r, share, forceTarget) {
   const tier = tierFor(r, target);
   const vcores = vcoresFor(r);
   const storeGb = Math.max(1, Math.ceil((r.sizeGb || 1) * (1 + A.storageOverheadPct / 100)));
-  const hours = isProd(r.environment) ? A.hoursPerMonth : A.runHoursPerMonth;
+  const hours = A.hoursPerMonth;
 
   let compute = 0, storage = 0, license = 0, detail = "", shared = false, groupVcores = vcores;
 
@@ -485,7 +476,6 @@ function costRow(r, share, forceTarget) {
   }
 
   let total = compute + storage + license;
-  if (!isProd(r.environment) && A.devTestDiscountPct > 0) total *= (1 - A.devTestDiscountPct / 100);
 
   return { target, tier, vcores, groupVcores, storeGb, compute, storage, license, total, detail, shared };
 }
@@ -567,11 +557,11 @@ function onPremInstanceCost(rows) {
   const listPerPack = isEnt ? A.licEntPer2Core : A.licStdPer2Core;
   const licList = packs * listPerPack;
 
-  const saYr = hasSoftwareAssurance(r0) ? licList * (A.saPctOfLicense / 100) : 0;
+  const saYr = A.onPremHasSA ? licList * (A.saPctOfLicense / 100) : 0;
   const sup = supportState(majorFrom(r0));
   // ESU is only purchasable with active SA (or through Arc), so without SA there
   // is no ESU line either — the exposure is that the estate simply runs unpatched.
-  const esuYr = (hasSoftwareAssurance(r0) && (sup.state === "esu" || sup.state === "eol"))
+  const esuYr = (A.onPremHasSA && (sup.state === "esu" || sup.state === "eol"))
     ? licList * (A.esuPctOfLicense / 100) : 0;
   const hwYr = (A.onPremHwPerCoreYr || 0) * cores;
 

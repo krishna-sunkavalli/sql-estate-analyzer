@@ -41,12 +41,12 @@ Either way, open the [analyzer](https://krishna-sunkavalli.github.io/sql-estate-
 and drop the files in. No install, no sign-in, no agent. Works offline — use
 **Save Page As** if you need to run it on a disconnected network.
 
-Prefer to fill in data by hand? Use
-[`templates/SqlEstateInventory-Template.csv`](templates/SqlEstateInventory-Template.csv).
-
-The analyzer accepts CSV, TSV and XLSX and auto-detects column names, so
-inventories from Azure Migrate, MAP Toolkit or a hand-built spreadsheet work too —
-match the template's column names for anything it does not pick up.
+The inventory is **entirely machine-generated**. There are no columns for anyone to
+fill in, nothing is inferred from a label a human typed, and the analysis is driven
+only by what the collector read out of the engine. Judgement calls SQL Server cannot
+answer for itself — whether the estate is under Software Assurance, for instance —
+live on the **Assumptions** tab, where they are visible and adjustable rather than
+buried in a spreadsheet column.
 
 Want to see it first? Load [`samples/sample-localdb.csv`](samples/sample-localdb.csv).
 
@@ -187,29 +187,29 @@ query text** — safe to hand to a DBA for review before running.
 
 Requires SQL Server 2012 or later and `VIEW SERVER STATE` + `VIEW ANY DEFINITION`.
 
-### What it cannot collect, and why that matters
+### What it cannot collect, and where that goes instead
 
-Two columns change the numbers but cannot be read out of SQL Server. The script
-emits them blank for you to fill in, and the analyzer shows a **Source data
-coverage** card listing anything the inventory did not supply and the default
-applied — so a defaulted figure is never mistaken for a measured one.
+Some things that affect the numbers are simply not visible to the database engine.
+Rather than emit blank columns and invite someone to annotate the CSV — which would
+make the analysis only as trustworthy as whoever filled in the spreadsheet — those
+are **estate-wide assumptions on the Assumptions tab**:
 
-| Column | Blank means | Effect |
+| Assumption | Default | Effect |
 |---|---|---|
-| `Environment` | Treated as **production** | Business Critical for Enterprise editions, full-month hours, no dev/test discount — raises the Azure estimate |
-| `HasSoftwareAssurance` | Treated as **covered** | An SA renewal is charged on every instance — raises the on-premises baseline |
+| Software Assurance active | On | Charges an SA renewal per instance, and allows an ESU line where a version is out of support. Turning it off zeroes both, since ESU cannot be bought without active SA |
 
-They pull in opposite directions, so filling both in is what turns the comparison
-from indicative into defensible. Marking dev and test databases lowers the Azure
-side; marking instances without SA lowers the on-premises side. An explicit `No`
-zeroes both the SA and ESU lines, since ESU cannot be bought without active SA.
+Leaving SA on is the conservative choice: it raises the on-premises run-rate and so
+makes Azure look better. Turn it off if the customer is not under SA.
 
-`LicenseModel`, `BusinessOwner`, `RtoHours`, `RpoMinutes`, `IsVirtualised` and
-`Notes` are emitted for your own planning and are not consumed by the model.
+Everything is priced as **production**. The collector cannot distinguish a dev
+database from a production one, so nothing is discounted on the basis of a guess.
 
-`AvgCpuPct` and `PeakCpuPct` come from the ring buffer, which is empty on a
-recently restarted instance. Where they are missing, sizing falls back to matching
-the existing core count rather than right-sizing from observed demand.
+Where a collected signal can legitimately come back empty, the analyzer shows a
+**Source data coverage** card naming the field and the fallback applied — so a
+default is never mistaken for a measurement. The common case is `AvgCpuPct` and
+`PeakCpuPct`, which come from the ring buffer and are empty on a recently restarted
+instance; sizing then matches the existing core count instead of right-sizing from
+observed demand.
 
 ## How recommendations are made
 
@@ -295,8 +295,7 @@ Microsoft account team before committing to a number.
 |---|---|
 | `index.html` | The built, self-contained app served by GitHub Pages |
 | `discovery/` | Estate sweep (`Invoke-SqlEstateDiscovery.ps1`) and the read-only T-SQL script it runs |
-| `templates/` | Blank CSV inventory template |
-| `samples/` | Example inventory (CSV and XLSX) |
+| `samples/` | Example inventory produced by the discovery script |
 | `src/` | Source: HTML template, JS parts, price puller, build script |
 
 ### Building locally

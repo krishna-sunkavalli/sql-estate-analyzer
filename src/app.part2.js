@@ -221,11 +221,9 @@ function buildRows() {
       sizeGb: sizeGb ?? 0,
       cpuPct: numOf(get(rec, "cpuPct")),
       peakCpuPct: numOf(get(rec, "peakCpuPct")),
-      environment: get(rec, "environment") || "",
       compat: numOf(get(rec, "compat")),
       os: get(rec, "os") || "",
-      application: get(rec, "application") || "",
-      hasSA: get(rec, "hasSA"),
+      uptimeHours: numOf(get(rec, "uptimeHours")),
       f, i: inst,
       override: null,
     };
@@ -455,12 +453,12 @@ function renderSummary() {
       if (!gaps.length) return "";
       return `
         <div class="card">
-          <h3>Source data coverage <span class="hint">what the inventory did not supply, and the default applied</span></h3>
+          <h3>Source data coverage <span class="hint">signals the collector could not read, and the fallback applied</span></h3>
           <div class="tbl-wrap">
             <table>
               <thead><tr>
-                <th class="nosort">Field</th>
-                <th class="nosort num">Supplied</th>
+                <th class="nosort">Signal</th>
+                <th class="nosort num">Usable</th>
                 <th class="nosort">Effect on this analysis</th>
               </tr></thead>
               <tbody>
@@ -474,10 +472,10 @@ function renderSummary() {
             </table>
           </div>
           <div class="note warn">
-            SQL Server cannot report <b>Environment</b> or <b>Software Assurance</b> — the discovery script
-            leaves those columns blank for you to fill in, and they move the numbers in opposite directions.
-            Marking non-production databases lowers the Azure estimate; marking instances without SA lowers
-            the on-premises baseline. Add them to the CSV and load it again for a defensible comparison.
+            These are signals SQL Server could not report on every instance, not fields anyone forgot to
+            fill in — the inventory is entirely machine-generated. Where a signal is missing the model
+            falls back rather than guessing, so nothing here is a defaulted number dressed up as a
+            measured one.
           </div>
         </div>`;
     })()}
@@ -552,7 +550,7 @@ function renderTargets() {
               const t = r.cost.target;
               return `<tr>
                 <td>${esc(r.instKey)}</td>
-                <td><b>${esc(r.database)}</b>${r.application ? `<br><span class="src-tag">${esc(r.application)}</span>` : ""}</td>
+                <td><b>${esc(r.database)}</b></td>
                 <td><span class="pill ${t === "vm" ? "amber" : t === "mi" ? "accent" : "green"}">${TARGETS[t].short}</span>
                     <span class="src-tag"> ${r.cost.tier === "bc" && t !== "vm" && t !== "hs" ? "Business Critical" : ""}</span></td>
                 <td>
@@ -625,7 +623,7 @@ function filtered() {
   if (S.filter !== "all") rows = rows.filter(r => r.cost.target === S.filter);
   if (S.search.trim()) {
     const q = S.search.toLowerCase();
-    rows = rows.filter(r => (r.database + " " + r.instKey + " " + r.application + " " + r.version).toLowerCase().includes(q));
+    rows = rows.filter(r => (r.database + " " + r.instKey + " " + r.version).toLowerCase().includes(q));
   }
   const { key, dir } = S.sort;
   return [...rows].sort((a, b) => {

@@ -181,7 +181,7 @@ function renderInventory() {
             <th data-sort="database">Database</th><th data-sort="version">Version</th>
             <th data-sort="edition">Edition</th><th class="num" data-sort="cores">Cores</th>
             <th class="num" data-sort="memoryGb">Memory</th><th class="num" data-sort="sizeGb">Size</th>
-            <th class="num" data-sort="cpuPct">CPU %</th><th data-sort="environment">Env</th>
+            <th class="num" data-sort="cpuPct">CPU %</th><th data-sort="compat">Compat</th>
             <th class="nosort">Features</th>
           </tr></thead>
           <tbody>
@@ -192,7 +192,7 @@ function renderInventory() {
               <td class="num">${r.memoryGb ? FMT.num(r.memoryGb) + " GB" : "—"}</td>
               <td class="num">${FMT.gb(r.sizeGb)}</td>
               <td class="num">${r.cpuPct != null ? FMT.pct(r.cpuPct) : "—"}</td>
-              <td>${esc(r.environment || "—")}</td>
+              <td class="num">${r.compat || "—"}</td>
               <td class="wrap-cell">${FEATURES.filter(f => r.f[f.key]).map(f => `<span class="pill gray">${esc(f.label)}</span>`).join(" ") || '<span class="src-tag">—</span>'}</td>
             </tr>`).join("")}
           </tbody>
@@ -214,8 +214,6 @@ function renderAssumptions() {
     { k: "vmSqlEntPerCoreHr", label: "SQL Enterprise on VM ($/vCPU/hr)", pre: "$" },
     { k: "vmSqlStdPerCoreHr", label: "SQL Standard on VM ($/vCPU/hr)", pre: "$" },
     { k: "onPremHwPerCoreYr", label: "On-prem hardware/hosting ($/core/yr)", pre: "$" },
-    { k: "runHoursPerMonth", label: "Non-production run hours per month", pre: "" },
-    { k: "devTestDiscountPct", label: "Dev/Test discount on non-production (%)", pre: "%" },
     { k: "minVcores", label: "Minimum vCores per database", pre: "" },
   ];
 
@@ -225,6 +223,22 @@ function renderAssumptions() {
       reservation rates, but <i>not</i> SQL Server licence costs — neither the licence component of
       Azure SQL PaaS nor SQL licences on Azure VM. Those are listed here as explicit assumptions so
       you can replace them with the customer's actual negotiated rates rather than list price.
+    </div>
+
+    <div class="card">
+      <h3>Estate-wide assumptions <span class="hint">things SQL Server cannot report about itself</span></h3>
+      <label class="chk">
+        <input type="checkbox" id="assumeSA" ${A.onPremHasSA ? "checked" : ""}>
+        Software Assurance is active on the on-premises estate
+      </label>
+      <div class="note">
+        The collector reads the engine, not the licensing agreement, so this is a judgement you set
+        rather than a column in the inventory. It only affects the <b>on-premises</b> side of the
+        comparison: with it off, the Software Assurance renewal and the ESU line both drop to zero,
+        since ESU cannot be purchased without active SA. Leaving it on is the conservative choice —
+        it makes the on-premises run-rate look higher, and therefore Azure look better, so turn it
+        off if the customer is not under SA.
+      </div>
     </div>
 
     <div class="split">
@@ -278,7 +292,9 @@ function renderAssumptions() {
         platform with no violations, preferring Azure SQL Database, then Managed Instance, then SQL Server
         on Azure VM. Hyperscale is proposed only where a database exceeds the 4 TB single-database limit.
         Business Critical is selected where the source uses In-Memory OLTP, is clustered, participates in an
-        availability group, or runs Enterprise edition in production.</p></details>
+        availability group, or runs Enterprise edition. The inventory is entirely machine-generated, so
+        the model never assumes a database is non-production: everything is priced at full production
+        hours.</p></details>
       <details class="acc"><summary>How readiness is categorised</summary>
         <p style="font-size:12.5px;color:var(--cp-text-muted)">Every database is reported against every target
         in the categories used by the Azure portal and SSMS migration assessments.
@@ -309,6 +325,7 @@ function renderAssumptions() {
     $$("[data-assume]").forEach(i => { A[i.dataset.assume] = parseFloat(i.value) || 0; });
     renderAll();
   };
+  $("#assumeSA").onchange = (e) => { A.onPremHasSA = e.target.checked; renderAll(); };
 }
 
 /* ---------------------------------------------------------------------------
@@ -319,7 +336,7 @@ const EXPORT_COLS = [
   ["SQL version", r => r.version], ["Edition", r => r.edition],
   ["Support status", r => r.support.label], ["Cores", r => r.cores],
   ["Memory GB", r => r.memoryGb], ["Size GB", r => (r.sizeGb || 0).toFixed(1)],
-  ["Avg CPU %", r => r.cpuPct], ["Environment", r => r.environment],
+  ["Avg CPU %", r => r.cpuPct],
   ["Recommended target", r => TARGETS[r.cost.target].name],
   ["Readiness — SQL DB", r => READINESS[readinessFor(r, "sqldb")].label],
   ["Readiness — SQL MI", r => READINESS[readinessFor(r, "mi")].label],
@@ -404,36 +421,16 @@ ${sheet("Analysis", EXPORT_COLS.map(c => c[0]), detail)}
 }
 
 /* ---------------------------------------------------------------------------
-   11. Template + script downloads
-   --------------------------------------------------------------------------- */
-function templateCsv() {
-  const cols = ["ServerName", "InstanceName", "SqlVersion", "ProductVersion", "Edition", "OsPlatform",
-    "LogicalCores", "PhysicalMemoryGB", "AvgCpuPct", "PeakCpuPct", "IsFailoverCluster", "IsAlwaysOnEnabled",
-    "AgentJobCount", "LinkedServerCount", "HasSsisCatalog", "HasSsrs", "IsReplicationDistributor",
-    "DatabaseName", "CompatibilityLevel", "TotalSizeGB", "DataSizeGB", "LogSizeGB", "Environment", "Application",
-    "HasFileStream", "HasFileTable", "HasMemoryOptimized", "HasClrAssembly", "HasFullTextCatalog",
-    "HasColumnStoreIndex", "HasPartitioning", "HasTemporalTable", "HasExternalTable",
-    "HasCrossDbDependency", "HasLinkedSvrDependency", "HasServiceBroker", "HasChangeDataCapture",
-    "HasChangeTracking", "IsTdeEncrypted", "IsPublished", "IsSubscribed", "IsMergePublished",
-    "IsInAvailabilityGroup", "HasSoftwareAssurance"];
-  const sample = ["SQLPROD01", "MSSQLSERVER", "SQL Server 2014", "12.0.6024.0", "Enterprise Edition (64-bit)", "Windows",
-    "16", "128", "34", "78", "1", "1", "12", "2", "0", "0", "0",
-    "SalesDB", "120", "840.5", "760.2", "80.3", "Production", "Order Management",
-    "0", "0", "1", "0", "0", "1", "1", "0", "0", "1", "0", "1", "0", "1", "1", "0", "0", "0", "1", "Yes"];
-  return "\uFEFF" + cols.join(",") + "\r\n" + sample.join(",") + "\r\n";
-}
-
-/* ---------------------------------------------------------------------------
-   12. Demo estate — representative of a real mixed SQL Server environment
+   11. Demo estate — representative of a real mixed SQL Server environment
    --------------------------------------------------------------------------- */
 function demoCsv() {
   const hdr = ["ServerName","InstanceName","SqlVersion","ProductVersion","Edition","OsPlatform","LogicalCores",
     "PhysicalMemoryGB","AvgCpuPct","PeakCpuPct","IsFailoverCluster","IsAlwaysOnEnabled","AgentJobCount",
     "LinkedServerCount","HasSsisCatalog","HasSsrs","IsReplicationDistributor","DatabaseName","CompatibilityLevel",
-    "TotalSizeGB","Environment","Application","HasFileStream","HasFileTable","HasMemoryOptimized","HasClrAssembly",
+    "TotalSizeGB","HasFileStream","HasFileTable","HasMemoryOptimized","HasClrAssembly",
     "HasFullTextCatalog","HasColumnStoreIndex","HasPartitioning","HasTemporalTable","HasExternalTable",
     "HasCrossDbDependency","HasLinkedSvrDependency","HasServiceBroker","HasChangeDataCapture","HasChangeTracking",
-    "IsTdeEncrypted","IsPublished","IsSubscribed","IsMergePublished","IsInAvailabilityGroup","HasSoftwareAssurance"];
+    "IsTdeEncrypted","IsPublished","IsSubscribed","IsMergePublished","IsInAvailabilityGroup"];
 
   const d = (o) => hdr.map(h => o[h] ?? "0").join(",");
   const rows = [
@@ -441,74 +438,67 @@ function demoCsv() {
     { ServerName:"SQLPROD01", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2014", ProductVersion:"12.0.6449.1",
       Edition:"Enterprise Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"24", PhysicalMemoryGB:"256",
       AvgCpuPct:"38", PeakCpuPct:"81", IsFailoverCluster:"1", IsAlwaysOnEnabled:"1", AgentJobCount:"18",
-      LinkedServerCount:"3", DatabaseName:"SalesOrders", CompatibilityLevel:"120", TotalSizeGB:"1240",
-      Environment:"Production", Application:"Order Management", HasClrAssembly:"1", HasCrossDbDependency:"1",
-      HasColumnStoreIndex:"1", HasPartitioning:"1", IsTdeEncrypted:"1", IsInAvailabilityGroup:"1", HasSoftwareAssurance:"Yes" },
+      LinkedServerCount:"3", DatabaseName:"SalesOrders", CompatibilityLevel:"120", TotalSizeGB:"1240", HasClrAssembly:"1", HasCrossDbDependency:"1",
+      HasColumnStoreIndex:"1", HasPartitioning:"1", IsTdeEncrypted:"1", IsInAvailabilityGroup:"1" },
     { ServerName:"SQLPROD01", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2014", ProductVersion:"12.0.6449.1",
       Edition:"Enterprise Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"24", PhysicalMemoryGB:"256",
       AvgCpuPct:"38", PeakCpuPct:"81", IsFailoverCluster:"1", IsAlwaysOnEnabled:"1", AgentJobCount:"18",
-      LinkedServerCount:"3", DatabaseName:"CustomerMaster", CompatibilityLevel:"120", TotalSizeGB:"380",
-      Environment:"Production", Application:"CRM", HasCrossDbDependency:"1", IsTdeEncrypted:"1",
-      IsInAvailabilityGroup:"1", HasSoftwareAssurance:"Yes" },
+      LinkedServerCount:"3", DatabaseName:"CustomerMaster", CompatibilityLevel:"120", TotalSizeGB:"380", HasCrossDbDependency:"1", IsTdeEncrypted:"1",
+      IsInAvailabilityGroup:"1" },
 
     // 2016 Standard — clean, PaaS-ready
     { ServerName:"SQLAPP02", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2016", ProductVersion:"13.0.7016.1",
       Edition:"Standard Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"8", PhysicalMemoryGB:"64",
       AvgCpuPct:"14", PeakCpuPct:"42", AgentJobCount:"0", DatabaseName:"WebContent", CompatibilityLevel:"130",
-      TotalSizeGB:"85", Environment:"Production", Application:"Public Website", HasFullTextCatalog:"1",
-      HasSoftwareAssurance:"Yes" },
+      TotalSizeGB:"85", HasFullTextCatalog:"1" },
     { ServerName:"SQLAPP02", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2016", ProductVersion:"13.0.7016.1",
       Edition:"Standard Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"8", PhysicalMemoryGB:"64",
       AvgCpuPct:"14", PeakCpuPct:"42", AgentJobCount:"0", DatabaseName:"Sessions", CompatibilityLevel:"130",
-      TotalSizeGB:"12", Environment:"Production", Application:"Public Website", HasSoftwareAssurance:"Yes" },
+      TotalSizeGB:"12" },
 
     // 2012 EOL with FILESTREAM — VM only
     { ServerName:"SQLDOC03", InstanceName:"DOCS", SqlVersion:"SQL Server 2012", ProductVersion:"11.0.7507.2",
       Edition:"Standard Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"12", PhysicalMemoryGB:"96",
       AvgCpuPct:"22", PeakCpuPct:"58", AgentJobCount:"6", DatabaseName:"DocumentStore", CompatibilityLevel:"110",
-      TotalSizeGB:"2400", Environment:"Production", Application:"Document Management", HasFileStream:"1",
-      HasFileTable:"1", HasFullTextCatalog:"1", HasSoftwareAssurance:"No" },
+      TotalSizeGB:"2400", HasFileStream:"1",
+      HasFileTable:"1", HasFullTextCatalog:"1" },
 
     // 2019 Enterprise data warehouse — very large, Hyperscale candidate
     { ServerName:"SQLDW04", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2019", ProductVersion:"15.0.4345.5",
       Edition:"Enterprise Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"32", PhysicalMemoryGB:"512",
       AvgCpuPct:"52", PeakCpuPct:"94", AgentJobCount:"24", HasSsisCatalog:"1", DatabaseName:"EnterpriseDW",
-      CompatibilityLevel:"150", TotalSizeGB:"6800", Environment:"Production", Application:"Analytics",
-      HasColumnStoreIndex:"1", HasPartitioning:"1", HasExternalTable:"1", HasSoftwareAssurance:"Yes" },
+      CompatibilityLevel:"150", TotalSizeGB:"6800",
+      HasColumnStoreIndex:"1", HasPartitioning:"1", HasExternalTable:"1" },
 
     // 2017 reporting + SSRS — VM only
     { ServerName:"SQLRPT05", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2017", ProductVersion:"14.0.3465.1",
       Edition:"Standard Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"8", PhysicalMemoryGB:"64",
       AvgCpuPct:"18", PeakCpuPct:"63", AgentJobCount:"9", HasSsrs:"1", DatabaseName:"ReportServer",
-      CompatibilityLevel:"140", TotalSizeGB:"45", Environment:"Production", Application:"Reporting",
-      HasSoftwareAssurance:"Yes" },
+      CompatibilityLevel:"140", TotalSizeGB:"45" },
 
     // Dev/test — low utilisation
     { ServerName:"SQLDEV06", InstanceName:"DEV", SqlVersion:"SQL Server 2019", ProductVersion:"15.0.4345.5",
       Edition:"Developer Edition (64-bit)", OsPlatform:"Linux", LogicalCores:"8", PhysicalMemoryGB:"32",
       AvgCpuPct:"6", PeakCpuPct:"28", AgentJobCount:"2", DatabaseName:"SalesOrders_Dev",
-      CompatibilityLevel:"150", TotalSizeGB:"210", Environment:"Development", Application:"Order Management",
-      HasClrAssembly:"1", HasSoftwareAssurance:"Yes" },
+      CompatibilityLevel:"150", TotalSizeGB:"210",
+      HasClrAssembly:"1" },
     { ServerName:"SQLDEV06", InstanceName:"DEV", SqlVersion:"SQL Server 2019", ProductVersion:"15.0.4345.5",
       Edition:"Developer Edition (64-bit)", OsPlatform:"Linux", LogicalCores:"8", PhysicalMemoryGB:"32",
       AvgCpuPct:"6", PeakCpuPct:"28", AgentJobCount:"2", DatabaseName:"WebContent_Test",
-      CompatibilityLevel:"150", TotalSizeGB:"40", Environment:"Test", Application:"Public Website",
-      HasSoftwareAssurance:"Yes" },
+      CompatibilityLevel:"150", TotalSizeGB:"40" },
 
     // In-Memory OLTP — Business Critical
     { ServerName:"SQLTRD07", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2022", ProductVersion:"16.0.4125.3",
       Edition:"Enterprise Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"16", PhysicalMemoryGB:"256",
       AvgCpuPct:"61", PeakCpuPct:"92", IsAlwaysOnEnabled:"1", AgentJobCount:"5", DatabaseName:"TradingEngine",
-      CompatibilityLevel:"160", TotalSizeGB:"640", Environment:"Production", Application:"Trading Platform",
-      HasMemoryOptimized:"1", HasTemporalTable:"1", IsTdeEncrypted:"1", IsInAvailabilityGroup:"1",
-      HasSoftwareAssurance:"Yes" },
+      CompatibilityLevel:"160", TotalSizeGB:"640",
+      HasMemoryOptimized:"1", HasTemporalTable:"1", IsTdeEncrypted:"1", IsInAvailabilityGroup:"1" },
 
     // Merge replication — VM only
     { ServerName:"SQLBR08", InstanceName:"MSSQLSERVER", SqlVersion:"SQL Server 2016", ProductVersion:"13.0.7016.1",
       Edition:"Standard Edition (64-bit)", OsPlatform:"Windows", LogicalCores:"8", PhysicalMemoryGB:"48",
       AvgCpuPct:"11", PeakCpuPct:"39", AgentJobCount:"14", IsReplicationDistributor:"1",
-      DatabaseName:"BranchSync", CompatibilityLevel:"130", TotalSizeGB:"95", Environment:"Production",
-      Application:"Branch Operations", IsMergePublished:"1", IsPublished:"1", HasSoftwareAssurance:"Yes" },
+      DatabaseName:"BranchSync", CompatibilityLevel:"130", TotalSizeGB:"95", IsMergePublished:"1", IsPublished:"1" },
   ];
   return "\uFEFF" + hdr.join(",") + "\r\n" + rows.map(d).join("\r\n") + "\r\n";
 }
@@ -589,7 +579,6 @@ function boot() {
     if (files.length) loadFiles(files);
   });
 
-  $("#btnTemplate").onclick = () => download("SqlEstateInventory-Template.csv", templateCsv(), "text/csv;charset=utf-8");
   $("#btnDemo").onclick = () => {
     const blob = new File([demoCsv()], "demo-estate.csv", { type: "text/csv" });
     loadFiles([blob]);

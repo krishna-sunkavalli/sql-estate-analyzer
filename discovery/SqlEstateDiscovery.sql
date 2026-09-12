@@ -488,20 +488,6 @@ SELECT
     d.IsBrokerEnabled AS HasServiceBroker, d.IsCdcEnabled AS HasChangeDataCapture,
     d.IsChangeTrackingOn AS HasChangeTracking,
     d.IsPublished, d.IsSubscribed, d.IsMergePublished, d.IsInAvailabilityGroup,
-    -- fields the Analyzer accepts but the engine cannot know: fill these in yourself
-    -- Environment and HasSoftwareAssurance change the cost comparison. Left blank
-    -- the Analyzer assumes production and SA-covered, which raises the Azure
-    -- estimate and the on-premises baseline respectively. The rest are for your
-    -- own planning and are not consumed by the model.
-    CONVERT(nvarchar(32),  NULL) AS Environment,        -- Production / Dev / Test / QA / DR
-    CONVERT(nvarchar(32),  NULL) AS LicenseModel,       -- Core / ServerCAL
-    CONVERT(nvarchar(8),   NULL) AS HasSoftwareAssurance, -- Yes / No
-    CONVERT(nvarchar(64),  NULL) AS Application,
-    CONVERT(nvarchar(64),  NULL) AS BusinessOwner,
-    CONVERT(nvarchar(16),  NULL) AS RtoHours,
-    CONVERT(nvarchar(16),  NULL) AS RpoMinutes,
-    CONVERT(nvarchar(8),   NULL) AS IsVirtualised,      -- Yes / No
-    CONVERT(nvarchar(128), NULL) AS Notes,
     CONVERT(datetime, GETDATE()) AS CollectedAtUtc
 INTO #out
 FROM #db d;

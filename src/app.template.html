@@ -378,10 +378,9 @@ details.acc[open] summary { margin-bottom: 9px; }
   <section id="uploadView">
     <div class="drop" id="drop">
       <h2>Drop your SQL estate inventory here</h2>
-      <p>CSV or Excel produced by the discovery script — or any inventory with matching columns</p>
+      <p>The CSV produced by the discovery script</p>
       <div class="row">
         <button class="primary" id="btnPick">Choose file…</button>
-        <button id="btnTemplate">Download CSV template</button>
         <button id="btnScript">Get the discovery scripts</button>
         <button class="ghost" id="btnDemo">Load demo estate</button>
       </div>
@@ -408,10 +407,11 @@ details.acc[open] summary { margin-bottom: 9px; }
     </div>
 
     <div class="note info" style="margin-top:22px">
-      <b>Not from the discovery script?</b> Any CSV/Excel works as long as it has one row per database.
-      The analyzer auto-detects common column names, so exports from Azure Migrate, the MAP Toolkit
-      or a hand-built spreadsheet work too — match the template's column names for anything it misses.
-      The essentials are: server/instance name, database name, SQL version, edition, core count and database size.
+      <b>Everything here comes from the discovery script.</b> The inventory is entirely
+      machine-generated — there are no columns for anyone to fill in, and nothing is inferred from a
+      label a human typed. Judgement calls that SQL Server cannot answer for itself, such as whether
+      the estate is under Software Assurance, live on the <b>Assumptions</b> tab where they are
+      visible and adjustable rather than buried in a spreadsheet.
     </div>
 
     <div class="note" style="margin-top:12px">
