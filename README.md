@@ -182,6 +182,37 @@ I/O rates, and feature flags (FILESTREAM, In-Memory OLTP, CLR, Service Broker,
 cross-database dependencies, replication, and so on) plus instance-scope signals
 (Agent jobs, linked servers, SSIS, SSRS, clustering, availability groups).
 
+### Resource detail
+
+| Signal | Source |
+|---|---|
+| Logical cores, sockets, cores per socket, online schedulers | `sys.dm_os_sys_info`, `sys.dm_os_schedulers` |
+| Installed RAM, configured max server memory | `sys.dm_os_sys_info`, `sys.configurations` |
+| SQL memory target vs actually in use | `sys.dm_os_sys_info.committed_target_kb`, `sys.dm_os_process_memory` |
+| Working set per database | `sys.dm_os_buffer_descriptors` |
+| Read/write IOPS and throughput per database | `sys.dm_io_virtual_file_stats` |
+| Average and peak CPU, plus the number of samples behind them | `sys.dm_os_ring_buffers` |
+
+Two of these are worth understanding before you quote a number from them.
+
+**CPU is a short window.** The scheduler-monitor ring buffer holds one sample per
+minute up to roughly 256, so a reading on a recently restarted instance is a
+snapshot of an idle server rather than a workload profile. The script reports
+`CpuSampleCount` alongside the percentages, and the analyzer flags any instance
+with under an hour of history as unreliable rather than letting it quietly drive
+right-sizing. Where real perfmon history exists, prefer it.
+
+**Working set is more useful than file size for memory.** A 4 TB database with a
+2 GB hot set has very different requirements from a 40 GB database that is fully
+cached, and `BufferPoolMB` is the difference between the two. It reflects the
+buffer pool at the moment of collection, so it is most meaningful on an instance
+that has been up long enough to reach a steady state.
+
+Performance counters are deliberately avoided: `sys.dm_os_performance_counters`
+exposes only a partial set on some installs — LocalDB, for instance, carries just
+the In-Memory OLTP counters — so every resource signal above comes from a DMV that
+is present on all editions.
+
 It is strictly read-only and collects **no schema, no data, no object names and no
 query text** — safe to hand to a DBA for review before running.
 

@@ -181,6 +181,7 @@ function renderInventory() {
             <th data-sort="database">Database</th><th data-sort="version">Version</th>
             <th data-sort="edition">Edition</th><th class="num" data-sort="cores">Cores</th>
             <th class="num" data-sort="memoryGb">Memory</th><th class="num" data-sort="sizeGb">Size</th>
+            <th class="num" data-sort="bufferPoolMb">Working set</th>
             <th class="num" data-sort="cpuPct">CPU %</th><th data-sort="compat">Compat</th>
             <th class="nosort">Features</th>
           </tr></thead>
@@ -191,6 +192,7 @@ function renderInventory() {
               <td>${esc(r.edition || "—")}</td><td class="num">${FMT.num(r.cores)}</td>
               <td class="num">${r.memoryGb ? FMT.num(r.memoryGb) + " GB" : "—"}</td>
               <td class="num">${FMT.gb(r.sizeGb)}</td>
+              <td class="num">${r.bufferPoolMb != null ? (r.bufferPoolMb >= 1024 ? (r.bufferPoolMb / 1024).toFixed(1) + " GB" : Math.round(r.bufferPoolMb) + " MB") : "—"}</td>
               <td class="num">${r.cpuPct != null ? FMT.pct(r.cpuPct) : "—"}</td>
               <td class="num">${r.compat || "—"}</td>
               <td class="wrap-cell">${FEATURES.filter(f => r.f[f.key]).map(f => `<span class="pill gray">${esc(f.label)}</span>`).join(" ") || '<span class="src-tag">—</span>'}</td>
@@ -336,7 +338,7 @@ const EXPORT_COLS = [
   ["SQL version", r => r.version], ["Edition", r => r.edition],
   ["Support status", r => r.support.label], ["Cores", r => r.cores],
   ["Memory GB", r => r.memoryGb], ["Size GB", r => (r.sizeGb || 0).toFixed(1)],
-  ["Avg CPU %", r => r.cpuPct],
+  ["Avg CPU %", r => r.cpuPct], ["Working set MB", r => r.bufferPoolMb],
   ["Recommended target", r => TARGETS[r.cost.target].name],
   ["Readiness — SQL DB", r => READINESS[readinessFor(r, "sqldb")].label],
   ["Readiness — SQL MI", r => READINESS[readinessFor(r, "mi")].label],

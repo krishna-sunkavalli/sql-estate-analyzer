@@ -71,6 +71,10 @@ DECLARE
     @HyperthreadRatio    int,
     @PhysicalMemoryGB    decimal(18,2),
     @MaxServerMemoryGB   decimal(18,2),
+    @SqlMemoryTargetGB   decimal(18,2),
+    @SqlMemoryInUseGB    decimal(18,2),
+    @SchedulerCount      int,
+    @CpuSampleCount      int,
     @OsPlatform          nvarchar(64),
     @OsVersion           nvarchar(128),
     @SqlStartTime        datetime,
@@ -156,6 +160,34 @@ SELECT @MaxServerMemoryGB = CASE
        END
 FROM sys.configurations WHERE name = 'max server memory (MB)';
 
+/*  Actual memory demand, as opposed to what is installed or configured.
+    These DMVs are present on every edition, unlike sys.dm_os_performance_counters,
+    which on LocalDB and some minimal installs exposes only a partial counter set.
+
+    SqlMemoryTargetGB is what the engine wants; SqlMemoryInUseGB is what it has.
+    Target well above in-use on a long-running instance means the workload has
+    never needed the RAM it was given, which is the clearest signal that the
+    source hardware is over-provisioned. */
+BEGIN TRY
+    IF COL_LENGTH('sys.dm_os_sys_info', 'committed_target_kb') IS NOT NULL
+    BEGIN
+        SET @sql = N'SELECT @t = CONVERT(decimal(18,2), committed_target_kb / 1048576.0) FROM sys.dm_os_sys_info;';
+        EXEC sp_executesql @sql, N'@t decimal(18,2) OUTPUT', @t = @SqlMemoryTargetGB OUTPUT;
+    END
+
+    IF OBJECT_ID('sys.dm_os_process_memory') IS NOT NULL
+    BEGIN
+        SET @sql = N'SELECT @u = CONVERT(decimal(18,2), physical_memory_in_use_kb / 1048576.0) FROM sys.dm_os_process_memory;';
+        EXEC sp_executesql @sql, N'@u decimal(18,2) OUTPUT', @u = @SqlMemoryInUseGB OUTPUT;
+    END
+
+    SELECT @SchedulerCount = COUNT(*) FROM sys.dm_os_schedulers
+    WHERE status = 'VISIBLE ONLINE' AND is_online = 1;
+END TRY
+BEGIN CATCH
+    SET @SqlMemoryTargetGB = NULL; SET @SqlMemoryInUseGB = NULL; SET @SchedulerCount = NULL;
+END CATCH;
+
 -- sys.dm_os_host_info is 2017+; fall back to the Windows-only DMV before that.
 IF OBJECT_ID('sys.dm_os_host_info') IS NOT NULL
 BEGIN
@@ -186,11 +218,11 @@ BEGIN TRY
         SELECT rec.value('(./Record/SchedulerMonitorEvent/SystemHealth/ProcessUtilization)[1]', 'int') AS SqlCpu
         FROM rb
     )
-    SELECT @AvgCpuPct = AVG(SqlCpu), @MaxCpuPct = MAX(SqlCpu)
+    SELECT @AvgCpuPct = AVG(SqlCpu), @MaxCpuPct = MAX(SqlCpu), @CpuSampleCount = COUNT(*)
     FROM cpu WHERE SqlCpu IS NOT NULL;
 END TRY
 BEGIN CATCH
-    SET @AvgCpuPct = NULL; SET @MaxCpuPct = NULL;
+    SET @AvgCpuPct = NULL; SET @MaxCpuPct = NULL; SET @CpuSampleCount = NULL;
 END CATCH;
 
 -- Instance-scope migration signals.
@@ -258,6 +290,7 @@ CREATE TABLE #db (
     DataSizeGB            decimal(18,2) NULL,
     LogSizeGB             decimal(18,2) NULL,
     TotalSizeGB           decimal(18,2) NULL,
+    BufferPoolMB          decimal(18,2) NULL,
     HasFileStream         bit           NULL,
     HasMemoryOptimized    bit           NULL,
     HasFileTable          bit           NULL,
@@ -424,6 +457,25 @@ IF OBJECT_ID('sys.dm_hadr_database_replica_states') IS NOT NULL
                          WHERE EXISTS (SELECT 1 FROM sys.dm_hadr_database_replica_states r
                                        WHERE r.database_id = DB_ID(d.DatabaseName));';
 
+/*  Working set per database: how much of the buffer pool each one actually
+    occupies. This matters more than file size for choosing a memory tier — a
+    4 TB database with a 2 GB hot set has very different requirements from a
+    40 GB database that is fully cached. Scanning buffer descriptors on a large
+    server is not free, so it is wrapped and allowed to fail without taking the
+    rest of the collection with it. */
+BEGIN TRY
+    ;WITH bp AS (
+        SELECT database_id, CONVERT(decimal(18,2), COUNT_BIG(*) * 8 / 1024.0) AS mb
+        FROM sys.dm_os_buffer_descriptors
+        WHERE database_id BETWEEN 5 AND 32766      -- skip system databases and the resource DB
+        GROUP BY database_id
+    )
+    UPDATE d SET d.BufferPoolMB = bp.mb
+    FROM #db d JOIN bp ON bp.database_id = DB_ID(d.DatabaseName);
+END TRY
+BEGIN CATCH
+END CATCH;
+
 /*  I/O profile since instance start, from the file-stats DMV. */
 ;WITH io AS (
     SELECT vfs.database_id,
@@ -463,8 +515,12 @@ SELECT
     @CoresPerSocket                                           AS CoresPerSocket,
     @PhysicalMemoryGB                                         AS PhysicalMemoryGB,
     @MaxServerMemoryGB                                        AS MaxServerMemoryGB,
+    @SqlMemoryTargetGB                                        AS SqlMemoryTargetGB,
+    @SqlMemoryInUseGB                                         AS SqlMemoryInUseGB,
+    @SchedulerCount                                           AS SchedulerCount,
     @AvgCpuPct                                                AS AvgCpuPct,
     @MaxCpuPct                                                AS PeakCpuPct,
+    @CpuSampleCount                                           AS CpuSampleCount,
     @UptimeHours                                              AS UptimeHours,
     -- instance-scope migration signals
     @IsClustered                                              AS IsFailoverCluster,
@@ -485,7 +541,7 @@ SELECT
     d.DatabaseName, d.StateDesc AS DatabaseState, d.RecoveryModel, d.CompatibilityLevel,
     d.DbCollation, d.CreateDate AS DatabaseCreateDate, d.IsReadOnly, d.IsTdeEncrypted,
     d.IsAutoClose, d.IsAutoShrink, d.ContainmentType, d.IsQueryStoreOn,
-    d.DataSizeGB, d.LogSizeGB, d.TotalSizeGB,
+    d.DataSizeGB, d.LogSizeGB, d.TotalSizeGB, d.BufferPoolMB,
     d.ReadIops, d.WriteIops, d.ThroughputMBps,
     d.TableCount, d.ProcedureCount,
     -- feature flags that drive Azure target eligibility

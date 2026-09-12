@@ -224,6 +224,10 @@ function buildRows() {
       compat: numOf(get(rec, "compat")),
       os: get(rec, "os") || "",
       uptimeHours: numOf(get(rec, "uptimeHours")),
+      cpuSamples: numOf(get(rec, "cpuSamples")),
+      memTargetGb: numOf(get(rec, "memTargetGb")),
+      memInUseGb: numOf(get(rec, "memInUseGb")),
+      bufferPoolMb: numOf(get(rec, "bufferPoolMb")),
       f, i: inst,
       override: null,
     };

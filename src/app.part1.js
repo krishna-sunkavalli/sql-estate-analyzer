@@ -120,6 +120,10 @@ const FIELDS = [
   { key: "compat",      label: "Compatibility lvl", req: false, aliases: ["compatibilitylevel", "compatlevel", "compat"] },
   { key: "os",          label: "OS platform",       req: false, aliases: ["osplatform", "os", "operatingsystem", "platform"] },
   { key: "uptimeHours", label: "Uptime (hours)",    req: false, aliases: ["uptimehours", "uptime"] },
+  { key: "cpuSamples",  label: "CPU samples",       req: false, aliases: ["cpusamplecount", "cpusamples"] },
+  { key: "memTargetGb", label: "SQL memory target", req: false, aliases: ["sqlmemorytargetgb", "memorytargetgb"] },
+  { key: "memInUseGb",  label: "SQL memory in use", req: false, aliases: ["sqlmemoryinusegb", "memoryinusegb"] },
+  { key: "bufferPoolMb",label: "Buffer pool (MB)",  req: false, aliases: ["bufferpoolmb", "bufferpool"] },
 ];
 
 /* Boolean feature flags that drive target eligibility. */
@@ -233,14 +237,17 @@ function dataCoverage() {
       effect: "storage cost and the size-based target limits cannot be evaluated" },
   ].map(f => ({ ...f, total: S.rows.length, pct: 100 * f.n / n, kind: "missing" }));
 
-  // Ring-buffer CPU covers roughly the last four hours. On an instance that has
-  // only just restarted the reading is present but meaningless — usually 0% —
-  // which would quietly under-size it if anyone switched to CPU-based sizing.
-  const fresh = has(r => r.cpuPct != null && r.uptimeHours != null && r.uptimeHours < 4);
-  if (fresh) {
-    out.push({ key: "uptime", label: "CPU history too short", n: S.rows.length - fresh,
-      total: S.rows.length, pct: 100 * (S.rows.length - fresh) / n, kind: "unreliable",
-      effect: `${fresh} database${fresh === 1 ? " sits" : "s sit"} on an instance restarted within the last 4 hours — its CPU reading reflects an idle server, so do not right-size from it` });
+  // The scheduler-monitor ring buffer keeps one sample per minute, up to 256.
+  // A handful of samples is not a workload profile — it is a snapshot of an
+  // instance that has only just started, and right-sizing from it would be
+  // guesswork dressed up as measurement.
+  const thin = has(r => r.cpuPct != null && (
+    (r.cpuSamples != null && r.cpuSamples < 60) ||
+    (r.cpuSamples == null && r.uptimeHours != null && r.uptimeHours < 4)));
+  if (thin) {
+    out.push({ key: "cpuwindow", label: "CPU history too short", n: S.rows.length - thin,
+      total: S.rows.length, pct: 100 * (S.rows.length - thin) / n, kind: "unreliable",
+      effect: `${thin} database${thin === 1 ? " sits" : "s sit"} on an instance with under an hour of CPU history — the reading reflects a recently restarted server, so do not right-size from it` });
   }
   return out;
 }
