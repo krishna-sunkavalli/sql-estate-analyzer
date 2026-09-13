@@ -1,12 +1,10 @@
 <#
   build.ps1 — assembles both published pages from one source.
 
-    /            the decision guide, static, no application JavaScript
-    /analyzer/   the single-file analyzer, with the price snapshot inlined
+    /                         the analyzer, with the price snapshot inlined
+    /modernization-options/   the decision guide, static, no application JavaScript
 
-  The guide is the front door because the first question is "which option fits",
-  not "what does my estate cost". Both pages are self-contained: nothing is
-  fetched at runtime.
+  Both pages are self-contained: nothing is fetched at runtime.
 #>
 
 param(
@@ -16,7 +14,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $build = $PSScriptRoot
-if (-not $Output) { $Output = Join-Path $Root 'analyzer/index.html' }
+if (-not $Output) { $Output = Join-Path $Root 'index.html' }
 
 $template = Get-Content (Join-Path $build 'app.template.html') -Raw -Encoding UTF8
 $prices   = Get-Content (Join-Path $build 'prices.json')       -Raw -Encoding UTF8
@@ -58,12 +56,12 @@ $kb = [math]::Round((Get-Item $Output).Length / 1KB, 1)
 Write-Host "Built $Output ($kb KB)" -ForegroundColor Green
 
 <#
-  The decision guide, published at the site root.
+  The decision guide, published at /modernization-options/.
 
   Derived from these sources rather than maintained separately: the theme
   variables and boot script are lifted straight out of app.template.html and the
-  content comes from guide.partial.html, so the landing page cannot drift from
-  the product it links to. It carries no application JavaScript — the guide is
+  content comes from guide.partial.html, so the guide cannot drift from the
+  product it links to. It carries no application JavaScript — the guide is
   static content and needs none.
 #>
 $styleMatch = [regex]::Match($template, '(?s)<style>(.*?)</style>')
@@ -78,7 +76,7 @@ $guideBody = Get-Content $guidePartial -Raw -Encoding UTF8
 $guideBody = [regex]::Replace(
   $guideBody,
   '<button class="primary" id="btnGuideBack">[^<]*</button>',
-  '<a class="btn primary" href="analyzer/">Scan my estate &rarr;</a>')
+  '<a class="btn primary" href="../">Scan my estate &rarr;</a>')
 
 $headMatch = [regex]::Match($template, '(?s)<head>(.*?)<style>')
 $themeBoot = [regex]::Match($headMatch.Groups[1].Value, '(?s)<script>.*?</script>').Value
@@ -111,7 +109,7 @@ $css
       </div>
     </div>
     <div class="spacer"></div>
-    <a class="btn primary" href="analyzer/">Scan my estate</a>
+    <a class="btn primary" href="../">Scan my estate</a>
     <button id="btnTheme" class="ghost" title="Toggle light/dark">&#9680;</button>
   </header>
   <section>
@@ -128,7 +126,9 @@ $guideBody
 </html>
 "@
 
-$guideOut = Join-Path $Root 'index.html'
+$guideDir = Join-Path $Root 'modernization-options'
+if (-not (Test-Path $guideDir)) { New-Item -ItemType Directory -Path $guideDir -Force | Out-Null }
+$guideOut = Join-Path $guideDir 'index.html'
 Set-Content -Path $guideOut -Value $guidePage -Encoding UTF8
 $gkb = [math]::Round((Get-Item $guideOut).Length / 1KB, 1)
 Write-Host "Built $guideOut ($gkb KB)" -ForegroundColor Green
@@ -143,10 +143,10 @@ Set-Content -Path (Join-Path $legacyDir 'index.html') -Encoding UTF8 -Value @"
 <head>
 <meta charset="UTF-8">
 <title>Azure SQL modernization options</title>
-<link rel="canonical" href="../">
-<meta http-equiv="refresh" content="0; url=../">
+<link rel="canonical" href="../modernization-options/">
+<meta http-equiv="refresh" content="0; url=../modernization-options/">
 </head>
-<body><p>This page has moved to <a href="../">Azure SQL modernization options</a>.</p></body>
+<body><p>This page has moved to <a href="../modernization-options/">Azure SQL modernization options</a>.</p></body>
 </html>
 "@
 Write-Host "Built $legacyDir\index.html (redirect)" -ForegroundColor DarkGray

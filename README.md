@@ -1,10 +1,6 @@
 # SQL Estate Analyzer
 
-**▶ Start here — which Azure SQL option fits?
-https://krishna-sunkavalli.github.io/sql-estate-analyzer/**
-
-**▶ Scan an estate:
-https://krishna-sunkavalli.github.io/sql-estate-analyzer/analyzer/**
+**▶ Open the analyzer: https://krishna-sunkavalli.github.io/sql-estate-analyzer/**
 
 Upload a SQL Server inventory and get Azure target recommendations — Azure SQL
 Database, Hyperscale, SQL Managed Instance, or SQL Server on Azure VM — with the
@@ -17,18 +13,6 @@ shortlist in minutes, rather than assessing one instance at a time.
 ![SQL Estate Analyzer options view](docs/img/shot-options.png)
 
 ## What it answers
-
-The landing page is a **decision guide**, not the tool — because the first question
-is usually "which option fits", long before anyone has an inventory to scan. It is
-static: no data, no upload, nothing to install, so it can be sent on its own.
-
-It leads with the misunderstanding that wastes the most time: Managed Instance and
-serverless are not competing choices. One is an *instance*, the other is a *billing
-mode* for a single database.
-
-![Decision guide](docs/img/shot-guide.png)
-
-Then, with an inventory loaded:
 
 *"I have a thousand SQL databases on-premises — what are my options?"*
 
@@ -49,6 +33,18 @@ still have to run somewhere.
 
 Everything else sits behind that page: the blocker behind every placement, the
 cost model, and the raw inventory.
+
+## Not sure which option fits?
+
+**▶ https://krishna-sunkavalli.github.io/sql-estate-analyzer/modernization-options/**
+
+A short static guide — no data, no upload, nothing to install — for the
+conversation that happens before anyone has an inventory to scan. It leads with the
+misunderstanding that wastes the most time: Managed Instance and serverless are not
+competing choices. One is an *instance*, the other is a *billing mode* for a single
+database.
+
+![Decision guide](docs/img/shot-guide.png)
 
 > **Your data never leaves your browser.** The page is a single static HTML file
 > with no network calls, no storage APIs and no telemetry. Files you drop in are
@@ -75,7 +71,7 @@ cost model, and the raw inventory.
 right-click the grid → *Save Results As…* → CSV. Upload as many of those as you
 like together.
 
-Either way, open the [analyzer](https://krishna-sunkavalli.github.io/sql-estate-analyzer/analyzer/)
+Either way, open the [analyzer](https://krishna-sunkavalli.github.io/sql-estate-analyzer/)
 and drop the files in. No install, no sign-in, no agent. Works offline — use
 **Save Page As** if you need to run it on a disconnected network.
 
@@ -432,8 +428,8 @@ Microsoft account team before committing to a number.
 
 | Path | Purpose |
 |---|---|
-| `index.html` | The built decision guide — the landing page |
-| `analyzer/` | The built, self-contained analyzer |
+| `index.html` | The built, self-contained analyzer |
+| `modernization-options/` | The built decision guide |
 | `sqlmodernizationoptions/` | Redirect, preserving an earlier published URL |
 | `discovery/` | Estate sweep (`Invoke-SqlEstateDiscovery.ps1`) and the read-only T-SQL script it runs |
 | `samples/` | Example inventory produced by the discovery script |
@@ -448,7 +444,7 @@ pwsh ./src/build.ps1          # regenerate index.html
 
 `build.ps1` emits both pages and fails if either picks up an external reference,
 `fetch`, `XMLHttpRequest` or a browser-storage call. Never hand-edit `index.html`
-or `analyzer/index.html` — edit the parts in `src/` and rebuild.
+or `modernization-options/index.html` — edit the parts in `src/` and rebuild.
 The guide's content lives in `src/guide.partial.html`; CI rejects a stale build of
 either page.
 
