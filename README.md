@@ -358,7 +358,12 @@ Its cost depends entirely on how many hours the database is active, which no
 inventory scan can measure, so that is a slider (default 25%). The break-even is
 the useful part: in East US serverless lists at **$0.522/vCore/hr** against
 **$0.362** for provisioned General Purpose with the licence included, so
-**serverless wins below roughly 69% active** and loses above it.
+**serverless wins below roughly 69% active** — about 16½ hours a day.
+
+Azure Hybrid Benefit moves that line sharply. It applies to provisioned and **not**
+to serverless, so with SA the provisioned rate drops to the **$0.152** base and the
+break-even falls to **29% active, around 7 hours a day**. An estate under Software
+Assurance has to be genuinely idle before serverless wins.
 
 ### Readiness
 
