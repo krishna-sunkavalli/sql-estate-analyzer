@@ -1,6 +1,10 @@
 # SQL Estate Analyzer
 
-**▶ Open the analyzer: https://krishna-sunkavalli.github.io/sql-estate-analyzer/**
+**▶ Start here — which Azure SQL option fits?
+https://krishna-sunkavalli.github.io/sql-estate-analyzer/**
+
+**▶ Scan an estate:
+https://krishna-sunkavalli.github.io/sql-estate-analyzer/analyzer/**
 
 Upload a SQL Server inventory and get Azure target recommendations — Azure SQL
 Database, Hyperscale, SQL Managed Instance, or SQL Server on Azure VM — with the
@@ -14,14 +18,13 @@ shortlist in minutes, rather than assessing one instance at a time.
 
 ## What it answers
 
-**Not sure which Azure SQL option fits?** Send them straight to the guide:
+The landing page is a **decision guide**, not the tool — because the first question
+is usually "which option fits", long before anyone has an inventory to scan. It is
+static: no data, no upload, nothing to install, so it can be sent on its own.
 
-**▶ https://krishna-sunkavalli.github.io/sql-estate-analyzer/sqlmodernizationoptions/**
-
-A standalone page — no data, no upload, nothing to install. It exists because the
-most common misunderstanding is treating Managed Instance and serverless as
-competing choices: one is an *instance*, the other is a *billing mode* for a single
-database.
+It leads with the misunderstanding that wastes the most time: Managed Instance and
+serverless are not competing choices. One is an *instance*, the other is a *billing
+mode* for a single database.
 
 ![Decision guide](docs/img/shot-guide.png)
 
@@ -72,7 +75,7 @@ cost model, and the raw inventory.
 right-click the grid → *Save Results As…* → CSV. Upload as many of those as you
 like together.
 
-Either way, open the [analyzer](https://krishna-sunkavalli.github.io/sql-estate-analyzer/)
+Either way, open the [analyzer](https://krishna-sunkavalli.github.io/sql-estate-analyzer/analyzer/)
 and drop the files in. No install, no sign-in, no agent. Works offline — use
 **Save Page As** if you need to run it on a disconnected network.
 
@@ -429,8 +432,9 @@ Microsoft account team before committing to a number.
 
 | Path | Purpose |
 |---|---|
-| `index.html` | The built, self-contained app served by GitHub Pages |
-| `sqlmodernizationoptions/` | The built standalone decision guide |
+| `index.html` | The built decision guide — the landing page |
+| `analyzer/` | The built, self-contained analyzer |
+| `sqlmodernizationoptions/` | Redirect, preserving an earlier published URL |
 | `discovery/` | Estate sweep (`Invoke-SqlEstateDiscovery.ps1`) and the read-only T-SQL script it runs |
 | `samples/` | Example inventory produced by the discovery script |
 | `src/` | Source: HTML template, guide partial, JS parts, price puller, build script |
@@ -444,7 +448,7 @@ pwsh ./src/build.ps1          # regenerate index.html
 
 `build.ps1` emits both pages and fails if either picks up an external reference,
 `fetch`, `XMLHttpRequest` or a browser-storage call. Never hand-edit `index.html`
-or `sqlmodernizationoptions/index.html` — edit the parts in `src/` and rebuild.
+or `analyzer/index.html` — edit the parts in `src/` and rebuild.
 The guide's content lives in `src/guide.partial.html`; CI rejects a stale build of
 either page.
 

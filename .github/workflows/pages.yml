@@ -24,7 +24,7 @@ jobs:
 
       - name: Pages must be self-contained
         run: |
-          for f in index.html sqlmodernizationoptions/index.html; do
+          for f in index.html analyzer/index.html; do
             if grep -nEi 'fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|(src|href)="https?:' "$f"; then
               echo "::error::$f contains a network, storage or external reference"
               exit 1
@@ -35,13 +35,13 @@ jobs:
       - name: Built pages must match a fresh build from src/
         shell: pwsh
         run: |
-          # build.ps1 writes the guide relative to -Root, so build into a temp
-          # tree and compare both outputs rather than only the app bundle.
+          # build.ps1 writes every page relative to -Root, so build into a temp
+          # tree and compare all of them rather than only the app bundle.
           $tmp = Join-Path $env:RUNNER_TEMP 'build'
           New-Item -ItemType Directory -Path $tmp -Force | Out-Null
-          ./src/build.ps1 -Root $tmp -Output (Join-Path $tmp 'index.html')
+          ./src/build.ps1 -Root $tmp
           $stale = @()
-          foreach ($f in @('index.html', 'sqlmodernizationoptions/index.html')) {
+          foreach ($f in @('index.html', 'analyzer/index.html', 'sqlmodernizationoptions/index.html')) {
             $a = (Get-Content $f -Raw) -replace "`r", ''
             $b = (Get-Content (Join-Path $tmp $f) -Raw) -replace "`r", ''
             if ($a -ne $b) { $stale += $f }
@@ -50,7 +50,7 @@ jobs:
             Write-Host "::error::Stale build output: $($stale -join ', '). Run ./src/build.ps1 and commit the result."
             exit 1
           }
-          Write-Host 'Both pages match src/.'
+          Write-Host 'All pages match src/.'
 
   deploy:
     needs: verify

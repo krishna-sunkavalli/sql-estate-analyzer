@@ -1,9 +1,12 @@
 <#
-  build.ps1 — assembles the single-file SQL Estate Analyzer.
+  build.ps1 — assembles both published pages.
 
-  Injects the Azure price snapshot and concatenates the JS parts into
-  app.template.html, producing a fully self-contained HTML file with no
-  external requests, no storage and no network calls at runtime.
+    /            the decision guide, static, no application JavaScript
+    /analyzer/   the single-file analyzer, with the price snapshot inlined
+
+  The guide is the front door because the first question is "which option fits",
+  not "what does my estate cost". Both pages are fully self-contained: no external
+  requests, no storage, no network calls at runtime.
 #>
 
 param(
@@ -13,7 +16,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $build = $PSScriptRoot
-if (-not $Output) { $Output = Join-Path $Root 'index.html' }
+if (-not $Output) { $Output = Join-Path $Root 'analyzer/index.html' }
 
 $template = Get-Content (Join-Path $build 'app.template.html') -Raw -Encoding UTF8
 $prices   = Get-Content (Join-Path $build 'prices.json')       -Raw -Encoding UTF8
@@ -45,32 +48,34 @@ if ($violations.Count) {
 # $ sequences inside the JavaScript payload.
 $html = $template.Replace('<!--APP_SCRIPT-->', "<script>`n$js`n</script>")
 
+$outDir = Split-Path $Output -Parent
+if ($outDir -and -not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
 Set-Content -Path $Output -Value $html -Encoding UTF8
 $kb = [math]::Round((Get-Item $Output).Length / 1KB, 1)
 Write-Host "Built $Output ($kb KB)" -ForegroundColor Green
 
 <#
-  Standalone decision guide at /sqlmodernizationoptions/.
+  The decision guide, published at the site root.
 
-  Derived from the same template rather than maintained separately: the theme
-  variables and the guide markup are lifted straight out of app.template.html,
-  so the shareable page cannot drift from the one inside the app. It carries no
-  application JavaScript at all — the guide is static content and needs none.
+  Derived from the same sources rather than maintained separately: the theme
+  variables and boot script are lifted straight out of app.template.html and the
+  content comes from guide.partial.html, so the landing page cannot drift from
+  the product it links to. It carries no application JavaScript — the guide is
+  static content and needs none.
 #>
 $styleMatch = [regex]::Match($template, '(?s)<style>(.*?)</style>')
-if (-not $styleMatch.Success) { throw 'Could not extract <style> block for the standalone guide' }
+if (-not $styleMatch.Success) { throw 'Could not extract <style> block for the guide' }
 $css = $styleMatch.Groups[1].Value
 
 $guidePartial = Join-Path $build 'guide.partial.html'
 if (-not (Test-Path $guidePartial)) { throw "Missing guide partial: $guidePartial" }
 $guideBody = Get-Content $guidePartial -Raw -Encoding UTF8
 
-# The partial ends with a button that returns to the analyzer when the guide is
-# hosted inside it; as a standalone page that has to become a link instead.
+# The partial's closing call to action is a button; as a page it becomes a link.
 $guideBody = [regex]::Replace(
   $guideBody,
   '<button class="primary" id="btnGuideBack">[^<]*</button>',
-  '<a class="btn primary" href="../">Scan my estate &rarr;</a>')
+  '<a class="btn primary" href="analyzer/">Scan my estate &rarr;</a>')
 
 $headMatch = [regex]::Match($template, '(?s)<head>(.*?)<style>')
 $themeBoot = [regex]::Match($headMatch.Groups[1].Value, '(?s)<script>.*?</script>').Value
@@ -103,7 +108,7 @@ $css
       </div>
     </div>
     <div class="spacer"></div>
-    <a class="btn" href="../" style="text-decoration:none">Scan my estate</a>
+    <a class="btn primary" href="analyzer/">Scan my estate</a>
     <button id="btnTheme" class="ghost" title="Toggle light/dark">&#9680;</button>
   </header>
   <section>
@@ -120,9 +125,25 @@ $guideBody
 </html>
 "@
 
-$guideDir = Join-Path $Root 'sqlmodernizationoptions'
-if (-not (Test-Path $guideDir)) { New-Item -ItemType Directory -Path $guideDir | Out-Null }
-$guideOut = Join-Path $guideDir 'index.html'
+$guideOut = Join-Path $Root 'index.html'
 Set-Content -Path $guideOut -Value $guidePage -Encoding UTF8
 $gkb = [math]::Round((Get-Item $guideOut).Length / 1KB, 1)
 Write-Host "Built $guideOut ($gkb KB)" -ForegroundColor Green
+
+# The guide was briefly published at /sqlmodernizationoptions/. Keep that path
+# alive so any link already shared still lands somewhere useful.
+$legacyDir = Join-Path $Root 'sqlmodernizationoptions'
+if (-not (Test-Path $legacyDir)) { New-Item -ItemType Directory -Path $legacyDir | Out-Null }
+Set-Content -Path (Join-Path $legacyDir 'index.html') -Encoding UTF8 -Value @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Azure SQL modernization options</title>
+<link rel="canonical" href="../">
+<meta http-equiv="refresh" content="0; url=../">
+</head>
+<body><p>This page has moved to <a href="../">Azure SQL modernization options</a>.</p></body>
+</html>
+"@
+Write-Host "Built $legacyDir\index.html (redirect)" -ForegroundColor DarkGray
