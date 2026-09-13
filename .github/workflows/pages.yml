@@ -24,12 +24,18 @@ jobs:
 
       - name: Pages must be self-contained
         run: |
+          # Navigation links are fine; what must not happen is loading anything
+          # external at runtime.
           for f in index.html analyzer/index.html; do
-            if grep -nEi 'fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|(src|href)="https?:' "$f"; then
-              echo "::error::$f contains a network, storage or external reference"
+            if grep -nEi 'fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB' "$f"; then
+              echo "::error::$f makes a network or storage call"
               exit 1
             fi
-            echo "$f is inert: no network, storage or external references."
+            if grep -nEi '<(script|link|img|iframe|video|audio|source|embed)[^>]+(src|href)="https?:' "$f"; then
+              echo "::error::$f loads an external resource"
+              exit 1
+            fi
+            echo "$f is inert: nothing is fetched at runtime."
           done
 
       - name: Built pages must match a fresh build from src/

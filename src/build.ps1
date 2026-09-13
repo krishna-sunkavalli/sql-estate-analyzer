@@ -1,12 +1,12 @@
 <#
-  build.ps1 — assembles both published pages.
+  build.ps1 — assembles both published pages from one source.
 
     /            the decision guide, static, no application JavaScript
     /analyzer/   the single-file analyzer, with the price snapshot inlined
 
   The guide is the front door because the first question is "which option fits",
-  not "what does my estate cost". Both pages are fully self-contained: no external
-  requests, no storage, no network calls at runtime.
+  not "what does my estate cost". Both pages are self-contained: nothing is
+  fetched at runtime.
 #>
 
 param(
@@ -33,13 +33,16 @@ $pattern = '/\*__PRICES__\*/\{\}/\*__END_PRICES__\*/'
 if ($js -notmatch $pattern) { throw 'Price placeholder not found in app.part1.js' }
 $js = [regex]::Replace($js, $pattern, { param($m) $prices }, 1)
 
-# Sanity: the bundle must have no external references or network/storage calls.
+# Sanity: the bundle must not LOAD anything external at runtime. Navigation links
+# are fine — an <a href> to documentation costs the user nothing until they click
+# it. What matters is that no script, stylesheet, image or frame is fetched.
 $violations = @()
 if ($js -match '(?<![\w.])fetch\s*\(')                    { $violations += 'fetch()' }
 if ($js -match 'XMLHttpRequest')                          { $violations += 'XMLHttpRequest' }
 if ($js -match 'localStorage|sessionStorage|indexedDB')   { $violations += 'browser storage' }
 if ($template -match '<script[^>]+src\s*=\s*["'']?(?:https?:)?//') { $violations += 'external <script src>' }
 if ($template -match '<link[^>]+href\s*=\s*["'']?(?:https?:)?//')   { $violations += 'external <link>' }
+if ($template -match '<(img|iframe|video|audio|source|embed)[^>]+src\s*=\s*["'']?(?:https?:)?//') { $violations += 'external media' }
 if ($violations.Count) {
   throw "Bundle is not self-contained — found: $($violations -join ', ')"
 }
@@ -57,7 +60,7 @@ Write-Host "Built $Output ($kb KB)" -ForegroundColor Green
 <#
   The decision guide, published at the site root.
 
-  Derived from the same sources rather than maintained separately: the theme
+  Derived from these sources rather than maintained separately: the theme
   variables and boot script are lifted straight out of app.template.html and the
   content comes from guide.partial.html, so the landing page cannot drift from
   the product it links to. It carries no application JavaScript — the guide is
@@ -130,8 +133,8 @@ Set-Content -Path $guideOut -Value $guidePage -Encoding UTF8
 $gkb = [math]::Round((Get-Item $guideOut).Length / 1KB, 1)
 Write-Host "Built $guideOut ($gkb KB)" -ForegroundColor Green
 
-# The guide was briefly published at /sqlmodernizationoptions/. Keep that path
-# alive so any link already shared still lands somewhere useful.
+# /sqlmodernizationoptions/ was published briefly. Keep it alive as a redirect so
+# any link already shared still lands on the guide.
 $legacyDir = Join-Path $Root 'sqlmodernizationoptions'
 if (-not (Test-Path $legacyDir)) { New-Item -ItemType Directory -Path $legacyDir | Out-Null }
 Set-Content -Path (Join-Path $legacyDir 'index.html') -Encoding UTF8 -Value @"
