@@ -272,6 +272,112 @@ function recompute() {
 /* ---------------------------------------------------------------------------
    9. Rendering
    --------------------------------------------------------------------------- */
+/* The Options page answers the first question a customer actually asks: "I have
+   N databases on-premises — what are my choices?" It deliberately carries only
+   what is needed to choose a direction. Everything else lives on the tabs behind
+   it: blockers per database, the cost model, the raw inventory.
+
+   The three options are the modernization-appetite axis — minimal change,
+   balanced, full modernization — each costed across the databases that can
+   actually land there, against the cost of staying put. */
+const OPTIONS = [
+  {
+    key: "vm", appetite: "Minimal change",
+    name: "SQL Server on Azure VM",
+    what: "The same SQL Server you run today, on Azure infrastructure.",
+    keep: "Keeps OS access, third-party agents, full sysadmin and any file-system dependency.",
+    cost: "You still patch Windows and SQL Server yourself.",
+  },
+  {
+    key: "mi", appetite: "Balanced",
+    name: "Azure SQL Managed Instance",
+    what: "Managed SQL Server where it fits, VM for the rest.",
+    keep: "Keeps SQL Agent, cross-database queries, CLR, Service Broker and instance-level logins.",
+    cost: "No OS access, and no third-party agents on the box.",
+  },
+  {
+    key: "paas", appetite: "Full modernization",
+    name: "Azure SQL Database",
+    what: "The most managed platform each database can reach.",
+    keep: "Lowest administration; serverless can pause when idle.",
+    cost: "Instance-level features have to be reworked to move a database this far.",
+  },
+];
+
+function renderOptions() {
+  const op = onPremTotals();
+  const cores = S.instances.reduce((a, i) => a + Math.max(0, i.rows[0].cores || 0), 0);
+  const sizeGb = S.rows.reduce((a, r) => a + (r.sizeGb || 0), 0);
+
+  const priced = OPTIONS.map(o => {
+    const e = estateCostForAppetite(o.key);
+    const saving = op.monthly - e.monthly;
+    return { ...o, ...e, saving, savingPct: op.monthly > 0 ? 100 * saving / op.monthly : 0 };
+  });
+  const cheapest = priced.reduce((a, b) => b.monthly < a.monthly ? b : a, priced[0]);
+
+  const mixLine = (mix) => ["sqldb", "hs", "mi", "vm"]
+    .filter(k => mix[k]).map(k => `${mix[k]} ${TARGETS[k].short}`).join(" · ");
+
+  $("#panel-options").innerHTML = `
+    <div class="card">
+      <h3>Your SQL estate today</h3>
+      <div class="kpis" style="margin-bottom:0">
+        ${kpi("Databases", FMT.num(S.rows.length), { foot: `${S.instances.length} instance${S.instances.length === 1 ? "" : "s"}` })}
+        ${kpi("Cores", FMT.num(cores), { foot: "licensed on-premises" })}
+        ${kpi("Data", FMT.gb(sizeGb))}
+        ${kpi("Cost to stay", FMT.money(op.monthly), { cls: "bad", foot: `${FMT.money(op.yr)} / year` })}
+      </div>
+      <div class="note">
+        Staying put is the baseline every option is measured against. It covers SQL Server
+        Software Assurance${op.esu > 0 ? ", Extended Security Updates for out-of-support versions" : ""}${op.hw > 0 ? " and hardware" : ""} —
+        not datacentre, power, storage or staff, so the real cost of staying is higher than shown.
+      </div>
+    </div>
+
+    <div class="tcards" style="grid-template-columns:repeat(3,1fr)">
+      ${priced.map(o => `
+        <div class="tcard ${o.key === cheapest.key ? "rec" : ""}">
+          <div class="tcard-banner ${o.key === cheapest.key ? "" : "ghost"}">★ Lowest cost for your estate</div>
+          <div class="tcard-pad">
+            <div class="kind">${o.appetite}</div>
+            <h4>${o.name}</h4>
+            <div class="desc">${o.what}</div>
+
+            <div class="hl">
+              <div class="v">${FMT.money(o.monthly)}<span class="src-tag" style="font-weight:400"> / month</span></div>
+              <div class="l">${o.saving > 0
+                  ? `<b style="color:var(--cp-success)">${FMT.money(o.saving)} less</b> than staying (${FMT.pct(o.savingPct)})`
+                  : `<b style="color:var(--cp-danger)">${FMT.money(-o.saving)} more</b> than staying`}</div>
+            </div>
+
+            <div class="hl">
+              <div class="v" style="font-size:13px">${esc(mixLine(o.mix))}</div>
+              <div class="l">all ${S.rows.length} databases housed</div>
+            </div>
+
+            <hr>
+            <div style="font-size:12.5px;line-height:1.5">
+              <div style="margin-bottom:7px">✓ ${o.keep}</div>
+              <div class="src-tag">— ${o.cost}</div>
+            </div>
+          </div>
+        </div>`).join("")}
+    </div>
+
+    <div class="note info">
+      Each option houses <b>every</b> database. Modernizing further is a floor, not an
+      exclusive choice: databases whose features block the more managed platform fall back to the
+      next one that fits, so the three totals are directly comparable.
+      ${cheapest.key === "vm" ? `<br><br><b>On this estate, lift-and-shift is the cheapest option.</b>
+        That usually means Enterprise editions are driving Managed Instance to the Business Critical
+        tier — check <b>Recommendations</b> for which databases, and <b>Cost model</b> for whether
+        reserved pricing changes the answer.` : ""}
+      Open <b>Recommendations</b> for the blocker behind every placement, or <b>Cost model</b> to test
+      reserved pricing, Hybrid Benefit and right-sizing.
+    </div>`;
+}
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
@@ -286,7 +392,7 @@ function kpi(label, value, opts = {}) {
 function renderAll() {
   recompute();
   renderSummary(); renderTargets(); renderCost();
-  renderInventory(); renderAssumptions();
+  renderOptions(); renderInventory(); renderAssumptions();
 }
 
 function totals() {
@@ -622,7 +728,7 @@ function renderTargets() {
   $$("[data-override]").forEach(sel => sel.onchange = () => {
     const r = S.rows.find(x => x._i === +sel.dataset.override);
     r.override = sel.value || null;
-    recompute(); renderTargets(); renderSummary(); renderCost();
+    recompute(); renderTargets(); renderSummary(); renderCost(); renderOptions();
   });
   wireSort("#targetTable", renderTargets);
 }

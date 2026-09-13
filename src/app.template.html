@@ -427,14 +427,16 @@ details.acc[open] summary { margin-bottom: 9px; }
   <!-- ================= RESULTS ================= -->
   <section id="resultsView" class="hidden">
     <nav class="tabs" id="tabs">
-      <button data-tab="summary" class="on">Summary</button>
+      <button data-tab="options" class="on">Options</button>
+      <button data-tab="summary">Summary</button>
       <button data-tab="targets">Recommendations</button>
       <button data-tab="cost">Cost model</button>
       <button data-tab="inventory">Inventory</button>
       <button data-tab="assumptions">Assumptions</button>
     </nav>
 
-    <div class="panel on" id="panel-summary"></div>
+    <div class="panel on" id="panel-options"></div>
+    <div class="panel" id="panel-summary"></div>
     <div class="panel" id="panel-targets"></div>
     <div class="panel" id="panel-cost"></div>
     <div class="panel" id="panel-inventory"></div>

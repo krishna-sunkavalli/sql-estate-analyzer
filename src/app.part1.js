@@ -583,6 +583,54 @@ function computeEstate() {
   for (const r of S.rows) if (!handled.has(r)) r.cost = costRow(r);
 }
 
+/* Prices the whole estate under a modernization appetite. The appetite is a
+   FLOOR on how managed a platform the customer is willing to accept, not an
+   exclusive choice: "balanced" means Managed Instance wherever a database can
+   reach it and SQL-on-VM for the rest, so every database is housed and the three
+   options are directly comparable.
+
+   Costing only the eligible databases per platform would understate the managed
+   options, because the databases they cannot take still have to run somewhere. */
+function estateCostForAppetite(appetite) {
+  const ladder = appetite === "vm"    ? ["vm"]
+               : appetite === "mi"    ? ["mi", "vm"]
+               :                        ["sqldb", "hs", "mi", "vm"];
+
+  const placed = S.rows.map(r => {
+    for (const t of ladder) {
+      if (r.blocked[t]?.length) continue;
+      if (t === "hs" && r.sizeGb <= 4096) continue;
+      return { r, target: t };
+    }
+    return { r, target: "vm" };      // VM is the universal fallback
+  });
+
+  // Instance-level products share one deployment per source instance.
+  let monthly = 0;
+  const groups = {};
+  const singles = [];
+  for (const p of placed) {
+    if ((p.target === "mi" || p.target === "vm") && A.consolidateToMi) {
+      (groups[p.r.instKey + "|" + p.target + "|" + tierFor(p.r, p.target)] ||= []).push(p);
+    } else singles.push(p);
+  }
+  for (const p of singles) monthly += costRow(p.r, null, p.target).total;
+  for (const k in groups) {
+    const g = groups[k];
+    if (g.length < 2) { monthly += costRow(g[0].r, null, g[0].target).total; continue; }
+    const lead = g.reduce((a, b) => (b.r.sizeGb || 0) > (a.r.sizeGb || 0) ? b : a, g[0]);
+    const proto = costRow(lead.r, null, lead.target);
+    const totalSize = g.reduce((a, p) => a + (p.r.sizeGb || 0), 0) || 1;
+    for (const p of g) {
+      monthly += costRow(p.r, { frac: (p.r.sizeGb || 0) / totalSize, detail: proto.detail }, p.target).total;
+    }
+  }
+
+  const mix = {};
+  for (const p of placed) mix[p.target] = (mix[p.target] || 0) + 1;
+  return { monthly, mix, placed };
+}
+
 /* What the estate would cost if it all went to ONE target, counting only the
    databases that can actually land there. Mirrors the sharing rule above: MI and
    VM are instance-level, so their databases share a deployment. Used by the

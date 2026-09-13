@@ -10,7 +10,29 @@ terms and Azure Hybrid Benefit.
 Built for estate-scale triage: point it at a thousand databases and get a costed
 shortlist in minutes, rather than assessing one instance at a time.
 
-![SQL Estate Analyzer summary view](docs/img/shot-summary.png)
+![SQL Estate Analyzer options view](docs/img/shot-options.png)
+
+## What it answers
+
+*"I have a thousand SQL databases on-premises — what are my options?"*
+
+The **Options** page puts that on one screen: what the estate costs to leave where
+it is, against three modernization appetites, each housing **every** database.
+
+| Appetite | Where databases land |
+|---|---|
+| **Minimal change** | SQL Server on Azure VM — keeps OS access, agents, sysadmin |
+| **Balanced** | Managed Instance where it fits, VM for the rest |
+| **Full modernization** | The most managed platform each database can reach |
+
+Appetite is a **floor, not an exclusive choice**: a database whose features block
+the more managed platform falls back to the next one that fits. That is what makes
+the three totals directly comparable — costing only the *eligible* databases per
+platform would flatter the managed options, because the ones they cannot take
+still have to run somewhere.
+
+Everything else sits behind that page: the blocker behind every placement, the
+cost model, and the raw inventory.
 
 > **Your data never leaves your browser.** The page is a single static HTML file
 > with no network calls, no storage APIs and no telemetry. Files you drop in are
