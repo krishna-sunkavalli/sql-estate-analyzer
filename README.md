@@ -14,12 +14,14 @@ shortlist in minutes, rather than assessing one instance at a time.
 
 ## What it answers
 
-**Not sure which Azure SQL option fits?** Open
-[**Which option is right?**](https://krishna-sunkavalli.github.io/sql-estate-analyzer/) in
-the header — a static guide to VM vs Managed Instance vs SQL Database vs serverless,
-with no data required. It exists because the most common misunderstanding is treating
-Managed Instance and serverless as competing choices: one is an *instance*, the other is
-a *billing mode* for a single database.
+**Not sure which Azure SQL option fits?** Send them straight to the guide:
+
+**▶ https://krishna-sunkavalli.github.io/sql-estate-analyzer/sqlmodernizationoptions/**
+
+A standalone page — no data, no upload, nothing to install. It exists because the
+most common misunderstanding is treating Managed Instance and serverless as
+competing choices: one is an *instance*, the other is a *billing mode* for a single
+database.
 
 ![Decision guide](docs/img/shot-guide.png)
 
@@ -428,9 +430,10 @@ Microsoft account team before committing to a number.
 | Path | Purpose |
 |---|---|
 | `index.html` | The built, self-contained app served by GitHub Pages |
+| `sqlmodernizationoptions/` | The built standalone decision guide |
 | `discovery/` | Estate sweep (`Invoke-SqlEstateDiscovery.ps1`) and the read-only T-SQL script it runs |
 | `samples/` | Example inventory produced by the discovery script |
-| `src/` | Source: HTML template, JS parts, price puller, build script |
+| `src/` | Source: HTML template, guide partial, JS parts, price puller, build script |
 
 ### Building locally
 
@@ -439,9 +442,11 @@ pwsh ./src/pull-prices.ps1    # optional: re-query the Azure Retail Prices API
 pwsh ./src/build.ps1          # regenerate index.html
 ```
 
-`build.ps1` fails if the bundle picks up an external reference, `fetch`,
-`XMLHttpRequest` or a browser-storage call. Never hand-edit `index.html` — edit
-the parts in `src/` and rebuild.
+`build.ps1` emits both pages and fails if either picks up an external reference,
+`fetch`, `XMLHttpRequest` or a browser-storage call. Never hand-edit `index.html`
+or `sqlmodernizationoptions/index.html` — edit the parts in `src/` and rebuild.
+The guide's content lives in `src/guide.partial.html`; CI rejects a stale build of
+either page.
 
 ## Disclaimer
 

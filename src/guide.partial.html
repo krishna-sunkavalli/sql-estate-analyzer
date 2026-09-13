@@ -1,0 +1,120 @@
+<div class="card">
+      <h3>Azure SQL options <span class="hint">and how to choose between them</span></h3>
+      <div class="opt-grid">
+        <div class="opt">
+          <div class="tag">Infrastructure as a Service</div>
+          <h4>SQL Server on Azure VM</h4>
+          <p>The SQL Server you run today, on someone else's hardware. You keep the operating
+             system — and you keep patching it.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">Platform as a Service · instance scope</div>
+          <h4>SQL Managed Instance</h4>
+          <p>Near-full SQL Server compatibility with no OS to run. Keeps the instance-level
+             features applications quietly depend on.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">Platform as a Service · database scope</div>
+          <h4>Azure SQL Database</h4>
+          <p>A single database as a service. Lowest administration, but nothing outside that
+             one database comes with it.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">A compute tier of Azure SQL Database</div>
+          <h4>Serverless</h4>
+          <p>Not a separate product. Azure SQL Database billed per second on the compute
+             actually used, pausing when idle.</p>
+        </div>
+      </div>
+      <div class="note warn">
+        <b>The most common misunderstanding:</b> Managed Instance and serverless are not
+        alternatives to each other. Managed Instance is an <i>instance</i>; serverless is a
+        <i>billing and scaling mode</i> for a single database. You choose instance-versus-database
+        first, and only then — if you landed on a single database — provisioned versus serverless.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Three questions decide it</h3>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">1</span><h4>Does the workload need the operating system?</h4></div>
+        <div class="sub">Anything that reaches outside the database engine and onto the machine.</div>
+        <ul>
+          <li>Console or RDP access to the server</li>
+          <li>Third-party agents — backup, monitoring, antivirus</li>
+          <li>Full sysadmin, or control over instance configuration</li>
+          <li>Files on disk: FILESTREAM, FileTable, BULK INSERT from a local path</li>
+          <li>Features Azure SQL PaaS does not offer at all, such as SSRS or PolyBase</li>
+        </ul>
+        <div class="q-out">Yes → <b>SQL Server on Azure VM</b></div>
+        <div class="q-else">No → keep going.</div>
+      </div>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">2</span><h4>Does it need instance-level SQL features?</h4></div>
+        <div class="sub">Things that live on the instance rather than inside one database — the
+          usual reason a lift to Azure SQL Database fails late.</div>
+        <ul>
+          <li>SQL Server Agent jobs</li>
+          <li>Queries that cross databases, or linked servers</li>
+          <li>Service Broker, CLR assemblies</li>
+          <li>Instance-level logins shared across databases</li>
+          <li>SSIS packages, or a replication distributor</li>
+        </ul>
+        <div class="q-out">Yes → <b>Azure SQL Managed Instance</b></div>
+        <div class="q-else">No → keep going.</div>
+      </div>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">3</span><h4>Is the load steady, or does it come and go?</h4></div>
+        <div class="sub">You are on Azure SQL Database either way. This only picks how it is
+          sized and billed.</div>
+        <ul>
+          <li><b>Steady and predictable</b> — always-on line-of-business, reporting under constant use</li>
+          <li><b>Intermittent or idle</b> — dev and test, seasonal work, internal tools used a few hours a day</li>
+        </ul>
+        <div class="q-out">Steady → <b>Azure SQL Database, provisioned</b></div>
+        <div class="q-out">Intermittent → <b>Azure SQL Database, serverless</b></div>
+      </div>
+
+      <div class="note info">
+        Serverless costs more per vCore-hour than provisioned but bills only while the database is
+        awake, so it wins below roughly two-thirds utilisation and loses above it. It is General
+        Purpose and Hyperscale only — never Business Critical — so anything needing In-Memory OLTP
+        or an availability group rules it out.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>What each option costs you</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th class="nosort">&nbsp;</th>
+            <th class="nosort">SQL on Azure VM</th>
+            <th class="nosort">Managed Instance</th>
+            <th class="nosort">Azure SQL Database</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>OS access and third-party agents</td><td>Yes</td><td>No</td><td>No</td></tr>
+            <tr><td>You patch the OS and SQL Server</td><td>Yes</td><td>No</td><td>No</td></tr>
+            <tr><td>SQL Agent, cross-database queries, CLR</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+            <tr><td>Backups and high availability built in</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Scales without a maintenance window</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Can pause when idle</td><td>No</td><td>No</td><td>Serverless only</td></tr>
+            <tr><td>Azure Hybrid Benefit applies</td><td>Yes</td><td>Yes</td><td>Provisioned only</td></tr>
+            <tr><td>Migration effort</td><td>Lowest</td><td>Moderate</td><td>Highest</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        Least effort is not least cost, and the two often point in opposite directions. An estate
+        running Enterprise edition can be <i>cheaper</i> on a VM than on Managed Instance, because
+        Enterprise features push Managed Instance to the Business Critical tier at roughly twice the
+        General Purpose rate. Scan your own estate to see which way it falls.
+      </div>
+      <div style="margin-top:13px">
+        <button class="primary" id="btnGuideBack">Scan my estate</button>
+      </div>
+    </div>

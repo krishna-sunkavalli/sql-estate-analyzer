@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SQL Estate Analyzer — Azure target sizing &amp; cost</title>
-<meta name="description" content="Upload a SQL Server inventory and get Azure target recommendations and costs. Fully client-side — your data never leaves the browser.">
+<title>Azure SQL modernization options &mdash; which one fits?</title>
+<meta name="description" content="Choosing between SQL Server on Azure VM, Azure SQL Managed Instance, Azure SQL Database and serverless.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#0078d4">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230078d4'/%3E%3Cellipse cx='32' cy='19' rx='19' ry='7' fill='%23fff'/%3E%3Cpath d='M13 19v26c0 3.9 8.5 7 19 7s19-3.1 19-7V19c0 3.9-8.5 7-19 7s-19-3.1-19-7z' fill='%23fff' opacity='.85'/%3E%3C/svg%3E">
@@ -16,6 +16,7 @@
   })();
 </script>
 <style>
+
 /* Microsoft Azure / Fluent palette
    Neutrals are the Fluent gray ramp; the accent is Azure communication blue
    (#0078D4). Data-viz colours are fixed across themes so the stacked bars keep
@@ -390,92 +391,152 @@ details.acc[open] summary { margin-bottom: 9px; }
 .tbl-cap { font-size: 12px; color: var(--cp-text-muted); margin: 0 0 9px; }
 .err-list { font-size: 12.5px; color: var(--cp-danger); margin: 8px 0 0; padding-left: 18px; }
 .err-list li { margin-bottom: 3px; }
+
 </style>
 </head>
 <body>
 <div class="wrap">
-
   <header class="app">
     <div class="brand">
       <div class="mark">SQL</div>
       <div>
-        <h1>SQL Estate Analyzer</h1>
-        <div class="sub">Azure target sizing &amp; cost modelling for SQL Server estates</div>
+        <h1>Azure SQL modernization options</h1>
+        <div class="sub">Which option fits, and why</div>
       </div>
     </div>
     <div class="spacer"></div>
-    <a class="btn" href="sqlmodernizationoptions/">Which option is right?</a>
-    <button id="btnTheme" class="ghost" title="Toggle light/dark">◐</button>
+    <a class="btn" href="../" style="text-decoration:none">Scan my estate</a>
+    <button id="btnTheme" class="ghost" title="Toggle light/dark">&#9680;</button>
   </header>
-  <!-- ================= UPLOAD ================= -->
-  <section id="uploadView">
-    <div class="drop" id="drop">
-      <h2>Drop your SQL estate inventory here</h2>
-      <p>The CSV produced by the discovery script</p>
-      <div class="row">
-        <button class="primary" id="btnPick">Choose file…</button>
-        <button id="btnScript">Get the discovery scripts</button>
-        <button class="ghost" id="btnDemo">Load demo estate</button>
+  <section>
+<div class="card">
+      <h3>Azure SQL options <span class="hint">and how to choose between them</span></h3>
+      <div class="opt-grid">
+        <div class="opt">
+          <div class="tag">Infrastructure as a Service</div>
+          <h4>SQL Server on Azure VM</h4>
+          <p>The SQL Server you run today, on someone else's hardware. You keep the operating
+             system — and you keep patching it.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">Platform as a Service · instance scope</div>
+          <h4>SQL Managed Instance</h4>
+          <p>Near-full SQL Server compatibility with no OS to run. Keeps the instance-level
+             features applications quietly depend on.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">Platform as a Service · database scope</div>
+          <h4>Azure SQL Database</h4>
+          <p>A single database as a service. Lowest administration, but nothing outside that
+             one database comes with it.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">A compute tier of Azure SQL Database</div>
+          <h4>Serverless</h4>
+          <p>Not a separate product. Azure SQL Database billed per second on the compute
+             actually used, pausing when idle.</p>
+        </div>
       </div>
-      <input type="file" id="file" accept=".csv,.tsv,.txt,.xlsx,.xls" multiple>
-      <div id="loadErrors"></div>
+      <div class="note warn">
+        <b>The most common misunderstanding:</b> Managed Instance and serverless are not
+        alternatives to each other. Managed Instance is an <i>instance</i>; serverless is a
+        <i>billing and scaling mode</i> for a single database. You choose instance-versus-database
+        first, and only then — if you landed on a single database — provisioned versus serverless.
+      </div>
     </div>
 
-    <div class="getstarted">
-      <div class="gs">
-        <div class="n">1</div>
-        <h3>Sweep the estate</h3>
-        <p>Run <code>Invoke-SqlEstateDiscovery.ps1</code> once. It finds your SQL Servers from their Active Directory SPNs, a Central Management Server or your own list, queries them in parallel, and writes a single merged CSV. Read-only — no schema, data or query text, only versions, sizes and feature flags.</p>
+    <div class="card">
+      <h3>Three questions decide it</h3>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">1</span><h4>Does the workload need the operating system?</h4></div>
+        <div class="sub">Anything that reaches outside the database engine and onto the machine.</div>
+        <ul>
+          <li>Console or RDP access to the server</li>
+          <li>Third-party agents — backup, monitoring, antivirus</li>
+          <li>Full sysadmin, or control over instance configuration</li>
+          <li>Files on disk: FILESTREAM, FileTable, BULK INSERT from a local path</li>
+          <li>Features Azure SQL PaaS does not offer at all, such as SSRS or PolyBase</li>
+        </ul>
+        <div class="q-out">Yes → <b>SQL Server on Azure VM</b></div>
+        <div class="q-else">No → keep going.</div>
       </div>
-      <div class="gs">
-        <div class="n">2</div>
-        <h3>Upload the CSV</h3>
-        <p>Drop the merged file above. Just one instance, or no PowerShell? Run <code>SqlEstateDiscovery.sql</code> in SSMS, save the grid as CSV, and upload as many of those as you like together.</p>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">2</span><h4>Does it need instance-level SQL features?</h4></div>
+        <div class="sub">Things that live on the instance rather than inside one database — the
+          usual reason a lift to Azure SQL Database fails late.</div>
+        <ul>
+          <li>SQL Server Agent jobs</li>
+          <li>Queries that cross databases, or linked servers</li>
+          <li>Service Broker, CLR assemblies</li>
+          <li>Instance-level logins shared across databases</li>
+          <li>SSIS packages, or a replication distributor</li>
+        </ul>
+        <div class="q-out">Yes → <b>Azure SQL Managed Instance</b></div>
+        <div class="q-else">No → keep going.</div>
       </div>
-      <div class="gs">
-        <div class="n">3</div>
-        <h3>Review the options</h3>
-        <p>Every database is scored <b>Ready</b>, <b>Needs review</b> or <b>Not ready</b> against each Azure target — the same categories the Azure portal and SSMS assessments use — with the finding behind every one, plus costs across PAYG, reserved and Hybrid Benefit scenarios.</p>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">3</span><h4>Is the load steady, or does it come and go?</h4></div>
+        <div class="sub">You are on Azure SQL Database either way. This only picks how it is
+          sized and billed.</div>
+        <ul>
+          <li><b>Steady and predictable</b> — always-on line-of-business, reporting under constant use</li>
+          <li><b>Intermittent or idle</b> — dev and test, seasonal work, internal tools used a few hours a day</li>
+        </ul>
+        <div class="q-out">Steady → <b>Azure SQL Database, provisioned</b></div>
+        <div class="q-out">Intermittent → <b>Azure SQL Database, serverless</b></div>
+      </div>
+
+      <div class="note info">
+        Serverless costs more per vCore-hour than provisioned but bills only while the database is
+        awake, so it wins below roughly two-thirds utilisation and loses above it. It is General
+        Purpose and Hyperscale only — never Business Critical — so anything needing In-Memory OLTP
+        or an availability group rules it out.
       </div>
     </div>
 
-    <div class="note info" style="margin-top:22px">
-      <b>Everything here comes from the discovery script.</b> The inventory is entirely
-      machine-generated — there are no columns for anyone to fill in, and nothing is inferred from a
-      label a human typed. Judgement calls that SQL Server cannot answer for itself, such as whether
-      the estate is under Software Assurance, live on the <b>Assumptions</b> tab where they are
-      visible and adjustable rather than buried in a spreadsheet.
+    <div class="card">
+      <h3>What each option costs you</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th class="nosort">&nbsp;</th>
+            <th class="nosort">SQL on Azure VM</th>
+            <th class="nosort">Managed Instance</th>
+            <th class="nosort">Azure SQL Database</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>OS access and third-party agents</td><td>Yes</td><td>No</td><td>No</td></tr>
+            <tr><td>You patch the OS and SQL Server</td><td>Yes</td><td>No</td><td>No</td></tr>
+            <tr><td>SQL Agent, cross-database queries, CLR</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+            <tr><td>Backups and high availability built in</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Scales without a maintenance window</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Can pause when idle</td><td>No</td><td>No</td><td>Serverless only</td></tr>
+            <tr><td>Azure Hybrid Benefit applies</td><td>Yes</td><td>Yes</td><td>Provisioned only</td></tr>
+            <tr><td>Migration effort</td><td>Lowest</td><td>Moderate</td><td>Highest</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        Least effort is not least cost, and the two often point in opposite directions. An estate
+        running Enterprise edition can be <i>cheaper</i> on a VM than on Managed Instance, because
+        Enterprise features push Managed Instance to the Business Critical tier at roughly twice the
+        General Purpose rate. Scan your own estate to see which way it falls.
+      </div>
+      <div style="margin-top:13px">
+        <a class="btn primary" href="../">Scan my estate &rarr;</a>
+      </div>
     </div>
 
-    <div class="note" style="margin-top:12px">
-      <b>Built for large estates.</b> The sweep reads catalog views and DMVs only — no trace, no user data,
-      nothing that blocks — so it is safe to run during business hours. Budget about a second per instance
-      plus a few milliseconds per database: a thousand databases is minutes, not hours. This is triage
-      rather than a final compatibility ruling; once you have chosen the databases to move, confirm them
-      with the readiness assessment built into SSMS.
-    </div>
   </section>
-
-  <!-- ================= RESULTS ================= -->
-  <section id="resultsView" class="hidden">
-    <nav class="tabs" id="tabs">
-      <button data-tab="options" class="on">Options</button>
-      <button data-tab="summary">Summary</button>
-      <button data-tab="targets">Recommendations</button>
-      <button data-tab="cost">Cost model</button>
-      <button data-tab="inventory">Inventory</button>
-      <button data-tab="assumptions">Assumptions</button>
-    </nav>
-
-    <div class="panel on" id="panel-options"></div>
-    <div class="panel" id="panel-summary"></div>
-    <div class="panel" id="panel-targets"></div>
-    <div class="panel" id="panel-cost"></div>
-    <div class="panel" id="panel-inventory"></div>
-    <div class="panel" id="panel-assumptions"></div>
-  </section>
-
 </div>
-<!--APP_SCRIPT-->
+<script>
+  document.getElementById("btnTheme").onclick = () => {
+    const d = document.documentElement;
+    d.setAttribute("data-theme", d.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  };
+</script>
 </body>
 </html>

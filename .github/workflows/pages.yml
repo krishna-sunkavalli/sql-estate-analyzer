@@ -22,25 +22,35 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Bundle must be self-contained
+      - name: Pages must be self-contained
         run: |
-          if grep -nEi 'fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|(src|href)="https?:' index.html; then
-            echo "::error::index.html contains a network, storage or external reference"
-            exit 1
-          fi
-          echo "index.html is inert: no network, storage or external references."
+          for f in index.html sqlmodernizationoptions/index.html; do
+            if grep -nEi 'fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|(src|href)="https?:' "$f"; then
+              echo "::error::$f contains a network, storage or external reference"
+              exit 1
+            fi
+            echo "$f is inert: no network, storage or external references."
+          done
 
-      - name: index.html must match a fresh build from src/
+      - name: Built pages must match a fresh build from src/
         shell: pwsh
         run: |
-          ./src/build.ps1 -Output "$env:RUNNER_TEMP/rebuilt.html"
-          $a = (Get-Content index.html -Raw) -replace "`r", ''
-          $b = (Get-Content "$env:RUNNER_TEMP/rebuilt.html" -Raw) -replace "`r", ''
-          if ($a -ne $b) {
-            Write-Host "::error::index.html is stale. Run ./src/build.ps1 and commit the result."
+          # build.ps1 writes the guide relative to -Root, so build into a temp
+          # tree and compare both outputs rather than only the app bundle.
+          $tmp = Join-Path $env:RUNNER_TEMP 'build'
+          New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+          ./src/build.ps1 -Root $tmp -Output (Join-Path $tmp 'index.html')
+          $stale = @()
+          foreach ($f in @('index.html', 'sqlmodernizationoptions/index.html')) {
+            $a = (Get-Content $f -Raw) -replace "`r", ''
+            $b = (Get-Content (Join-Path $tmp $f) -Raw) -replace "`r", ''
+            if ($a -ne $b) { $stale += $f }
+          }
+          if ($stale.Count) {
+            Write-Host "::error::Stale build output: $($stale -join ', '). Run ./src/build.ps1 and commit the result."
             exit 1
           }
-          Write-Host 'index.html matches src/.'
+          Write-Host 'Both pages match src/.'
 
   deploy:
     needs: verify
