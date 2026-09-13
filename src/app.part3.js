@@ -623,6 +623,29 @@ function boot() {
     const cur = document.documentElement.getAttribute("data-theme");
     document.documentElement.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
   };
+
+  // The decision guide is static and carries no estate data, so it has to be
+  // reachable before anything is uploaded as well as after. Remember which view
+  // was showing so closing it returns there rather than dumping the user back
+  // at the upload screen with their results still loaded.
+  const guide = $("#guideView");
+  let cameFrom = null;
+  const showGuide = () => {
+    cameFrom = $("#resultsView").classList.contains("hidden") ? "upload" : "results";
+    $("#uploadView").classList.add("hidden");
+    $("#resultsView").classList.add("hidden");
+    guide.classList.remove("hidden");
+    $("#btnGuide").textContent = "Close guide";
+    window.scrollTo(0, 0);
+  };
+  const hideGuide = () => {
+    guide.classList.add("hidden");
+    $(cameFrom === "results" ? "#resultsView" : "#uploadView").classList.remove("hidden");
+    $("#btnGuide").textContent = "Which option is right?";
+    window.scrollTo(0, 0);
+  };
+  $("#btnGuide").onclick = () => guide.classList.contains("hidden") ? showGuide() : hideGuide();
+  $("#btnGuideBack").onclick = hideGuide;
 }
 
 document.addEventListener("DOMContentLoaded", boot);

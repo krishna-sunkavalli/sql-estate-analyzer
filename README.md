@@ -14,6 +14,17 @@ shortlist in minutes, rather than assessing one instance at a time.
 
 ## What it answers
 
+**Not sure which Azure SQL option fits?** Open
+[**Which option is right?**](https://krishna-sunkavalli.github.io/sql-estate-analyzer/) in
+the header — a static guide to VM vs Managed Instance vs SQL Database vs serverless,
+with no data required. It exists because the most common misunderstanding is treating
+Managed Instance and serverless as competing choices: one is an *instance*, the other is
+a *billing mode* for a single database.
+
+![Decision guide](docs/img/shot-guide.png)
+
+Then, with an inventory loaded:
+
 *"I have a thousand SQL databases on-premises — what are my options?"*
 
 The **Options** page puts that on one screen: what the estate costs to leave where
