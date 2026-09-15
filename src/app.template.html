@@ -355,24 +355,69 @@ details.acc[open] summary { margin-bottom: 9px; }
    Static explainer, no estate data. Reachable before anything is uploaded,
    because the first thing most customers need is not a number — it is to know
    that Managed Instance and serverless are not competing choices at all. */
-.quick-tree { font-size: 12.5px; }
-.quick-tree-scroll { overflow-x: auto; }
-.quick-tree-scroll:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 3px; }
-.quick-tree-visual { display: block; width: 100%; min-width: 740px; max-width: 1000px; height: auto; margin: 0 auto; }
-.quick-tree-visual text { font-family: inherit; text-anchor: middle; fill: var(--cp-text); }
-.quick-tree-edge { fill: none; stroke: var(--cp-accent); stroke-width: 2; marker-end: url(#quick-tree-arrow); }
-.quick-tree-arrowhead { fill: var(--cp-accent); }
-.quick-tree-decision { fill: var(--cp-surface-soft); stroke: var(--cp-border-strong); stroke-width: 1.5; }
-.quick-tree-target { fill: var(--cp-accent-soft); stroke: var(--cp-accent); stroke-width: 1.5; }
-.quick-tree-compute-node { fill: var(--cp-surface); stroke: var(--cp-border-strong); stroke-width: 1.5; }
-.quick-tree-question { font-size: 18px; font-weight: 600; }
-.quick-tree-target-name { font-size: 19px; font-weight: 600; }
-.quick-tree-visual .quick-tree-caption { font-size: 15px; font-weight: 400; fill: var(--cp-text-muted); }
-.quick-tree-visual .quick-tree-branch { font-size: 16px; font-weight: 600; fill: var(--cp-accent); }
-.quick-tree-mobile-hint { display: none; }
-.quick-tree b { font-weight: 600; }
+.modernization-map { padding: 28px; font-size: 13px; border-top: 3px solid var(--cp-accent); }
+.map-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 24px; }
+.map-eyebrow { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--cp-text-muted); }
+.map-heading h2 { font-size: 28px; font-weight: 650; letter-spacing: -.025em; margin: 6px 0; }
+.modernization-map p { margin: 8px 0 0; color: var(--cp-text-muted); line-height: 1.5; }
+.modernization-map h3, .modernization-map h4 { margin: 0; font-weight: 600; }
+.modernization-map a { color: var(--cp-link); font-size: 12px; text-underline-offset: 3px; }
+.modernization-map a:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 4px; }
+.map-source { flex-shrink: 0; margin-top: 8px; }
+.map-columns, .map-branch { display: grid; grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr); }
+.map-columns { margin-bottom: 10px; color: var(--cp-text-soft); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.map-decision { display: flex; align-items: flex-start; gap: 16px; padding: 20px; background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 10px; }
+.map-step { flex: none; display: grid; place-items: center; width: 32px; height: 32px; font-size: 12px; font-weight: 700; border: 1px solid var(--cp-accent); color: var(--cp-accent); background: var(--cp-surface); border-radius: 8px; }
+.map-decision-body { min-width: 0; }
+.map-decision h3 { font-size: 17px; line-height: 1.35; margin-top: 5px; }
+.map-signals { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+.map-signals span { padding: 3px 7px; border: 1px solid var(--cp-border); background: var(--cp-surface); border-radius: 4px; font-size: 11px; color: var(--cp-text-muted); }
+.map-yes { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: var(--cp-accent); font-size: 12px; font-weight: 600; padding: 0 10px; }
+.map-yes i { width: 100%; border-top: 2px solid var(--cp-accent); position: relative; }
+.map-yes i::after { content: ""; position: absolute; right: 0; top: -5px; width: 7px; height: 7px; border-right: 2px solid var(--cp-accent); border-top: 2px solid var(--cp-accent); transform: rotate(45deg); }
+.map-destination { padding: 20px; border: 1px solid var(--cp-border); border-left: 4px solid var(--cp-accent); border-radius: 10px; background: var(--cp-accent-soft); }
+.map-destination-heading { display: flex; align-items: center; gap: 12px; }
+.map-destination h3, .map-database-heading h3 { font-size: 19px; letter-spacing: -.015em; line-height: 1.3; margin-top: 3px; }
+.map-icon { width: 34px; height: 34px; flex: none; fill: none; stroke: var(--cp-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.map-tradeoff { border-top: 1px solid var(--cp-border); padding-top: 10px; margin: 12px 0 10px; color: var(--cp-text-muted); font-size: 12px; }
+.map-tradeoff b, .map-use-case b { display: block; color: var(--cp-text); font-size: 11px; margin-bottom: 3px; font-weight: 600; }
+.map-next { width: calc((100% - 84px) / 2); display: flex; align-items: center; flex-direction: column; padding: 8px 12px; gap: 7px; color: var(--cp-text-muted); font-size: 11px; text-align: center; }
+.map-next i { height: 16px; border-left: 2px solid var(--cp-accent); position: relative; }
+.map-next i::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 7px; height: 7px; border-right: 2px solid var(--cp-accent); border-bottom: 2px solid var(--cp-accent); transform: rotate(45deg); }
+.map-database { border: 1px solid var(--cp-accent); border-radius: 12px; padding: 20px; background: var(--cp-accent-soft); }
+.map-database-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.map-badge { border: 1px solid var(--cp-border); padding: 5px 9px; border-radius: 4px; font-size: 11px; background: var(--cp-surface); color: var(--cp-text-muted); }
+.map-compute-question { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 22px; }
+.map-compute-question h3 { font-size: 15px; }
+.map-compute-fork { display: grid; grid-template-columns: 1fr 1fr; position: relative; margin: 20px 0 12px; padding-top: 14px; text-align: center; color: var(--cp-accent); font-size: 11px; font-weight: 600; }
+.map-compute-fork::before { content: ""; position: absolute; top: 0; left: 25%; right: 25%; height: 9px; border: 1px solid var(--cp-accent); border-bottom: 0; }
+.map-compute-fork::after { content: ""; position: absolute; height: 12px; border-left: 1px solid var(--cp-accent); top: -12px; left: 50%; }
+.map-compute-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.map-compute-card { border: 1px solid var(--cp-border); border-radius: 8px; padding: 16px; background: var(--cp-surface); }
+.map-compute-title { display: flex; align-items: center; gap: 10px; }
+.map-compute-title h4 { font-size: 16px; }
+.map-compute-title .map-icon { width: 26px; height: 26px; }
+.map-use-case { padding-top: 12px; color: var(--cp-text-muted); font-size: 12px; }
+.map-compute-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: 11.5px; }
+.map-compute-link { display: block; margin-top: 14px; text-align: center; }
+.map-checkpoint { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 20px; }
+.map-checkpoint b { display: block; font-weight: 600; font-size: 12px; }
+.map-checkpoint span { display: block; color: var(--cp-text-muted); font-size: 11.5px; margin-top: 4px; }
+#technical-guidance, #os-requirements, #instance-requirements, #compute-requirements { scroll-margin-top: 20px; }
 @media (max-width: 760px) {
-  .quick-tree-mobile-hint { display: block; }
+  .modernization-map { padding: 16px; }
+  .map-heading, .map-database-heading, .map-checkpoint { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .map-heading h2 { font-size: 23px; }
+  .map-columns { display: none; }
+  .map-branch, .map-compute-options { grid-template-columns: 1fr; }
+  .map-decision, .map-destination { padding: 16px; }
+  .map-yes { flex-direction: row; padding: 12px; }
+  .map-yes i { width: 0; height: 22px; border-top: 0; border-left: 2px solid var(--cp-accent); }
+  .map-yes i::after { right: auto; left: -5px; top: auto; bottom: 0; transform: rotate(135deg); }
+  .map-next { width: 100%; padding: 14px 8px; border-left: 2px dashed var(--cp-border-strong); margin: 8px 0; }
+  .map-next span { background: var(--cp-surface); padding: 0 8px; }
+  .map-compute-fork { display: none; }
+  .map-compute-question { margin: 18px 0; justify-content: flex-start; }
 }
 .q { border-left: 3px solid var(--cp-accent); padding: 0 0 0 18px; margin: 0 0 4px; }
 .q-head { display: flex; align-items: baseline; gap: 10px; }

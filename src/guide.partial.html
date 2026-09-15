@@ -1,64 +1,100 @@
-<div class="card quick-tree">
-  <h3>Start here <span class="hint">a quick route to your Azure SQL shortlist</span></h3>
-  <p class="sub quick-tree-mobile-hint">Scroll sideways to follow the diagram.</p>
-  <div class="quick-tree-scroll" role="region" aria-label="Azure SQL decision flowchart" tabindex="0">
-    <svg class="quick-tree-visual" viewBox="0 0 1000 710" role="img" aria-labelledby="quick-tree-title quick-tree-desc">
-      <title id="quick-tree-title">Choose an Azure SQL destination</title>
-      <desc id="quick-tree-desc">If you must retain operating-system access, local dependencies or a specific SQL Server version, consider SQL Server on Azure VM. Otherwise, if you must retain supported instance features, consider Managed Instance. Otherwise, consider Azure SQL Database: provisioned compute for steady or latency-sensitive use, or serverless for intermittent use that can tolerate resume delays. Confirm requirements using the detailed guidance below.</desc>
-      <defs>
-        <marker id="quick-tree-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" class="quick-tree-arrowhead"/>
-        </marker>
-      </defs>
-
-      <path class="quick-tree-edge" d="M 500 115 H 650"/>
-      <path class="quick-tree-edge" d="M 280 200 V 240"/>
-      <path class="quick-tree-edge" d="M 500 325 H 650"/>
-      <path class="quick-tree-edge" d="M 280 410 V 455"/>
-      <path class="quick-tree-edge" d="M 280 545 V 570 H 215 V 610"/>
-      <path class="quick-tree-edge" d="M 280 570 H 750 V 610"/>
-      <text class="quick-tree-branch" x="575" y="99">Yes</text>
-      <text class="quick-tree-branch" x="305" y="226">No</text>
-      <text class="quick-tree-branch" x="575" y="309">Yes</text>
-      <text class="quick-tree-branch" x="305" y="437">No</text>
-
-      <polygon class="quick-tree-decision" points="280,30 500,115 280,200 60,115"/>
-      <text class="quick-tree-question" x="280" y="89">
-        <tspan x="280">1. Must keep OS access,</tspan>
-        <tspan x="280" dy="26">local dependencies or a</tspan>
-        <tspan x="280" dy="26">specific SQL version?</tspan>
-      </text>
-      <rect class="quick-tree-target" x="650" y="65" width="320" height="100" rx="12"/>
-      <text class="quick-tree-target-name" x="810" y="108">SQL Server on Azure VM</text>
-      <text class="quick-tree-caption" x="810" y="137">OS and engine control</text>
-
-      <polygon class="quick-tree-decision" points="280,240 500,325 280,410 60,325"/>
-      <text class="quick-tree-question" x="280" y="299">
-        <tspan x="280">2. Must keep supported</tspan>
-        <tspan x="280" dy="26">instance features?</tspan>
-        <tspan class="quick-tree-caption" x="280" dy="26">Agent · CLR · cross-database queries</tspan>
-      </text>
-      <rect class="quick-tree-target" x="650" y="275" width="320" height="100" rx="12"/>
-      <text class="quick-tree-target-name" x="810" y="318">Azure SQL Managed Instance</text>
-      <text class="quick-tree-caption" x="810" y="347">Managed instance compatibility</text>
-
-      <rect class="quick-tree-target" x="60" y="455" width="440" height="90" rx="12"/>
-      <text class="quick-tree-target-name" x="280" y="490">Azure SQL Database</text>
-      <text class="quick-tree-caption" x="280" y="519">3. Is the workload steady or intermittent?</text>
-      <text class="quick-tree-branch" x="133" y="591">Steady</text>
-      <text class="quick-tree-branch" x="842" y="591">Intermittent</text>
-
-      <rect class="quick-tree-compute-node" x="40" y="610" width="350" height="80" rx="12"/>
-      <text class="quick-tree-target-name" x="215" y="642">Provisioned compute</text>
-      <text class="quick-tree-caption" x="215" y="668">Steady use / predictable response times</text>
-      <rect class="quick-tree-compute-node" x="555" y="610" width="390" height="80" rx="12"/>
-      <text class="quick-tree-target-name" x="750" y="642">Serverless compute</text>
-      <text class="quick-tree-caption" x="750" y="668">Intermittent use / resume delays acceptable</text>
-    </svg>
+<section class="card modernization-map" aria-labelledby="map-title">
+  <div class="map-heading">
+    <div>
+      <div class="map-eyebrow">Existing SQL Server workload &rarr; Azure</div>
+      <h2 id="map-title">Find your Azure SQL path</h2>
+      <p>Start with what must stay. Then decide what Azure can manage for you.</p>
+    </div>
+    <a class="map-source" href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Microsoft Learn reference &nearr;</a>
   </div>
-  <p class="sub">A starting point, not a compatibility ruling. If unsure, use the technical examples
-    below to confirm feature support, availability requirements and cost.</p>
-</div>
+
+  <div class="map-columns" aria-hidden="true">
+    <span>Your requirement</span><span></span><span>Destination to consider</span>
+  </div>
+  <div class="map-branch">
+    <div class="map-decision">
+      <span class="map-step" aria-hidden="true">01</span>
+      <div class="map-decision-body">
+        <div class="map-eyebrow">Keep host control</div>
+        <h3>Must the machine stay part of the application?</h3>
+        <p>Keep OS access, local dependencies or a specific SQL Server engine version unchanged.</p>
+        <div class="map-signals"><span>Local agents</span><span>FILESTREAM</span><span>Pinned engine version</span></div>
+      </div>
+    </div>
+    <div class="map-yes"><span>Yes</span><i aria-hidden="true"></i></div>
+    <div class="map-destination">
+      <div class="map-destination-heading">
+        <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="4" width="22" height="10" rx="2"/><rect x="5" y="18" width="22" height="10" rx="2"/><path d="M10 9h1m5 0h6M10 23h1m5 0h6"/></svg>
+        <div><div class="map-eyebrow">IaaS · lift and shift</div><h3>SQL Server on Azure VM</h3></div>
+      </div>
+      <p>Retain host and engine control.</p>
+      <div class="map-tradeoff"><b>Your responsibility</b> OS and SQL operations, including patching and HA configuration.</div>
+      <a href="#os-requirements">Check the OS dependencies &darr;</a>
+    </div>
+  </div>
+  <div class="map-next"><span>No, or those dependencies can be redesigned</span><i aria-hidden="true"></i></div>
+
+  <div class="map-branch">
+    <div class="map-decision">
+      <span class="map-step" aria-hidden="true">02</span>
+      <div class="map-decision-body">
+        <div class="map-eyebrow">Keep instance behavior</div>
+        <h3>Must supported instance features stay?</h3>
+        <p>Retain native SQL dependencies, or require a supported native migration path back to SQL Server.</p>
+        <div class="map-signals"><span>SQL Agent</span><span>Cross-database queries</span><span>CLR</span></div>
+      </div>
+    </div>
+    <div class="map-yes"><span>Yes</span><i aria-hidden="true"></i></div>
+    <div class="map-destination">
+      <div class="map-destination-heading">
+        <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="3" width="28" height="26" rx="3"/><ellipse cx="16" cy="11" rx="8" ry="3"/><path d="M8 11v10c0 4 16 4 16 0V11M8 16c0 4 16 4 16 0"/></svg>
+        <div><div class="map-eyebrow">PaaS · managed instance</div><h3>Azure SQL Managed Instance</h3></div>
+      </div>
+      <p>Broad SQL compatibility without running the OS.</p>
+      <div class="map-tradeoff"><b>Validate first</b> Agent steps, linked-server providers, feature restrictions and portability requirements.</div>
+      <a href="#instance-requirements">Check the instance features &darr;</a>
+    </div>
+  </div>
+  <div class="map-next"><span>No, or the application can move to database scope</span><i aria-hidden="true"></i></div>
+
+  <div class="map-database">
+    <div class="map-database-heading">
+      <div class="map-destination-heading">
+        <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="7" rx="11" ry="4"/><path d="M5 7v18c0 6 22 6 22 0V7M5 16c0 6 22 6 22 0"/></svg>
+        <div><div class="map-eyebrow">PaaS · database scope</div><h3>Azure SQL Database</h3></div>
+      </div>
+      <span class="map-badge">One product. Two compute choices.</span>
+    </div>
+    <div class="map-compute-question"><span class="map-step" aria-hidden="true">03</span><h3>How does the workload run?</h3></div>
+    <div class="map-compute-fork" aria-hidden="true"><span>Steady / latency-sensitive</span><span>Intermittent / resume-tolerant</span></div>
+    <div class="map-compute-options">
+      <div class="map-compute-card">
+        <div class="map-compute-title">
+          <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 26h26M7 21V9m6 12V9m6 12V9m6 12V9"/></svg>
+          <h4>Provisioned compute</h4>
+        </div>
+        <p>For sustained use or predictable response times.</p>
+        <div class="map-use-case"><b>Example</b> Always-on order processing or continuously used reporting.</div>
+        <div class="map-compute-note">Many databases with varying demand? Compare <b>elastic pools</b>.</div>
+      </div>
+      <div class="map-compute-card">
+        <div class="map-compute-title">
+          <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 26h26M4 21h5l4-14 5 16 4-9h6"/></svg>
+          <h4>Serverless compute</h4>
+        </div>
+        <p>For variable demand when resume delays are acceptable.</p>
+        <div class="map-use-case"><b>Example</b> A departmental application with long inactive periods.</div>
+        <div class="map-compute-note">Minimum charges apply. Auto-pause: eligible <b>General Purpose</b> only.</div>
+      </div>
+    </div>
+    <a class="map-compute-link" href="#compute-requirements">Compare billing, auto-pause and availability &darr;</a>
+  </div>
+
+  <div class="map-checkpoint">
+    <div><b>Shortlist first. Validate before committing.</b><span>Feature support &rarr; service tier &amp; size &rarr; HA/DR &rarr; full cost</span></div>
+    <a href="#technical-guidance">Explore the technical checks &darr;</a>
+  </div>
+</section>
 
 <div class="card">
   <h3>Three Azure SQL options <span class="hint">and how to choose between them</span></h3>
@@ -93,12 +129,12 @@
   </div>
 </div>
 
-<div class="card">
+<div class="card" id="technical-guidance">
   <h3>Three questions decide it</h3>
   <p class="sub">Use these to shortlist a destination, not certify compatibility. Confirm exact feature
     support, database size, performance and HA/DR requirements before choosing a configuration.</p>
 
-  <div class="q">
+  <div class="q" id="os-requirements">
     <div class="q-head"><span class="q-n">1</span><h4>Does the workload need the operating system?</h4></div>
     <div class="sub">Choose a VM when dependencies on the SQL host must remain unchanged.
       If you can move those dependencies to other services, PaaS may still fit.</div>
@@ -138,7 +174,7 @@
     </details>
   </div>
 
-  <div class="q">
+  <div class="q" id="instance-requirements">
     <div class="q-head"><span class="q-n">2</span><h4>Does it need instance-level SQL features?</h4></div>
     <div class="sub">MI is a strong candidate for supported instance dependencies that you do not
       want to rewrite. Near-full compatibility does not mean every feature behaves identically.</div>
@@ -180,7 +216,7 @@
     </details>
   </div>
 
-  <div class="q">
+  <div class="q" id="compute-requirements">
     <div class="q-head"><span class="q-n">3</span><h4>Is the load steady, or does it come and go?</h4></div>
     <div class="sub">Once SQL Database meets the application's requirements, choose its compute
       model. Activity patterns and latency tolerance matter as much as database size.</div>

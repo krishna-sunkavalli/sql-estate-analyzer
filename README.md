@@ -42,6 +42,10 @@ A static, three-question guide with technical examples and Microsoft Learn
 references. Expandable details explain feature restrictions, serverless billing
 and availability without overwhelming the initial decision.
 
+The opening decision map pairs each requirement with a destination and its
+operational trade-off. It includes technical examples, a provisioned/serverless
+branch within SQL Database, and direct links to the detailed checks below.
+
 MI is a deployment option; serverless is a compute tier of SQL Database, not MI.
 They can still be alternative destinations when a workload fits both. The guide
 does not treat source edition, CDC, logins or an existing availability group as
