@@ -77,36 +77,41 @@
 </section>
 
 <div class="card">
-  <h3>Three Azure SQL options <span class="hint">and how to choose between them</span></h3>
-  <div class="opt-grid">
-    <div class="opt">
-      <div class="tag">Infrastructure as a Service</div>
-      <h4>SQL Server on Azure VM</h4>
-      <p>SQL Server with operating-system access and control over the engine version.
-         You manage SQL configuration, patching and availability, with Azure automation available.</p>
-    </div>
-    <div class="opt">
-      <div class="tag">Platform as a Service · instance scope</div>
-      <h4>SQL Managed Instance</h4>
-      <p>A managed instance with broad SQL Server compatibility. Microsoft manages the OS,
-         engine patching, backups and built-in availability; some instance features have restrictions.</p>
-    </div>
-    <div class="opt">
-      <div class="tag">Platform as a Service · database scope</div>
-      <h4>Azure SQL Database</h4>
-      <p>Managed databases, individually or in elastic pools. A good candidate when the application
-         can work within database-scoped capabilities rather than requiring an unchanged SQL instance.</p>
-      <p><b>Compute choices:</b> provisioned for allocated capacity, or serverless for
-         automatically scaling single databases with per-second billing and CPU/memory minimums.
-         Eligible General Purpose serverless databases can auto-pause; Hyperscale serverless cannot.</p>
-    </div>
+  <h3>Operational trade-offs</h3>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th class="nosort">Responsibility / capability</th>
+        <th class="nosort">SQL on Azure VM</th>
+        <th class="nosort">Managed Instance</th>
+        <th class="nosort">Azure SQL Database</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>OS access and locally installed agents</td><td>Customer-controlled</td><td>No host OS access</td><td>No host OS access</td></tr>
+        <tr><td>OS and engine patching</td><td>Customer-managed; automation available</td><td>Service-managed</td><td>Service-managed</td></tr>
+        <tr><td>Instance-level SQL compatibility</td><td>Broadest control</td><td>Broad, with restrictions</td><td>Database-scoped; redesign may be needed</td></tr>
+        <tr><td>Backups and SQL-level HA</td><td>Customer-configured; Azure tooling available</td><td>Service-managed; select redundancy/DR</td><td>Service-managed; select redundancy/DR</td></tr>
+        <tr><td>Scaling</td><td>Plan for VM/SQL changes</td><td>Managed; interruption possible</td><td>Managed; interruption possible</td></tr>
+        <tr><td>Automatic workload-driven pause/resume</td><td>No</td><td>No; GP has separate stop/start</td><td>Eligible General Purpose serverless</td></tr>
+        <tr><td>Azure Hybrid Benefit</td><td>Eligible licenses/configurations</td><td>Eligible licenses/configurations</td><td>Eligible provisioned vCore; not serverless, DTU or new Hyperscale</td></tr>
+        <tr><td>Migration approach</td><td>Often lift-and-shift</td><td>Often fewer instance-feature changes</td><td>May need application redesign</td></tr>
+      </tbody>
+    </table>
   </div>
-  <div class="note info">
-    <b>Choose deployment fit first, then compute.</b> Managed Instance is a deployment option;
-    serverless is a compute tier of Azure SQL Database, not a mode of MI. They can still be
-    alternative destinations when a workload fits both.
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql#decision-tree-diagram">See Microsoft's official decision tree.</a>
+  <div class="note">
+    <b>Enterprise edition does not automatically mean Business Critical.</b> Choose the tier
+    from required features, memory, latency, throughput, availability and recovery objectives.
+    Compare full configurations and operating responsibilities; no target is universally cheapest.
+    These are planning guidelines, not a compatibility certification or a price quote.
   </div>
+  <p class="sub">Microsoft Learn:
+    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Decision tree</a>
+    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/service-tiers-managed-instance-vcore?view=azuresql">MI service tiers</a>
+    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/scale-resources?view=azuresql">Scaling interruptions</a>
+    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/instance-stop-start-how-to?view=azuresql">MI stop/start</a>
+    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/backup-restore?view=azuresql">VM backups</a>
+    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/business-continuity-high-availability-disaster-recovery-hadr-overview?view=azuresql">VM HA/DR</a>
+  </p>
 </div>
 
 <div class="card" id="technical-guidance">
@@ -237,44 +242,6 @@
          · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/high-availability-sla-local-zone-redundancy?view=azuresql">SQL Database availability</a></p>
     </details>
   </div>
-</div>
-
-<div class="card">
-  <h3>Operational trade-offs</h3>
-  <div class="tbl-wrap">
-    <table>
-      <thead><tr>
-        <th class="nosort">Responsibility / capability</th>
-        <th class="nosort">SQL on Azure VM</th>
-        <th class="nosort">Managed Instance</th>
-        <th class="nosort">Azure SQL Database</th>
-      </tr></thead>
-      <tbody>
-        <tr><td>OS access and locally installed agents</td><td>Customer-controlled</td><td>No host OS access</td><td>No host OS access</td></tr>
-        <tr><td>OS and engine patching</td><td>Customer-managed; automation available</td><td>Service-managed</td><td>Service-managed</td></tr>
-        <tr><td>Instance-level SQL compatibility</td><td>Broadest control</td><td>Broad, with restrictions</td><td>Database-scoped; redesign may be needed</td></tr>
-        <tr><td>Backups and SQL-level HA</td><td>Customer-configured; Azure tooling available</td><td>Service-managed; select redundancy/DR</td><td>Service-managed; select redundancy/DR</td></tr>
-        <tr><td>Scaling</td><td>Plan for VM/SQL changes</td><td>Managed; interruption possible</td><td>Managed; interruption possible</td></tr>
-        <tr><td>Automatic workload-driven pause/resume</td><td>No</td><td>No; GP has separate stop/start</td><td>Eligible General Purpose serverless</td></tr>
-        <tr><td>Azure Hybrid Benefit</td><td>Eligible licenses/configurations</td><td>Eligible licenses/configurations</td><td>Eligible provisioned vCore; not serverless, DTU or new Hyperscale</td></tr>
-        <tr><td>Migration approach</td><td>Often lift-and-shift</td><td>Often fewer instance-feature changes</td><td>May need application redesign</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="note">
-    <b>Enterprise edition does not automatically mean Business Critical.</b> Choose the tier
-    from required features, memory, latency, throughput, availability and recovery objectives.
-    Compare full configurations and operating responsibilities; no target is universally cheapest.
-    These are planning guidelines, not a compatibility certification or a price quote.
-  </div>
-  <p class="sub">Microsoft Learn:
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Decision tree</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/service-tiers-managed-instance-vcore?view=azuresql">MI service tiers</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/scale-resources?view=azuresql">Scaling interruptions</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/instance-stop-start-how-to?view=azuresql">MI stop/start</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/backup-restore?view=azuresql">VM backups</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/business-continuity-high-availability-disaster-recovery-hadr-overview?view=azuresql">VM HA/DR</a>
-  </p>
   <div style="margin-top:13px">
     <button class="primary" id="btnGuideBack">Scan my estate</button>
   </div>
