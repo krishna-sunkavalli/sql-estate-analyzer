@@ -1,7 +1,7 @@
 <#
   build.ps1 — assembles both published pages from one source.
 
-    /                         the analyzer, with the price snapshot inlined
+    /                         the core-based calculator, with list prices inlined
     /modernization-options/   the decision guide, static, no application JavaScript
 
   Both pages are self-contained: nothing is fetched at runtime.
@@ -17,18 +17,18 @@ $build = $PSScriptRoot
 if (-not $Output) { $Output = Join-Path $Root 'index.html' }
 
 $template = Get-Content (Join-Path $build 'app.template.html') -Raw -Encoding UTF8
-$prices   = Get-Content (Join-Path $build 'prices.json')       -Raw -Encoding UTF8
-
-$parts = @('app.part1.js','app.part2.js','app.part3.js') | ForEach-Object {
-  $p = Join-Path $build $_
-  if (-not (Test-Path $p)) { throw "Missing JS part: $p" }
-  Get-Content $p -Raw -Encoding UTF8
-}
-$js = $parts -join "`n`n"
+$prices = Get-Content (Join-Path $build 'calculator-prices.json') -Raw -Encoding UTF8
+$js = Get-Content (Join-Path $build 'calculator.js') -Raw -Encoding UTF8
+$calculator = Get-Content (Join-Path $build 'calculator.template.html') -Raw -Encoding UTF8
+$sharedHead = [regex]::Match($template, '(?s)<head>(.*?)</head>').Groups[1].Value
+if (-not $sharedHead) { throw 'Shared theme head not found.' }
+$sharedHead = [regex]::Replace($sharedHead, '<title>.*?</title>', '<title>SQL modernization cost calculator</title>')
+$sharedHead = [regex]::Replace($sharedHead, '<meta name="description"[^>]*>', '<meta name="description" content="Compare SQL Standard and Enterprise core costs on-premises and on Azure using explicit planning assumptions.">')
+$calculator = $calculator.Replace('<!--SHARED_HEAD-->', $sharedHead)
 
 # Inject the price snapshot into the placeholder in part 1.
 $pattern = '/\*__PRICES__\*/\{\}/\*__END_PRICES__\*/'
-if ($js -notmatch $pattern) { throw 'Price placeholder not found in app.part1.js' }
+if ($js -notmatch $pattern) { throw 'Price placeholder not found in calculator.js' }
 $js = [regex]::Replace($js, $pattern, { param($m) $prices }, 1)
 
 # Sanity: the bundle must not LOAD anything external at runtime. Navigation links
@@ -47,7 +47,7 @@ if ($violations.Count) {
 
 # .Replace() is a literal string swap — unlike -replace it will not reinterpret
 # $ sequences inside the JavaScript payload.
-$html = $template.Replace('<!--APP_SCRIPT-->', "<script>`n$js`n</script>")
+$html = $calculator.Replace('<!--APP_SCRIPT-->', "<script>`n$js`n</script>")
 
 $outDir = Split-Path $Output -Parent
 if ($outDir -and -not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
@@ -76,7 +76,7 @@ $guideBody = Get-Content $guidePartial -Raw -Encoding UTF8
 $guideBody = [regex]::Replace(
   $guideBody,
   '<button class="primary" id="btnGuideBack">[^<]*</button>',
-  '<a class="btn primary" href="../">Scan my estate &rarr;</a>')
+  '<a class="btn primary" href="../">Calculate costs &rarr;</a>')
 
 $headMatch = [regex]::Match($template, '(?s)<head>(.*?)<style>')
 $themeBoot = [regex]::Match($headMatch.Groups[1].Value, '(?s)<script>.*?</script>').Value
@@ -109,7 +109,7 @@ $css
       </div>
     </div>
     <div class="spacer"></div>
-    <a class="btn primary" href="../">Scan my estate</a>
+    <a class="btn primary" href="../">Calculate costs</a>
     <button id="btnTheme" class="ghost" title="Toggle light/dark">&#9680;</button>
   </header>
   <section>

@@ -22,6 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Core calculator model
+        run: node --test src/calculator.test.js
+
       - name: Pages must be self-contained
         run: |
           # Navigation links are fine; what must not happen is loading anything
