@@ -551,17 +551,8 @@ details.acc[open] summary { margin-bottom: 9px; }
       <div class="calc-field"><label for="discountPct">Assumed discount (%)</label><input id="discountPct" name="discountPct" type="number" min="0" max="100" step="0.1" value="0" required><span class="calc-muted">License purchases + Azure charges; not on-premises operations</span></div>
     </div>
     <div class="calc-ahb">
-      <label><input id="ahb" name="ahb" type="checkbox" checked aria-describedby="ahbHelp"> Apply Azure Hybrid Benefit (AHB / AHUB)</label>
-      <p id="ahbHelp">Optional assumption: independently verified eligible licenses with active Software Assurance or a qualifying subscription can be reassigned with the migrated workload.
-        Covers <b>SQL Server</b> on SQL VM and SQL Managed Instance, and <b>Windows Server</b> on SQL VM only. Not available for serverless.
-        Windows Server Datacenter or Standard core licenses are a separate entitlement from SQL Server and are not implied by the core counts entered above.
-        Counts do not verify eligibility. Retained on-premises rights are not reused. Ongoing SA/subscription fees are excluded, not free; this is not full TCO.</p>
+      <label><input id="ahb" name="ahb" type="checkbox" checked> Apply Azure Hybrid Benefit (AHB / AHUB)</label>
     </div>
-    <p><b id="licenseScenario">License-refresh scenario: one-time SQL license purchase modeled over 3 years (not an annual renewal).</b>
-      <span class="calc-muted">Published SQL Server 2022 list: $3,945 Standard / $15,123 Enterprise per two-core pack.
-      Exclude sunk purchases using Existing licenses below. Discount defaults to 0%; any extra discount on selected RI/SP prices is hypothetical, not automatic.</span></p>
-    <p class="calc-muted">Defaults: 3-year reservations for VM and Managed Instance, Azure Hybrid Benefit applied, 20% VM/MI right-sizing, $450/source core/year operations, 50% avoidable.
-      Azure alternatives buy licenses only for retained cores; AHB assumes separate eligible existing migrated rights. No annual SA estimate. Serverless needs optional database inputs.</p>
     <details class="acc calc-assumptions">
       <summary>Assumptions behind the estimate</summary>
       <div class="calc-inputs">
@@ -4675,9 +4666,6 @@ if (typeof document !== "undefined") {
     };
     const sync = () => {
       for (const id of ["migrationPct", "rightSizePct"]) document.getElementById(`${id}Value`).textContent = `${form.elements[id].value}%`;
-      document.getElementById("licenseScenario").textContent = form.elements.licenseBasis.value === "refresh"
-        ? "License-refresh scenario: one-time SQL license purchase modeled over 3 years (not an annual renewal)."
-        : "Existing-license scenario: historical purchases are sunk costs and excluded; no license refresh charged.";
       const r = CALCULATOR_PRICES.regions[region.value];
       const sku = `Standard_E${form.elements.unitCores.value}bds_v5`;
       for (const key of ["vm", "mi"]) {

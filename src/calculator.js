@@ -198,9 +198,6 @@ if (typeof document !== "undefined") {
     };
     const sync = () => {
       for (const id of ["migrationPct", "rightSizePct"]) document.getElementById(`${id}Value`).textContent = `${form.elements[id].value}%`;
-      document.getElementById("licenseScenario").textContent = form.elements.licenseBasis.value === "refresh"
-        ? "License-refresh scenario: one-time SQL license purchase modeled over 3 years (not an annual renewal)."
-        : "Existing-license scenario: historical purchases are sunk costs and excluded; no license refresh charged.";
       const r = CALCULATOR_PRICES.regions[region.value];
       const sku = `Standard_E${form.elements.unitCores.value}bds_v5`;
       for (const key of ["vm", "mi"]) {
