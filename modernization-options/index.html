@@ -417,24 +417,167 @@ details.acc[open] summary { margin-bottom: 9px; }
   </header>
   <section>
 <div class="card">
-  <h3>Choose your Azure SQL option</h3>
-  <p>Start with Microsoft's official visual decision tree to compare SQL Server on Azure VM,
-     Azure SQL Managed Instance, Azure SQL Database and Hyperscale. It walks through your
-     migration goals, operating-system access, SQL feature requirements and database size.</p>
-  <p>
-    <a class="btn primary" href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql#decision-tree-diagram">View Microsoft's decision tree &rarr;</a>
-  </p>
-  <p class="sub">The diagram and its explanations are maintained by Microsoft on Microsoft Learn.</p>
-</div>
-<div class="card">
-  <h3>Considering serverless?</h3>
-  <p>Serverless is a compute tier of Azure SQL Database, not a separate alternative to Managed
-     Instance. Once you have chosen SQL Database, use Microsoft's guidance to compare
-     serverless and provisioned compute for your workload.</p>
-  <p>
-    <a class="btn" href="https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-overview?view=azuresql#scenarios">Compare serverless and provisioned compute &rarr;</a>
-  </p>
-</div>
+      <h3>Azure SQL options <span class="hint">and how to choose between them</span></h3>
+      <div class="opt-grid">
+        <div class="opt">
+          <div class="tag">Infrastructure as a Service</div>
+          <h4>SQL Server on Azure VM</h4>
+          <p>The SQL Server you run today, on someone else's hardware. You keep the operating
+             system — and you keep patching it.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">Platform as a Service · instance scope</div>
+          <h4>SQL Managed Instance</h4>
+          <p>Near-full SQL Server compatibility with no OS to run. Keeps the instance-level
+             features applications quietly depend on.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">Platform as a Service · database scope</div>
+          <h4>Azure SQL Database</h4>
+          <p>A single database as a service. Lowest administration, but nothing outside that
+             one database comes with it.</p>
+        </div>
+        <div class="opt">
+          <div class="tag">A compute tier of Azure SQL Database</div>
+          <h4>Serverless</h4>
+          <p>Not a separate product. Azure SQL Database billed per second on the compute
+             actually used, pausing when idle.</p>
+        </div>
+      </div>
+      <div class="note warn">
+        <b>The most common misunderstanding:</b> Managed Instance and serverless are not
+        alternatives to each other. Managed Instance is an <i>instance</i>; serverless is a
+        <i>billing and scaling mode</i> for a single database. You choose instance-versus-database
+        first, and only then — if you landed on a single database — provisioned versus serverless.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Three questions decide it</h3>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">1</span><h4>Does the workload need the operating system?</h4></div>
+        <div class="sub">Anything that reaches outside the database engine and onto the machine.
+          None of it survives a move to PaaS.</div>
+        <ul>
+          <li><b>Files on disk</b> — <code>FILESTREAM</code>, <code>FileTable</code>,
+              <code>BULK INSERT</code> or <code>OPENROWSET</code> from a UNC path,
+              <code>xp_cmdshell</code>, <code>sp_OACreate</code></li>
+          <li><b>Backups to a share</b> — <code>BACKUP DATABASE … TO DISK = '\\nas\sql\...'</code>,
+              or a third-party backup agent such as Veeam, Commvault or Rubrik</li>
+          <li><b>Agents on the box</b> — monitoring (SCOM, Datadog, SolarWinds), antivirus
+              exclusions, or a scheduler that runs <code>.exe</code> and PowerShell steps</li>
+          <li><b>Instance configuration</b> — trace flags, <code>sp_configure</code> beyond what
+              PaaS exposes, custom <code>tempdb</code> file layout, Resource Governor,
+              soft-NUMA, Lock Pages in Memory</li>
+          <li><b>Not offered in PaaS at all</b> — SSRS report server databases, SSAS,
+              PolyBase and external tables, Machine Learning Services
+              (<code>sp_execute_external_script</code>), Distributed Transaction Coordinator,
+              FileTable-backed applications</li>
+          <li><b>Versions older than 2016</b> that you do not intend to upgrade — Azure SQL PaaS
+              needs compatibility level 100 or above</li>
+        </ul>
+        <div class="q-out">Yes → <b>SQL Server on Azure VM</b></div>
+        <div class="q-else">No → keep going.</div>
+      </div>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">2</span><h4>Does it need instance-level SQL features?</h4></div>
+        <div class="sub">Things that live on the instance rather than inside one database. This is
+          the usual reason a lift to Azure SQL Database fails late, because the code compiles
+          fine and only breaks at run time.</div>
+        <ul>
+          <li><b>SQL Server Agent</b> — scheduled jobs, alerts, operators, Database Mail.
+              Azure SQL Database has Elastic Jobs, but that is a rewrite, not a migration</li>
+          <li><b>Cross-database access</b> — <code>SELECT … FROM OtherDb.dbo.Table</code>,
+              three-part names, synonyms pointing at another database, a shared lookup or
+              staging database</li>
+          <li><b>Linked servers</b> — <code>OPENQUERY</code>, four-part names, distributed
+              queries to another SQL Server or Oracle</li>
+          <li><b>Service Broker</b> — user queues, services and contracts, external activation</li>
+          <li><b>CLR</b> — <code>CREATE ASSEMBLY</code>, .NET stored procedures or aggregates</li>
+          <li><b>Instance-level security</b> — SQL logins shared across databases, server roles,
+              credentials and proxies, server-scoped audits, cross-database ownership chaining</li>
+          <li><b>SSIS</b> — an SSISDB catalog, or packages that run under the Agent</li>
+          <li><b>Transactional replication as a publisher or distributor</b>, change data capture,
+              log shipping</li>
+          <li><b>Global temp tables and <code>tempdb</code> tricks</b> —
+              <code>##GlobalTemp</code> shared across sessions</li>
+        </ul>
+        <div class="q-out">Yes → <b>Azure SQL Managed Instance</b></div>
+        <div class="q-else">No → keep going.</div>
+      </div>
+
+      <div class="q">
+        <div class="q-head"><span class="q-n">3</span><h4>Is the load steady, or does it come and go?</h4></div>
+        <div class="sub">You are on Azure SQL Database either way. This only picks how it is
+          sized and billed — and unlike the first two questions, the answer is in your own
+          telemetry rather than your schema.</div>
+        <ul>
+          <li><b>Steady and predictable</b> — an always-on line-of-business database, a reporting
+              database queried through the working day, anything with a nightly ETL window that
+              must not wait for a cold start</li>
+          <li><b>Intermittent or idle</b> — development and test copies, a departmental app used
+              a few hours a day, seasonal or month-end workloads, a database behind an internal
+              tool nobody touches overnight</li>
+          <li><b>Where to look</b> — average CPU against peak in Query Store or perfmon. A
+              database averaging under a third of its cores, with long flat stretches rather
+              than a steady hum, is the serverless case</li>
+          <li><b>The quick test</b> — count the hours a day something is actually connected.
+              Without Hybrid Benefit, serverless is cheaper below roughly sixteen hours.
+              <b>With Hybrid Benefit that falls to about seven</b>, because the benefit cuts
+              the provisioned rate and does not apply to serverless at all</li>
+        </ul>
+        <div class="q-out">Steady → <b>Azure SQL Database, provisioned</b></div>
+        <div class="q-out">Intermittent → <b>Azure SQL Database, serverless</b></div>
+      </div>
+
+      <div class="note info">
+        Serverless costs more per vCore-hour than provisioned but bills only while the database is
+        awake. It is General Purpose and Hyperscale only — never Business Critical — so anything
+        needing In-Memory OLTP or an availability group rules it out.
+        <br><br>
+        Two things catch people out. <b>Azure Hybrid Benefit does not apply to serverless</b>, so an
+        estate with Software Assurance sees the provisioned rate fall while serverless stays where
+        it is — which moves the break-even a long way in favour of provisioned. And a database only
+        auto-pauses when <i>nothing</i> is connected: a monitoring tool or an application connection
+        pool that polls every minute will keep it awake, and you will pay as though it were
+        provisioned while getting none of the cost benefit.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>What each option costs you</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th class="nosort">&nbsp;</th>
+            <th class="nosort">SQL on Azure VM</th>
+            <th class="nosort">Managed Instance</th>
+            <th class="nosort">Azure SQL Database</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>OS access and third-party agents</td><td>Yes</td><td>No</td><td>No</td></tr>
+            <tr><td>You patch the OS and SQL Server</td><td>Yes</td><td>No</td><td>No</td></tr>
+            <tr><td>SQL Agent, cross-database queries, CLR</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+            <tr><td>Backups and high availability built in</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Scales without a maintenance window</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Can pause when idle</td><td>No</td><td>No</td><td>Serverless only</td></tr>
+            <tr><td>Azure Hybrid Benefit applies</td><td>Yes</td><td>Yes</td><td>Provisioned only</td></tr>
+            <tr><td>Migration effort</td><td>Lowest</td><td>Moderate</td><td>Highest</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        Least effort is not least cost, and the two often point in opposite directions. An estate
+        running Enterprise edition can be <i>cheaper</i> on a VM than on Managed Instance, because
+        Enterprise features push Managed Instance to the Business Critical tier at roughly twice the
+        General Purpose rate. Scan your own estate to see which way it falls.
+      </div>
+      <div style="margin-top:13px">
+        <a class="btn primary" href="../">Scan my estate &rarr;</a>
+      </div>
+    </div>
 
   </section>
 </div>

@@ -38,10 +38,13 @@ cost model, and the raw inventory.
 
 **▶ https://krishna-sunkavalli.github.io/sql-estate-analyzer/modernization-options/**
 
-A short introduction linking to Microsoft's official Azure SQL decision-tree
-diagram and serverless-versus-provisioned guidance on Microsoft Learn. No data or
-upload is required; the page points to Microsoft's guidance rather than maintaining
-a separate decision tree.
+A short static guide — no data, no upload, nothing to install — for the
+conversation that happens before anyone has an inventory to scan. It leads with the
+misunderstanding that wastes the most time: Managed Instance and serverless are not
+competing choices. One is an *instance*, the other is a *billing mode* for a single
+database.
+
+![Decision guide](docs/img/shot-guide.png)
 
 > **Your data never leaves your browser.** The page is a single static HTML file
 > with no network calls, no storage APIs and no telemetry. Files you drop in are
