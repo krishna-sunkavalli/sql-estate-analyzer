@@ -4760,8 +4760,8 @@ if (typeof document !== "undefined") {
           <div class="calc-results">${all.map(s => `
             <article class="calc-option"><h3>${s.name}</h3>
             ${s.status !== "ready" ? `<p><b>${s.status === "input-needed" ? "Input needed" : "Unavailable"}</b></p><p>${escape(s.reason)}</p><p class="calc-muted">No total or savings reported; not $0. The retained footprint and ongoing costs still apply.</p>` : `
-              <div class="calc-price">${money(s.monthly)}<span>/ month recurring${s.plan && s.plan !== "payg" ? ", amortized commitment" : ""}; excludes initial purchase</span></div>
-              <p><b>${money(s.upfront)}</b> one-time SQL license purchase<br><b>${money(s.threeYear)}</b> over three years, including purchase</p>
+              <div class="calc-price">${money(s.threeYear)}<span>total over three years, including the one-time license purchase</span></div>
+              <p><b>${money(s.monthly)}</b> per month recurring${s.plan && s.plan !== "payg" ? ", amortized commitment" : ""}<br><b>${money(s.upfront)}</b> one-time SQL license purchase</p>
               <p class="calc-muted">${s.key === "stay" ? `${s.retainedCores} cores on-premises` : `${s.retainedCores} source cores retained + ${s.deployments} Azure ${s.key === "serverless" ? "database(s)" : "reference deployment(s)"}`}</p>
               ${s.key === "stay" ? "" : `<p class="calc-muted">${s.key === "serverless" ? "Illustrative PAYG; no AHB or reservation. SQL license included in compute." : `${escape(PLANS[s.plan])}; ${input.ahb ? `${s.coveredCores} of ${s.azureCores} Azure cores conditionally covered by AHB` : "no AHB, SQL license included"}.`}</p><p class="calc-delta">${delta(s)}</p>`}
             `}</article>`).join("")}</div>
