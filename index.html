@@ -551,19 +551,16 @@ details.acc[open] summary { margin-bottom: 9px; }
       <div class="calc-field"><label for="discountPct">Assumed discount (%)</label><input id="discountPct" name="discountPct" type="number" min="0" max="100" step="0.1" value="0" required><span class="calc-muted">License purchases + Azure charges; not on-premises operations</span></div>
     </div>
     <div class="calc-ahb">
-      <label><input id="ahb" name="ahb" type="checkbox" checked aria-describedby="ahbHelp"> Apply Azure Hybrid Benefit (AHB / AHUB) for SQL Server</label>
-      <p id="ahbHelp">Optional assumption: independently verified eligible SQL Server licenses with active Software Assurance or a qualifying subscription can be reassigned with the migrated workload.
-        Applies to covered SQL VM and SQL MI deployments, not serverless. Counts do not verify eligibility. Retained on-premises rights are not reused.
-        Ongoing SA/subscription fees are excluded, not free; this is not full TCO.</p>
-      <label><input id="windowsAhb" name="windowsAhb" type="checkbox" checked aria-describedby="windowsAhbHelp"> Apply Azure Hybrid Benefit for Windows Server (Azure VM only)</label>
-      <p id="windowsAhbHelp">Optional assumption: eligible Windows Server Datacenter or Standard core licenses with active Software Assurance or a qualifying subscription cover the Azure VMs.
-        Removes the Windows license uplift embedded in the VM meter at its unchanged pay-as-you-go value, because reservations and savings plans never discount it.
-        Windows Server licensing is separate from SQL Server licensing and is not implied by the core counts entered above. No effect on Managed Instance or serverless.</p>
+      <label><input id="ahb" name="ahb" type="checkbox" checked aria-describedby="ahbHelp"> Apply Azure Hybrid Benefit (AHB / AHUB)</label>
+      <p id="ahbHelp">Optional assumption: independently verified eligible licenses with active Software Assurance or a qualifying subscription can be reassigned with the migrated workload.
+        Covers <b>SQL Server</b> on SQL VM and SQL Managed Instance, and <b>Windows Server</b> on SQL VM only. Not available for serverless.
+        Windows Server Datacenter or Standard core licenses are a separate entitlement from SQL Server and are not implied by the core counts entered above.
+        Counts do not verify eligibility. Retained on-premises rights are not reused. Ongoing SA/subscription fees are excluded, not free; this is not full TCO.</p>
     </div>
     <p><b id="licenseScenario">License-refresh scenario: one-time SQL license purchase modeled over 3 years (not an annual renewal).</b>
       <span class="calc-muted">Published SQL Server 2022 list: $3,945 Standard / $15,123 Enterprise per two-core pack.
       Exclude sunk purchases using Existing licenses below. Discount defaults to 0%; any extra discount on selected RI/SP prices is hypothetical, not automatic.</span></p>
-    <p class="calc-muted">Defaults: 3-year reservations for VM and Managed Instance, Azure Hybrid Benefit applied for SQL Server and Windows Server, 20% VM/MI right-sizing, $450/source core/year operations, 50% avoidable.
+    <p class="calc-muted">Defaults: 3-year reservations for VM and Managed Instance, Azure Hybrid Benefit applied, 20% VM/MI right-sizing, $450/source core/year operations, 50% avoidable.
       Azure alternatives buy licenses only for retained cores; AHB assumes separate eligible existing migrated rights. No annual SA estimate. Serverless needs optional database inputs.</p>
     <details class="acc calc-assumptions">
       <summary>Assumptions behind the estimate</summary>
@@ -4499,7 +4496,7 @@ function positiveRate(value, name) {
 
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
-    storageGB: 0, licenseBasis: "refresh", discountPct: 0, ahb: true, windowsAhb: true,
+    storageGB: 0, licenseBasis: "refresh", discountPct: 0, ahb: true,
     vmPlan: "ri3", miPlan: "ri3",
     serverlessEnabled: false, databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
@@ -4515,7 +4512,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   }
   if (![4, 8, 16].includes(input.unitCores)) throw new Error("Choose 4, 8 or 16 cores per reference deployment.");
   if (!["refresh", "existing"].includes(input.licenseBasis)) throw new Error("Choose a license-refresh or existing-license scenario.");
-  for (const key of ["ahb", "windowsAhb", "serverlessEnabled"]) {
+  for (const key of ["ahb", "serverlessEnabled"]) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
   for (const key of ["vmPlan", "miPlan"]) {
@@ -4555,11 +4552,12 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     const sku = `Standard_E${input.unitCores}bds_v5`;
     const rate = key === "vm" ? region.vmPlans?.[sku]?.rates?.[plan] : region.miPlans?.[plan];
     if (deployments && !rate && plan !== "payg") return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} ${key === "vm" ? sku : "MI GP Gen5"} rate in this snapshot. Select a supported plan.`);
-    // Windows Server AHB removes the Windows licence uplift embedded in the VM
-    // meter. Reservations and savings plans never discount that uplift, so it is
-    // deducted at its unchanged PAYG value from whichever term was selected.
+    // The single Azure Hybrid Benefit choice also covers Windows Server on the
+    // VM scenario. Windows AHB removes the Windows licence uplift embedded in
+    // the VM meter. Reservations and savings plans never discount that uplift,
+    // so it is deducted at its unchanged PAYG value from the selected term.
     let windowsCredit = 0;
-    if (key === "vm" && input.windowsAhb && deployments) {
+    if (key === "vm" && input.ahb && deployments) {
       windowsCredit = positiveRate(region.vmPlans?.[sku]?.windowsLicensePerHour,
         `${input.region} ${sku} Windows Server licence uplift`);
       if (windowsCredit >= positiveRate(rate, `${input.region} ${sku} ${plan}`)) {
@@ -4589,7 +4587,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
         compute += baseRate * count * input.unitCores * HOURS;
         sqlLicense += (included - baseRate) * (count - coveredUnits) * input.unitCores * HOURS;
       }
-      allocation.push(`${edition}: ${count} × ${input.unitCores} ${key === "vm" ? "vCPU" : "vCore"}; ${coveredUnits} assumed SQL AHB deployment(s)${key === "vm" && input.windowsAhb ? "; Windows Server AHB assumed" : ""}`);
+      allocation.push(`${edition}: ${count} × ${input.unitCores} ${key === "vm" ? "vCPU" : "vCore"}; ${coveredUnits} assumed SQL AHB deployment(s)${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
     }
     let storage = 0, storageDetail = "No Azure deployments";
     if (deployments && key === "vm") {
@@ -4714,7 +4712,7 @@ if (typeof document !== "undefined") {
         input[key] = Number(form.elements[key].value);
       }
       input.databaseCount = form.elements.databaseCount.value === "" ? null : Number(form.elements.databaseCount.value);
-      for (const key of ["ahb","windowsAhb","serverlessEnabled"]) input[key] = form.elements[key].checked;
+      for (const key of ["ahb","serverlessEnabled"]) input[key] = form.elements[key].checked;
       for (const key of ["region","vmPlan","miPlan","licenseBasis"]) input[key] = form.elements[key].value;
       let report;
       try { report = calculateCoreOptions(input); }
@@ -4727,7 +4725,7 @@ if (typeof document !== "undefined") {
       const miRates = regionalPrices.miPlans?.[input.miPlan];
       const rows = [
         ["On-premises infrastructure / operations", "infrastructure"],
-        [`Azure compute (VM ${input.windowsAhb ? "excludes Windows via AHB" : "includes Windows"}; serverless includes SQL)`, "compute"],
+        [`Azure compute (VM ${input.ahb ? "excludes Windows via AHB" : "includes Windows"}; serverless includes SQL)`, "compute"],
         ["Azure SQL licensing (VM / MI)", "sqlLicense"], ["Azure storage", "storage"],
       ];
       const delta = s => `${money(Math.abs(s.deltaThreeYear))} ${s.deltaThreeYear < 0 ? "lower" : s.deltaThreeYear > 0 ? "higher" : "difference"} over 3 years

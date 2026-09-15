@@ -19,7 +19,7 @@ function positiveRate(value, name) {
 
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
-    storageGB: 0, licenseBasis: "refresh", discountPct: 0, ahb: true, windowsAhb: true,
+    storageGB: 0, licenseBasis: "refresh", discountPct: 0, ahb: true,
     vmPlan: "ri3", miPlan: "ri3",
     serverlessEnabled: false, databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
@@ -35,7 +35,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   }
   if (![4, 8, 16].includes(input.unitCores)) throw new Error("Choose 4, 8 or 16 cores per reference deployment.");
   if (!["refresh", "existing"].includes(input.licenseBasis)) throw new Error("Choose a license-refresh or existing-license scenario.");
-  for (const key of ["ahb", "windowsAhb", "serverlessEnabled"]) {
+  for (const key of ["ahb", "serverlessEnabled"]) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
   for (const key of ["vmPlan", "miPlan"]) {
@@ -75,11 +75,12 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     const sku = `Standard_E${input.unitCores}bds_v5`;
     const rate = key === "vm" ? region.vmPlans?.[sku]?.rates?.[plan] : region.miPlans?.[plan];
     if (deployments && !rate && plan !== "payg") return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} ${key === "vm" ? sku : "MI GP Gen5"} rate in this snapshot. Select a supported plan.`);
-    // Windows Server AHB removes the Windows licence uplift embedded in the VM
-    // meter. Reservations and savings plans never discount that uplift, so it is
-    // deducted at its unchanged PAYG value from whichever term was selected.
+    // The single Azure Hybrid Benefit choice also covers Windows Server on the
+    // VM scenario. Windows AHB removes the Windows licence uplift embedded in
+    // the VM meter. Reservations and savings plans never discount that uplift,
+    // so it is deducted at its unchanged PAYG value from the selected term.
     let windowsCredit = 0;
-    if (key === "vm" && input.windowsAhb && deployments) {
+    if (key === "vm" && input.ahb && deployments) {
       windowsCredit = positiveRate(region.vmPlans?.[sku]?.windowsLicensePerHour,
         `${input.region} ${sku} Windows Server licence uplift`);
       if (windowsCredit >= positiveRate(rate, `${input.region} ${sku} ${plan}`)) {
@@ -109,7 +110,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
         compute += baseRate * count * input.unitCores * HOURS;
         sqlLicense += (included - baseRate) * (count - coveredUnits) * input.unitCores * HOURS;
       }
-      allocation.push(`${edition}: ${count} × ${input.unitCores} ${key === "vm" ? "vCPU" : "vCore"}; ${coveredUnits} assumed SQL AHB deployment(s)${key === "vm" && input.windowsAhb ? "; Windows Server AHB assumed" : ""}`);
+      allocation.push(`${edition}: ${count} × ${input.unitCores} ${key === "vm" ? "vCPU" : "vCore"}; ${coveredUnits} assumed SQL AHB deployment(s)${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
     }
     let storage = 0, storageDetail = "No Azure deployments";
     if (deployments && key === "vm") {
@@ -234,7 +235,7 @@ if (typeof document !== "undefined") {
         input[key] = Number(form.elements[key].value);
       }
       input.databaseCount = form.elements.databaseCount.value === "" ? null : Number(form.elements.databaseCount.value);
-      for (const key of ["ahb","windowsAhb","serverlessEnabled"]) input[key] = form.elements[key].checked;
+      for (const key of ["ahb","serverlessEnabled"]) input[key] = form.elements[key].checked;
       for (const key of ["region","vmPlan","miPlan","licenseBasis"]) input[key] = form.elements[key].value;
       let report;
       try { report = calculateCoreOptions(input); }
@@ -247,7 +248,7 @@ if (typeof document !== "undefined") {
       const miRates = regionalPrices.miPlans?.[input.miPlan];
       const rows = [
         ["On-premises infrastructure / operations", "infrastructure"],
-        [`Azure compute (VM ${input.windowsAhb ? "excludes Windows via AHB" : "includes Windows"}; serverless includes SQL)`, "compute"],
+        [`Azure compute (VM ${input.ahb ? "excludes Windows via AHB" : "includes Windows"}; serverless includes SQL)`, "compute"],
         ["Azure SQL licensing (VM / MI)", "sqlLicense"], ["Azure storage", "storage"],
       ];
       const delta = s => `${money(Math.abs(s.deltaThreeYear))} ${s.deltaThreeYear < 0 ? "lower" : s.deltaThreeYear > 0 ? "higher" : "difference"} over 3 years

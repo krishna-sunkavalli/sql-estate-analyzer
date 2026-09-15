@@ -24,7 +24,7 @@ const fixture = {
 // unbenefited pay-as-you-go behaviour; the shipped defaults are covered separately.
 const defaults = {standard: 16, enterprise: 0, migrationPct: 100, rightSizePct: 0,
   region: "test", unitCores: 16, licenseBasis: "existing", onPremPerCoreMonth: 0,
-  ahb: false, windowsAhb: false, vmPlan: "payg", miPlan: "payg"};
+  ahb: false, vmPlan: "payg", miPlan: "payg"};
 const serverless = {serverlessEnabled: true, databaseCount: 2, storageGB: 100,
   serverlessMin: 1, serverlessMax: 8, serverlessBillable: 2, activePct: 25};
 const run = changes => calculateCoreOptions({...defaults, ...changes}, fixture);
@@ -299,33 +299,35 @@ test("shipped defaults are 3-year reservations with SQL and Windows Azure Hybrid
   near(vm.compute, (16 * 0.06 - 16 * 0.046) * 1 * 730);
 });
 
-test("Windows AHB deducts the undiscounted uplift from every VM term and never from MI", () => {
+test("the single AHB toggle covers Windows on VM and deducts an undiscounted uplift from every term", () => {
   const input = {standard: 16, enterprise: 0, migrationPct: 100, rightSizePct: 0,
-    region: "test", unitCores: 16, licenseBasis: "existing", onPremPerCoreMonth: 0, ahb: false};
+    region: "test", unitCores: 16, licenseBasis: "existing", onPremPerCoreMonth: 0};
   const uplift = 16 * 0.046 * 730;
   for (const [plan, rate] of [["payg", 1.6], ["ri1", 1.28], ["ri3", 0.96], ["sp1", 1.44], ["sp3", 1.12]]) {
-    const off = calculateCoreOptions({...input, windowsAhb: false, vmPlan: plan, miPlan: "payg"}, fixture);
-    const on = calculateCoreOptions({...input, windowsAhb: true, vmPlan: plan, miPlan: "payg"}, fixture);
+    const off = calculateCoreOptions({...input, ahb: false, vmPlan: plan, miPlan: "payg"}, fixture);
+    const on = calculateCoreOptions({...input, ahb: true, vmPlan: plan, miPlan: "payg"}, fixture);
     near(off.scenarios[0].compute, rate * 730);
     near(on.scenarios[0].compute, rate * 730 - uplift);
-    // Windows licensing is not part of Managed Instance or serverless pricing.
-    near(on.scenarios[1].compute, off.scenarios[1].compute);
-    // The uplift is never discounted by the commitment; it is the same every term.
+    // The uplift is never discounted by the commitment; it is identical every term.
     near(off.scenarios[0].compute - on.scenarios[0].compute, uplift);
-    // Windows AHB does not touch the SQL licence line.
-    near(on.scenarios[0].sqlLicense, off.scenarios[0].sqlLicense);
+    // Windows licensing is not part of Managed Instance or serverless compute.
+    near(on.scenarios[1].compute, off.scenarios[1].compute);
+    // The same toggle still clears the SQL licence line on both Azure options.
+    near(on.scenarios[0].sqlLicense, 0);
+    near(on.scenarios[1].sqlLicense, 0);
+    assert.ok(off.scenarios[0].sqlLicense > 0 && off.scenarios[1].sqlLicense > 0);
   }
 });
 
-test("Windows AHB fails loudly when no uplift is published rather than crediting zero", () => {
+test("AHB fails loudly when no Windows uplift is published rather than crediting zero", () => {
   const bare = structuredClone(fixture);
   delete bare.regions.test.vmPlans.Standard_E16bds_v5.windowsLicensePerHour;
   assert.throws(() => calculateCoreOptions({standard: 16, enterprise: 0, migrationPct: 100,
     rightSizePct: 0, region: "test", unitCores: 16, licenseBasis: "existing",
-    onPremPerCoreMonth: 0, windowsAhb: true}, bare), /Windows Server licence uplift/);
+    onPremPerCoreMonth: 0, ahb: true}, bare), /Windows Server licence uplift/);
 });
 
 test("zero Azure deployments take no Windows AHB credit", () => {
-  const r = run({migrationPct: 0, windowsAhb: true});
+  const r = run({migrationPct: 0, ahb: true});
   near(r.scenarios[0].compute, 0);
 });
