@@ -1,20 +1,15 @@
 <section class="card modernization-map" aria-labelledby="map-title">
   <div class="map-heading">
     <div>
-      <div class="map-eyebrow">Existing SQL Server workload &rarr; Azure</div>
       <h2 id="map-title">Find your Azure SQL path</h2>
     </div>
     <a class="map-source" href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Microsoft Learn reference &nearr;</a>
   </div>
 
-  <div class="map-columns" aria-hidden="true">
-    <span>Your requirement</span><span></span><span>Destination to consider</span>
-  </div>
   <div class="map-branch">
     <div class="map-decision">
       <span class="map-step" aria-hidden="true">01</span>
       <div class="map-decision-body">
-        <div class="map-eyebrow">Keep host control</div>
         <h3>Must host dependencies stay unchanged?</h3>
         <div class="map-signals"><span>Local agents</span><span>FILESTREAM</span><span>Pinned engine version</span></div>
       </div>
@@ -23,10 +18,9 @@
     <div class="map-destination">
       <div class="map-destination-heading">
         <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="4" width="22" height="10" rx="2"/><rect x="5" y="18" width="22" height="10" rx="2"/><path d="M10 9h1m5 0h6M10 23h1m5 0h6"/></svg>
-        <div><div class="map-eyebrow">IaaS · lift and shift</div><h3>SQL Server on Azure VM</h3></div>
+        <div><h3><a href="#os-requirements">SQL Server on Azure VM &darr;</a></h3></div>
       </div>
       <div class="map-tradeoff">You manage OS, SQL patching and HA.</div>
-      <a href="#os-requirements">Check the OS dependencies &darr;</a>
     </div>
   </div>
   <div class="map-next"><span>No / willing to redesign</span><i aria-hidden="true"></i></div>
@@ -35,7 +29,6 @@
     <div class="map-decision">
       <span class="map-step" aria-hidden="true">02</span>
       <div class="map-decision-body">
-        <div class="map-eyebrow">Keep instance behavior</div>
         <h3>Must supported instance features stay?</h3>
         <div class="map-signals"><span>SQL Agent</span><span>Cross-database queries</span><span>CLR</span></div>
       </div>
@@ -44,10 +37,9 @@
     <div class="map-destination">
       <div class="map-destination-heading">
         <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="3" width="28" height="26" rx="3"/><ellipse cx="16" cy="11" rx="8" ry="3"/><path d="M8 11v10c0 4 16 4 16 0V11M8 16c0 4 16 4 16 0"/></svg>
-        <div><div class="map-eyebrow">PaaS · managed instance</div><h3>Azure SQL Managed Instance</h3></div>
+        <div><h3><a href="#instance-requirements">Azure SQL Managed Instance &darr;</a></h3></div>
       </div>
       <div class="map-tradeoff">Managed OS and engine; validate feature restrictions.</div>
-      <a href="#instance-requirements">Check the instance features &darr;</a>
     </div>
   </div>
   <div class="map-next"><span>No / can work at database scope</span><i aria-hidden="true"></i></div>
@@ -56,36 +48,31 @@
     <div class="map-database-heading">
       <div class="map-destination-heading">
         <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="7" rx="11" ry="4"/><path d="M5 7v18c0 6 22 6 22 0V7M5 16c0 6 22 6 22 0"/></svg>
-        <div><div class="map-eyebrow">PaaS · database scope</div><h3>Azure SQL Database</h3></div>
+        <div><h3>Azure SQL Database</h3></div>
       </div>
-      <span class="map-badge">One product. Two compute choices.</span>
     </div>
-    <div class="map-compute-question"><span class="map-step" aria-hidden="true">03</span><h3>How does the workload run?</h3></div>
-    <div class="map-compute-fork" aria-hidden="true"><span>Steady / latency-sensitive</span><span>Intermittent / resume-tolerant</span></div>
+    <div class="map-compute-question"><span class="map-step" aria-hidden="true">03</span><h3>Choose compute for the workload</h3></div>
     <div class="map-compute-options">
       <div class="map-compute-card">
         <div class="map-compute-title">
-          <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 26h26M7 21V9m6 12V9m6 12V9m6 12V9"/></svg>
-          <h4>Provisioned compute</h4>
+          <h4><a href="#compute-requirements">Steady &rarr; Provisioned</a></h4>
         </div>
         <p>Always-on apps / predictable response times.</p>
         <div class="map-compute-note">Many databases? Compare <b>elastic pools</b>.</div>
       </div>
       <div class="map-compute-card">
         <div class="map-compute-title">
-          <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 26h26M4 21h5l4-14 5 16 4-9h6"/></svg>
-          <h4>Serverless compute</h4>
+          <h4><a href="#compute-requirements">Intermittent &rarr; Serverless</a></h4>
         </div>
         <p>Variable demand / resume delays acceptable.</p>
         <div class="map-compute-note">Minimum charges; auto-pause on eligible <b>GP</b> only.</div>
       </div>
     </div>
-    <a class="map-compute-link" href="#compute-requirements">Compare billing, auto-pause and availability &darr;</a>
   </div>
 
   <div class="map-checkpoint">
-    <div><b>Shortlist first. Validate before committing.</b><span>Feature support &rarr; service tier &amp; size &rarr; HA/DR &rarr; full cost</span></div>
-    <a href="#technical-guidance">Explore the technical checks &darr;</a>
+    <div>Validate features, tier/size, HA/DR and cost before committing.</div>
+    <a href="#technical-guidance">Technical checks &darr;</a>
   </div>
 </section>
 
