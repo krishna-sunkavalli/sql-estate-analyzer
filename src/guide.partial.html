@@ -3,7 +3,6 @@
     <div>
       <div class="map-eyebrow">Existing SQL Server workload &rarr; Azure</div>
       <h2 id="map-title">Find your Azure SQL path</h2>
-      <p>Start with what must stay. Then decide what Azure can manage for you.</p>
     </div>
     <a class="map-source" href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Microsoft Learn reference &nearr;</a>
   </div>
@@ -16,8 +15,7 @@
       <span class="map-step" aria-hidden="true">01</span>
       <div class="map-decision-body">
         <div class="map-eyebrow">Keep host control</div>
-        <h3>Must the machine stay part of the application?</h3>
-        <p>Keep OS access, local dependencies or a specific SQL Server engine version unchanged.</p>
+        <h3>Must host dependencies stay unchanged?</h3>
         <div class="map-signals"><span>Local agents</span><span>FILESTREAM</span><span>Pinned engine version</span></div>
       </div>
     </div>
@@ -27,12 +25,11 @@
         <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="4" width="22" height="10" rx="2"/><rect x="5" y="18" width="22" height="10" rx="2"/><path d="M10 9h1m5 0h6M10 23h1m5 0h6"/></svg>
         <div><div class="map-eyebrow">IaaS · lift and shift</div><h3>SQL Server on Azure VM</h3></div>
       </div>
-      <p>Retain host and engine control.</p>
-      <div class="map-tradeoff"><b>Your responsibility</b> OS and SQL operations, including patching and HA configuration.</div>
+      <div class="map-tradeoff">You manage OS, SQL patching and HA.</div>
       <a href="#os-requirements">Check the OS dependencies &darr;</a>
     </div>
   </div>
-  <div class="map-next"><span>No, or those dependencies can be redesigned</span><i aria-hidden="true"></i></div>
+  <div class="map-next"><span>No / willing to redesign</span><i aria-hidden="true"></i></div>
 
   <div class="map-branch">
     <div class="map-decision">
@@ -40,7 +37,6 @@
       <div class="map-decision-body">
         <div class="map-eyebrow">Keep instance behavior</div>
         <h3>Must supported instance features stay?</h3>
-        <p>Retain native SQL dependencies, or require a supported native migration path back to SQL Server.</p>
         <div class="map-signals"><span>SQL Agent</span><span>Cross-database queries</span><span>CLR</span></div>
       </div>
     </div>
@@ -50,12 +46,11 @@
         <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="3" width="28" height="26" rx="3"/><ellipse cx="16" cy="11" rx="8" ry="3"/><path d="M8 11v10c0 4 16 4 16 0V11M8 16c0 4 16 4 16 0"/></svg>
         <div><div class="map-eyebrow">PaaS · managed instance</div><h3>Azure SQL Managed Instance</h3></div>
       </div>
-      <p>Broad SQL compatibility without running the OS.</p>
-      <div class="map-tradeoff"><b>Validate first</b> Agent steps, linked-server providers, feature restrictions and portability requirements.</div>
+      <div class="map-tradeoff">Managed OS and engine; validate feature restrictions.</div>
       <a href="#instance-requirements">Check the instance features &darr;</a>
     </div>
   </div>
-  <div class="map-next"><span>No, or the application can move to database scope</span><i aria-hidden="true"></i></div>
+  <div class="map-next"><span>No / can work at database scope</span><i aria-hidden="true"></i></div>
 
   <div class="map-database">
     <div class="map-database-heading">
@@ -73,18 +68,16 @@
           <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 26h26M7 21V9m6 12V9m6 12V9m6 12V9"/></svg>
           <h4>Provisioned compute</h4>
         </div>
-        <p>For sustained use or predictable response times.</p>
-        <div class="map-use-case"><b>Example</b> Always-on order processing or continuously used reporting.</div>
-        <div class="map-compute-note">Many databases with varying demand? Compare <b>elastic pools</b>.</div>
+        <p>Always-on apps / predictable response times.</p>
+        <div class="map-compute-note">Many databases? Compare <b>elastic pools</b>.</div>
       </div>
       <div class="map-compute-card">
         <div class="map-compute-title">
           <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 26h26M4 21h5l4-14 5 16 4-9h6"/></svg>
           <h4>Serverless compute</h4>
         </div>
-        <p>For variable demand when resume delays are acceptable.</p>
-        <div class="map-use-case"><b>Example</b> A departmental application with long inactive periods.</div>
-        <div class="map-compute-note">Minimum charges apply. Auto-pause: eligible <b>General Purpose</b> only.</div>
+        <p>Variable demand / resume delays acceptable.</p>
+        <div class="map-compute-note">Minimum charges; auto-pause on eligible <b>GP</b> only.</div>
       </div>
     </div>
     <a class="map-compute-link" href="#compute-requirements">Compare billing, auto-pause and availability &darr;</a>
