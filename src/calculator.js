@@ -242,7 +242,7 @@ if (typeof document !== "undefined") {
       error.textContent = "";
       if (!form.reportValidity()) return;
       const input = {};
-      for (const key of ["standard","enterprise","migrationPct","rightSizePct","unitCores","discountPct",
+      for (const key of ["standard","enterprise","migrationPct","rightSizePct","unitCores",
         "onPremPerCoreMonth","avoidablePct","storageGB","serverlessMin","serverlessMax","serverlessBillable","activePct"]) {
         input[key] = Number(form.elements[key].value);
       }
@@ -277,8 +277,7 @@ if (typeof document !== "undefined") {
           <p><b>${input.licenseBasis === "refresh" ? "License-refresh scenario: one-time SQL license purchase modeled over 3 years, not annual renewal." : "Existing-license scenario: sunk purchases excluded; no refresh purchase."}</b>
           ${input.licenseBasis === "refresh" ? "On-premises buys for the full footprint; Azure alternatives buy only for retained cores. AHB assumes separate eligible existing migrated rights, not free new licenses." : ""}
           Three-year total = one-time purchase + 36 × recurring monthly cost.</p>
-          <p class="calc-muted">${input.discountPct}% assumed additional discount on SQL license purchases and all selected Azure charges, including any RI/SP rates; not on-premises operations.
-          Any discount on commitment rates is an explicit extra commercial assumption, not an automatic or verified entitlement.</p>
+          <p class="calc-muted">All figures are published list prices. Negotiated or agreement-specific discounts are not applied and will change these totals.</p>
           <div class="note warn">Only ${input.avoidablePct}% of baseline on-premises operations is assumed avoidable, proportional to actual migrated cores; the fixed share remains even at 100% migration.
           ${input.onPremPerCoreMonth === 0 ? "On-premises operations are omitted: not a full TCO or savings claim." : ""}
           ${input.storageGB === 0 ? "Migrated storage is unspecified: VM data disks omitted; MI uses 32 GB per instance; serverless needs a storage input." : ""}
@@ -298,7 +297,7 @@ if (typeof document !== "undefined") {
             <div class="tbl-wrap"><table class="calc-table"><thead><tr><th>Monthly component</th>${all.map(s => `<th>${s.name}</th>`).join("")}</tr></thead>
             <tbody>${rows.map(([label,key]) => `<tr><th scope="row">${label}</th>${all.map(s => `<td>${s.status === "ready" ? money(s[key]) : "Not calculated"}</td>`).join("")}</tr>`).join("")}
             <tr><th scope="row">One-time SQL license purchase (not monthly)</th>${all.map(s => `<td>${s.status === "ready" ? money(s.upfront) : "Not calculated"}</td>`).join("")}</tr></tbody></table></div>
-            <p>Refresh purchase = ceil(Standard cores / 2) × $3,945 + ceil(Enterprise cores / 2) × $15,123, less the entered discount.
+            <p>Refresh purchase = ceil(Standard cores / 2) × $3,945 + ceil(Enterprise cores / 2) × $15,123.
             These are published SQL Server 2022 two-core pack list prices, not annual SA rates or a current-contract quote.
             Refresh is a hypothetical planned replacement purchase, not a recharge of historical licenses. Existing-license mode excludes it.
             On-premises uses all source cores; each Azure alternative uses retained cores only. With AHB, migrated existing eligible rights must be independently available; no new rights or SA are assumed free.</p>
@@ -311,10 +310,9 @@ if (typeof document !== "undefined") {
             Only the migrated share is available: Standard 1:1 and Enterprise 4:1 for MI GP; same-edition 1:1 for VM.
             Only fully covered reference deployments receive AHB. Entitlement ratios never right-size capacity, and retained on-premises rights are not reused.</p>
             <p>One pricing plan per scenario: reservations and savings plans never stack on the same usage. VM commitment discounts apply only to infrastructure;
-            they do not discount Windows/SQL licensing or storage. The separate entered ${input.discountPct}% commercial discount is applied afterward to all selected Azure charges, including those components and any commitment rates.
-            This extra discount is hypothetical, not a published RI saving. MI uses published plan-specific included/base rates.
+            they do not discount Windows/SQL licensing or storage. MI uses published plan-specific included/base rates.
             Commitments assume 100% utilization every hour. Monthly figures amortize the full commitment; 3-year projections assume 1-year terms are purchased again at unchanged rates, not automatic renewal. Actual prices and unused commitments may differ.</p>
-            <p>Selected published hourly rates before your additional discount (USD): VM ${escape(PLANS[input.vmPlan])} ${hourly(vmRate)}/VM including Windows;
+            <p>Selected published hourly rates (USD): VM ${escape(PLANS[input.vmPlan])} ${hourly(vmRate)}/VM including Windows;
             MI ${escape(PLANS[input.miPlan])} ${hourly(miRates?.included)}/vCore license-included or ${hourly(miRates?.base)}/vCore AHB base;
             serverless PAYG ${hourly(regionalPrices.serverless?.paygPerCoreHour)}/billable vCore.
             MI RI1 base is derived from included RI1 minus the published PAYG SQL license component; reservations exclude software charges.</p>
@@ -324,7 +322,7 @@ if (typeof document !== "undefined") {
             Each database is assumed to fit the same chosen compute range and equal storage share. This is an unverified full-footprint equivalence assumption; source cores do not size serverless.
             Only eligible General Purpose databases can auto-pause. Active-use % means all billable online time, including idle auto-pause delay, not just query activity.
             Assumed billable vCores include max(CPU, memory/3 GB, configured CPU/memory minimums); this is declared, not measured.
-            Compute = databases × assumed billable vCores × 730 × active-use % × PAYG rate × (1 − discount %); storage continues while paused and receives the same entered discount.
+            Compute = databases × assumed billable vCores × 730 × active-use % × PAYG rate; storage continues while paused.
             No AHB or RI. Database savings plans may be available, but are not modeled here without hourly commitment/usage matching; this is explicitly a PAYG comparison. No universal savings claim.</div>
           <p class="calc-muted">Excluded: ongoing SA/subscription fees, application tier, ESU, migration effort, networking, extra backup storage, DR, security services, taxes and free allowances.
           No negotiated price is verified by this calculator. <a href="modernization-options/">Review the decision guide</a> and use Azure Migrate before committing.</p>

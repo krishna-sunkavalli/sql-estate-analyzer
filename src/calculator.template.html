@@ -60,7 +60,6 @@
       <div class="calc-field"><label for="enterprise">Enterprise cores</label><input id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required></div>
       <div class="calc-field"><label for="migrationPct">Migrate to Azure <output id="migrationPctValue">50%</output></label><input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="5" value="50"><span class="calc-muted">Applied to both editions</span></div>
       <div class="calc-field"><label for="region">Azure region</label><select id="region" name="region" required></select></div>
-      <div class="calc-field"><label for="discountPct">Assumed discount (%)</label><input id="discountPct" name="discountPct" type="number" min="0" max="100" step="0.1" value="0" required><span class="calc-muted">License purchases + Azure charges; not on-premises operations</span></div>
     </div>
     <div class="calc-ahb">
       <label><input id="ahb" name="ahb" type="checkbox" checked> Apply Azure Hybrid Benefit (AHB / AHUB)</label>
@@ -78,7 +77,7 @@
         <div class="calc-field"><label for="miPlan">SQL Managed Instance pricing</label><select id="miPlan" name="miPlan"></select></div>
       </div>
       <p class="calc-muted">730 hours/month; Windows Ebdsv5 or classic MI General Purpose Gen5. Commitments assume 100% hourly utilization, no RI/savings-plan stacking, and 1-year terms repurchased at the same rate throughout the 3-year projection.
-        VM commitment discounts do not discount Windows/SQL licensing or storage. The separate discount field applies additionally to all selected Azure prices (including RI/SP), as an unverified commercial assumption. Windows AHB, when selected, removes the Windows uplift at its undiscounted rate.
+        VM commitment discounts do not discount Windows/SQL licensing or storage. Windows AHB, when selected, removes the Windows uplift at its undiscounted rate.
         Unsupported term rates are marked unavailable, never guessed or treated as free. Physical-host and unlimited-virtualization licensing need separate review.</p>
     </details>
     <details class="acc calc-assumptions">
