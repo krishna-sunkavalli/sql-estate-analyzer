@@ -357,15 +357,23 @@ details.acc[open] summary { margin-bottom: 9px; }
    because the first thing most customers need is not a number — it is to know
    that Managed Instance and serverless are not competing choices at all. */
 .quick-tree { font-size: 12.5px; }
-.quick-tree-step { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; padding: 12px 16px; border: 1px solid var(--cp-border); border-radius: 8px; }
-.quick-tree-step > div:last-child { color: var(--cp-accent); }
-.quick-tree-next { padding: 6px 16px; color: var(--cp-text-muted); }
-.quick-tree-database { padding: 12px 16px; background: var(--cp-accent-soft); border: 1px solid var(--cp-border); border-radius: 8px; }
-.quick-tree-compute { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
-.quick-tree-compute > div { padding: 10px 12px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 6px; }
+.quick-tree-scroll { overflow-x: auto; }
+.quick-tree-scroll:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 3px; }
+.quick-tree-visual { display: block; width: 100%; min-width: 740px; max-width: 1000px; height: auto; margin: 0 auto; }
+.quick-tree-visual text { font-family: inherit; text-anchor: middle; fill: var(--cp-text); }
+.quick-tree-edge { fill: none; stroke: var(--cp-accent); stroke-width: 2; marker-end: url(#quick-tree-arrow); }
+.quick-tree-arrowhead { fill: var(--cp-accent); }
+.quick-tree-decision { fill: var(--cp-surface-soft); stroke: var(--cp-border-strong); stroke-width: 1.5; }
+.quick-tree-target { fill: var(--cp-accent-soft); stroke: var(--cp-accent); stroke-width: 1.5; }
+.quick-tree-compute-node { fill: var(--cp-surface); stroke: var(--cp-border-strong); stroke-width: 1.5; }
+.quick-tree-question { font-size: 18px; font-weight: 600; }
+.quick-tree-target-name { font-size: 19px; font-weight: 600; }
+.quick-tree-visual .quick-tree-caption { font-size: 15px; font-weight: 400; fill: var(--cp-text-muted); }
+.quick-tree-visual .quick-tree-branch { font-size: 16px; font-weight: 600; fill: var(--cp-accent); }
+.quick-tree-mobile-hint { display: none; }
 .quick-tree b { font-weight: 600; }
 @media (max-width: 760px) {
-  .quick-tree-step, .quick-tree-compute { grid-template-columns: 1fr; }
+  .quick-tree-mobile-hint { display: block; }
 }
 .q { border-left: 3px solid var(--cp-accent); padding: 0 0 0 18px; margin: 0 0 4px; }
 .q-head { display: flex; align-items: baseline; gap: 10px; }
@@ -430,23 +438,61 @@ details.acc[open] summary { margin-bottom: 9px; }
   <section>
 <div class="card quick-tree">
   <h3>Start here <span class="hint">a quick route to your Azure SQL shortlist</span></h3>
-  <div class="quick-tree-step">
-    <div><b>1. Must keep OS access, local dependencies or a specific SQL Server version?</b></div>
-    <div>Yes &rarr; <b>SQL Server on Azure VM</b></div>
-  </div>
-  <div class="quick-tree-next">No &darr;</div>
-  <div class="quick-tree-step">
-    <div><b>2. Must keep supported instance features, such as SQL Agent, CLR or native cross-database queries?</b></div>
-    <div>Yes &rarr; <b>Azure SQL Managed Instance</b></div>
-  </div>
-  <div class="quick-tree-next">No &darr;</div>
-  <div class="quick-tree-database">
-    <b>Azure SQL Database</b>
-    <div class="sub">3. Choose the compute model for your workload.</div>
-    <div class="quick-tree-compute">
-      <div>Steady use or predictable response times &rarr; <b>Provisioned</b></div>
-      <div>Intermittent use, with tolerance for resume delays &rarr; <b>Serverless</b></div>
-    </div>
+  <p class="sub quick-tree-mobile-hint">Scroll sideways to follow the diagram.</p>
+  <div class="quick-tree-scroll" role="region" aria-label="Azure SQL decision flowchart" tabindex="0">
+    <svg class="quick-tree-visual" viewBox="0 0 1000 710" role="img" aria-labelledby="quick-tree-title quick-tree-desc">
+      <title id="quick-tree-title">Choose an Azure SQL destination</title>
+      <desc id="quick-tree-desc">If you must retain operating-system access, local dependencies or a specific SQL Server version, consider SQL Server on Azure VM. Otherwise, if you must retain supported instance features, consider Managed Instance. Otherwise, consider Azure SQL Database: provisioned compute for steady or latency-sensitive use, or serverless for intermittent use that can tolerate resume delays. Confirm requirements using the detailed guidance below.</desc>
+      <defs>
+        <marker id="quick-tree-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" class="quick-tree-arrowhead"/>
+        </marker>
+      </defs>
+
+      <path class="quick-tree-edge" d="M 500 115 H 650"/>
+      <path class="quick-tree-edge" d="M 280 200 V 240"/>
+      <path class="quick-tree-edge" d="M 500 325 H 650"/>
+      <path class="quick-tree-edge" d="M 280 410 V 455"/>
+      <path class="quick-tree-edge" d="M 280 545 V 570 H 215 V 610"/>
+      <path class="quick-tree-edge" d="M 280 570 H 750 V 610"/>
+      <text class="quick-tree-branch" x="575" y="99">Yes</text>
+      <text class="quick-tree-branch" x="305" y="226">No</text>
+      <text class="quick-tree-branch" x="575" y="309">Yes</text>
+      <text class="quick-tree-branch" x="305" y="437">No</text>
+
+      <polygon class="quick-tree-decision" points="280,30 500,115 280,200 60,115"/>
+      <text class="quick-tree-question" x="280" y="89">
+        <tspan x="280">1. Must keep OS access,</tspan>
+        <tspan x="280" dy="26">local dependencies or a</tspan>
+        <tspan x="280" dy="26">specific SQL version?</tspan>
+      </text>
+      <rect class="quick-tree-target" x="650" y="65" width="320" height="100" rx="12"/>
+      <text class="quick-tree-target-name" x="810" y="108">SQL Server on Azure VM</text>
+      <text class="quick-tree-caption" x="810" y="137">OS and engine control</text>
+
+      <polygon class="quick-tree-decision" points="280,240 500,325 280,410 60,325"/>
+      <text class="quick-tree-question" x="280" y="299">
+        <tspan x="280">2. Must keep supported</tspan>
+        <tspan x="280" dy="26">instance features?</tspan>
+        <tspan class="quick-tree-caption" x="280" dy="26">Agent · CLR · cross-database queries</tspan>
+      </text>
+      <rect class="quick-tree-target" x="650" y="275" width="320" height="100" rx="12"/>
+      <text class="quick-tree-target-name" x="810" y="318">Azure SQL Managed Instance</text>
+      <text class="quick-tree-caption" x="810" y="347">Managed instance compatibility</text>
+
+      <rect class="quick-tree-target" x="60" y="455" width="440" height="90" rx="12"/>
+      <text class="quick-tree-target-name" x="280" y="490">Azure SQL Database</text>
+      <text class="quick-tree-caption" x="280" y="519">3. Is the workload steady or intermittent?</text>
+      <text class="quick-tree-branch" x="133" y="591">Steady</text>
+      <text class="quick-tree-branch" x="842" y="591">Intermittent</text>
+
+      <rect class="quick-tree-compute-node" x="40" y="610" width="350" height="80" rx="12"/>
+      <text class="quick-tree-target-name" x="215" y="642">Provisioned compute</text>
+      <text class="quick-tree-caption" x="215" y="668">Steady use / predictable response times</text>
+      <rect class="quick-tree-compute-node" x="555" y="610" width="390" height="80" rx="12"/>
+      <text class="quick-tree-target-name" x="750" y="642">Serverless compute</text>
+      <text class="quick-tree-caption" x="750" y="668">Intermittent use / resume delays acceptable</text>
+    </svg>
   </div>
   <p class="sub">A starting point, not a compatibility ruling. If unsure, use the technical examples
     below to confirm feature support, availability requirements and cost.</p>
