@@ -76,25 +76,27 @@
   </div>
 </section>
 
-<div class="card">
-  <h3>Operational trade-offs</h3>
-  <div class="tbl-wrap">
-    <table>
+<div class="card guide-comparison">
+  <h3 id="comparison-heading">Compare the operational trade-offs</h3>
+  <p class="comparison-intro">Compare what you control, what Azure manages, and what may need to change.</p>
+  <p class="comparison-scroll-hint">Swipe to compare. The capability column stays in view.</p>
+  <div class="tbl-wrap" role="region" aria-labelledby="comparison-heading" tabindex="0">
+    <table aria-labelledby="comparison-heading">
       <thead><tr>
-        <th class="nosort">Responsibility / capability</th>
-        <th class="nosort">SQL on Azure VM</th>
-        <th class="nosort">Managed Instance</th>
-        <th class="nosort">Azure SQL Database</th>
+        <th class="nosort" scope="col">Responsibility / capability</th>
+        <th class="nosort" scope="col"><a href="#os-requirements">SQL on Azure VM</a><span class="comparison-subtitle">IaaS · host control</span></th>
+        <th class="nosort" scope="col"><a href="#instance-requirements">Managed Instance</a><span class="comparison-subtitle">PaaS · instance scope</span></th>
+        <th class="nosort" scope="col"><a href="#compute-requirements">Azure SQL Database</a><span class="comparison-subtitle">PaaS · database scope</span></th>
       </tr></thead>
       <tbody>
-        <tr><td>OS access and locally installed agents</td><td>Customer-controlled</td><td>No host OS access</td><td>No host OS access</td></tr>
-        <tr><td>OS and engine patching</td><td>Customer-managed; automation available</td><td>Service-managed</td><td>Service-managed</td></tr>
-        <tr><td>Instance-level SQL compatibility</td><td>Broadest control</td><td>Broad, with restrictions</td><td>Database-scoped; redesign may be needed</td></tr>
-        <tr><td>Backups and SQL-level HA</td><td>Customer-configured; Azure tooling available</td><td>Service-managed; select redundancy/DR</td><td>Service-managed; select redundancy/DR</td></tr>
-        <tr><td>Scaling</td><td>Plan for VM/SQL changes</td><td>Managed; interruption possible</td><td>Managed; interruption possible</td></tr>
-        <tr><td>Automatic workload-driven pause/resume</td><td>No</td><td>No; GP has separate stop/start</td><td>Eligible General Purpose serverless</td></tr>
-        <tr><td>Azure Hybrid Benefit</td><td>Eligible licenses/configurations</td><td>Eligible licenses/configurations</td><td>Eligible provisioned vCore; not serverless, DTU or new Hyperscale</td></tr>
-        <tr><td>Migration approach</td><td>Often lift-and-shift</td><td>Often fewer instance-feature changes</td><td>May need application redesign</td></tr>
+        <tr><th class="nosort" scope="row">OS access and locally installed agents</th><td>Customer-controlled</td><td>No host OS access</td><td>No host OS access</td></tr>
+        <tr><th class="nosort" scope="row">OS and engine patching</th><td>Customer-managed; automation available</td><td>Service-managed</td><td>Service-managed</td></tr>
+        <tr><th class="nosort" scope="row">Instance-level SQL compatibility</th><td>Broadest control</td><td>Broad, with restrictions</td><td>Database-scoped; redesign may be needed</td></tr>
+        <tr><th class="nosort" scope="row">Backups and SQL-level HA</th><td>Customer-configured; Azure tooling available</td><td>Service-managed; select redundancy/DR</td><td>Service-managed; select redundancy/DR</td></tr>
+        <tr><th class="nosort" scope="row">Scaling</th><td>Plan for VM/SQL changes</td><td>Managed; interruption possible</td><td>Managed; interruption possible</td></tr>
+        <tr><th class="nosort" scope="row">Automatic workload-driven pause/resume</th><td>No</td><td>No; GP has separate stop/start</td><td>Eligible General Purpose serverless</td></tr>
+        <tr><th class="nosort" scope="row">Azure Hybrid Benefit</th><td>Eligible licenses/configurations</td><td>Eligible licenses/configurations</td><td>Eligible provisioned vCore; not serverless, DTU or new Hyperscale</td></tr>
+        <tr><th class="nosort" scope="row">Migration approach</th><td>Often lift-and-shift</td><td>Often fewer instance-feature changes</td><td>May need application redesign</td></tr>
       </tbody>
     </table>
   </div>
@@ -104,14 +106,17 @@
     Compare full configurations and operating responsibilities; no target is universally cheapest.
     These are planning guidelines, not a compatibility certification or a price quote.
   </div>
-  <p class="sub">Microsoft Learn:
+  <details class="acc comparison-sources">
+    <summary>Microsoft Learn references</summary>
+    <p>
     <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Decision tree</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/service-tiers-managed-instance-vcore?view=azuresql">MI service tiers</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/scale-resources?view=azuresql">Scaling interruptions</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/instance-stop-start-how-to?view=azuresql">MI stop/start</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/backup-restore?view=azuresql">VM backups</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/business-continuity-high-availability-disaster-recovery-hadr-overview?view=azuresql">VM HA/DR</a>
-  </p>
+    </p>
+  </details>
 </div>
 
 <div class="card" id="technical-guidance">

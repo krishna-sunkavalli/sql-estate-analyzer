@@ -356,6 +356,31 @@ details.acc[open] summary { margin-bottom: 9px; }
    Static explainer, no estate data. Reachable before anything is uploaded,
    because the first thing most customers need is not a number — it is to know
    that Managed Instance and serverless are not competing choices at all. */
+.guide-comparison .comparison-intro { color: var(--cp-text-muted); font-size: 12.5px; margin: -4px 0 12px; }
+.guide-comparison .tbl-wrap:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 3px; }
+.guide-comparison table { table-layout: fixed; min-width: 680px; }
+.guide-comparison th, .guide-comparison td { width: 25%; white-space: normal; overflow-wrap: anywhere; vertical-align: top; padding: 9px 12px; line-height: 1.5; }
+.guide-comparison thead th { font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: normal; color: var(--cp-text); }
+.guide-comparison thead th:not(:first-child) { background: var(--cp-accent-soft); }
+.guide-comparison a { color: var(--cp-link); text-underline-offset: 3px; }
+.guide-comparison thead a { text-decoration: none; }
+.guide-comparison thead a:hover { text-decoration: underline; }
+.guide-comparison a:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
+.comparison-subtitle { display: block; color: var(--cp-text-muted); font-size: 11px; font-weight: 400; margin-top: 3px; }
+.guide-comparison tbody th { position: sticky; top: auto; left: 0; z-index: 1; font-size: 12.5px; font-weight: 600; text-transform: none; letter-spacing: normal; color: var(--cp-text); background: var(--cp-surface-soft); user-select: text; }
+.guide-comparison thead th:first-child { left: 0; z-index: 3; }
+.guide-comparison td { color: var(--cp-text-muted); }
+.guide-comparison tr > :not(:last-child) { border-right: 1px solid var(--cp-border); }
+.guide-comparison tbody tr:nth-child(even) td { background: var(--cp-surface-soft); }
+.guide-comparison tbody tr:hover td { background: var(--cp-accent-soft); }
+.guide-comparison tbody tr:last-child th { border-bottom: none; }
+.guide-comparison .comparison-sources { margin-bottom: 0; padding: 8px 12px; border-radius: 8px; }
+.guide-comparison .comparison-sources summary { font-size: 12.5px; }
+.guide-comparison .comparison-sources p { font-size: 12.5px; line-height: 1.75; margin: 8px 0 0; }
+.comparison-scroll-hint { display: none; color: var(--cp-text-muted); font-size: 11.5px; margin: 0 0 8px; }
+@media (max-width: 760px) {
+  .comparison-scroll-hint { display: block; }
+}
 .modernization-map { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; padding: 12px; font-size: 12px; border-top: 3px solid var(--cp-accent); }
 .map-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
 .map-eyebrow { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--cp-text-muted); }
@@ -559,25 +584,27 @@ details.acc[open] summary { margin-bottom: 9px; }
   </div>
 </section>
 
-<div class="card">
-  <h3>Operational trade-offs</h3>
-  <div class="tbl-wrap">
-    <table>
+<div class="card guide-comparison">
+  <h3 id="comparison-heading">Compare the operational trade-offs</h3>
+  <p class="comparison-intro">Compare what you control, what Azure manages, and what may need to change.</p>
+  <p class="comparison-scroll-hint">Swipe to compare. The capability column stays in view.</p>
+  <div class="tbl-wrap" role="region" aria-labelledby="comparison-heading" tabindex="0">
+    <table aria-labelledby="comparison-heading">
       <thead><tr>
-        <th class="nosort">Responsibility / capability</th>
-        <th class="nosort">SQL on Azure VM</th>
-        <th class="nosort">Managed Instance</th>
-        <th class="nosort">Azure SQL Database</th>
+        <th class="nosort" scope="col">Responsibility / capability</th>
+        <th class="nosort" scope="col"><a href="#os-requirements">SQL on Azure VM</a><span class="comparison-subtitle">IaaS · host control</span></th>
+        <th class="nosort" scope="col"><a href="#instance-requirements">Managed Instance</a><span class="comparison-subtitle">PaaS · instance scope</span></th>
+        <th class="nosort" scope="col"><a href="#compute-requirements">Azure SQL Database</a><span class="comparison-subtitle">PaaS · database scope</span></th>
       </tr></thead>
       <tbody>
-        <tr><td>OS access and locally installed agents</td><td>Customer-controlled</td><td>No host OS access</td><td>No host OS access</td></tr>
-        <tr><td>OS and engine patching</td><td>Customer-managed; automation available</td><td>Service-managed</td><td>Service-managed</td></tr>
-        <tr><td>Instance-level SQL compatibility</td><td>Broadest control</td><td>Broad, with restrictions</td><td>Database-scoped; redesign may be needed</td></tr>
-        <tr><td>Backups and SQL-level HA</td><td>Customer-configured; Azure tooling available</td><td>Service-managed; select redundancy/DR</td><td>Service-managed; select redundancy/DR</td></tr>
-        <tr><td>Scaling</td><td>Plan for VM/SQL changes</td><td>Managed; interruption possible</td><td>Managed; interruption possible</td></tr>
-        <tr><td>Automatic workload-driven pause/resume</td><td>No</td><td>No; GP has separate stop/start</td><td>Eligible General Purpose serverless</td></tr>
-        <tr><td>Azure Hybrid Benefit</td><td>Eligible licenses/configurations</td><td>Eligible licenses/configurations</td><td>Eligible provisioned vCore; not serverless, DTU or new Hyperscale</td></tr>
-        <tr><td>Migration approach</td><td>Often lift-and-shift</td><td>Often fewer instance-feature changes</td><td>May need application redesign</td></tr>
+        <tr><th class="nosort" scope="row">OS access and locally installed agents</th><td>Customer-controlled</td><td>No host OS access</td><td>No host OS access</td></tr>
+        <tr><th class="nosort" scope="row">OS and engine patching</th><td>Customer-managed; automation available</td><td>Service-managed</td><td>Service-managed</td></tr>
+        <tr><th class="nosort" scope="row">Instance-level SQL compatibility</th><td>Broadest control</td><td>Broad, with restrictions</td><td>Database-scoped; redesign may be needed</td></tr>
+        <tr><th class="nosort" scope="row">Backups and SQL-level HA</th><td>Customer-configured; Azure tooling available</td><td>Service-managed; select redundancy/DR</td><td>Service-managed; select redundancy/DR</td></tr>
+        <tr><th class="nosort" scope="row">Scaling</th><td>Plan for VM/SQL changes</td><td>Managed; interruption possible</td><td>Managed; interruption possible</td></tr>
+        <tr><th class="nosort" scope="row">Automatic workload-driven pause/resume</th><td>No</td><td>No; GP has separate stop/start</td><td>Eligible General Purpose serverless</td></tr>
+        <tr><th class="nosort" scope="row">Azure Hybrid Benefit</th><td>Eligible licenses/configurations</td><td>Eligible licenses/configurations</td><td>Eligible provisioned vCore; not serverless, DTU or new Hyperscale</td></tr>
+        <tr><th class="nosort" scope="row">Migration approach</th><td>Often lift-and-shift</td><td>Often fewer instance-feature changes</td><td>May need application redesign</td></tr>
       </tbody>
     </table>
   </div>
@@ -587,14 +614,17 @@ details.acc[open] summary { margin-bottom: 9px; }
     Compare full configurations and operating responsibilities; no target is universally cheapest.
     These are planning guidelines, not a compatibility certification or a price quote.
   </div>
-  <p class="sub">Microsoft Learn:
+  <details class="acc comparison-sources">
+    <summary>Microsoft Learn references</summary>
+    <p>
     <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Decision tree</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/service-tiers-managed-instance-vcore?view=azuresql">MI service tiers</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/scale-resources?view=azuresql">Scaling interruptions</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/instance-stop-start-how-to?view=azuresql">MI stop/start</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/backup-restore?view=azuresql">VM backups</a>
     · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/business-continuity-high-availability-disaster-recovery-hadr-overview?view=azuresql">VM HA/DR</a>
-  </p>
+    </p>
+  </details>
 </div>
 
 <div class="card" id="technical-guidance">
