@@ -1,5 +1,5 @@
 <div class="card">
-  <h3>Azure SQL options <span class="hint">and how to choose between them</span></h3>
+  <h3>Three Azure SQL options <span class="hint">and how to choose between them</span></h3>
   <div class="opt-grid">
     <div class="opt">
       <div class="tag">Infrastructure as a Service</div>
@@ -18,12 +18,9 @@
       <h4>Azure SQL Database</h4>
       <p>Managed databases, individually or in elastic pools. A good candidate when the application
          can work within database-scoped capabilities rather than requiring an unchanged SQL instance.</p>
-    </div>
-    <div class="opt">
-      <div class="tag">A compute tier of Azure SQL Database</div>
-      <h4>Serverless</h4>
-      <p>Automatically scales compute and bills per second, subject to CPU and memory minimums.
-         Eligible General Purpose databases can auto-pause; Hyperscale serverless cannot.</p>
+      <p><b>Compute choices:</b> provisioned for allocated capacity, or serverless for
+         automatically scaling single databases with per-second billing and CPU/memory minimums.
+         Eligible General Purpose serverless databases can auto-pause; Hyperscale serverless cannot.</p>
     </div>
   </div>
   <div class="note info">
