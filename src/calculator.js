@@ -54,18 +54,29 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     Object.entries(counts).reduce((total, [edition, cores]) => total + (cores ? Math.ceil(cores / 2) *
       positiveRate(prices.sql2022Pack?.[edition], `SQL Server 2022 ${edition} two-core pack`) : 0), 0) * discountFactor;
   const fullInfrastructure = sum(source) * input.onPremPerCoreMonth;
+  // Software Assurance is an ongoing on-premises licensing cost, unlike the
+  // one-time purchase. It is charged on cores still running on-premises, and on
+  // the cores whose rights back Azure Hybrid Benefit, because AHB requires
+  // active SA or a qualifying subscription.
+  const saPerCoreMonth = edition =>
+    positiveRate(prices.sqlSaPack?.[edition], `SQL Server ${edition} two-core pack Software Assurance`) / 2 / 12;
+  const saMonthly = counts => Object.entries(counts)
+    .reduce((t, [edition, cores]) => t + (cores ? cores * saPerCoreMonth(edition) : 0), 0);
   // Only the declared avoidable share falls with the actual migrated footprint.
   const infrastructure = fullInfrastructure * (1 - input.avoidablePct / 100 * sum(moved) / sum(source));
   const base = {upfront: licensePurchase(retained), compute: 0, sqlLicense: 0, storage: 0, coveredCores: 0,
+    sa: saMonthly(retained),
     azureCores: 0, deployments: 0, allocation: [], storageDetail: "No Azure deployments"};
   const total = scenario => {
     const compute = scenario.compute * discountFactor;
     const sqlLicense = scenario.sqlLicense * discountFactor;
     const storage = scenario.storage * discountFactor;
-    const monthly = scenario.infrastructure + compute + sqlLicense + storage;
-    return {...scenario, compute, sqlLicense, storage, status: "ready", monthly, threeYear: monthly * MONTHS + scenario.upfront};
+    const sa = scenario.sa * discountFactor;
+    const monthly = scenario.infrastructure + compute + sqlLicense + storage + sa;
+    return {...scenario, compute, sqlLicense, storage, sa, status: "ready", monthly, threeYear: monthly * MONTHS + scenario.upfront};
   };
-  const baseline = total({...base, upfront: licensePurchase(source), key: "stay", name: "Stay on-premises", infrastructure: fullInfrastructure, retainedCores: sum(source)});
+  const baseline = total({...base, upfront: licensePurchase(source), key: "stay", name: "Stay on-premises",
+    infrastructure: fullInfrastructure, sa: saMonthly(source), retainedCores: sum(source)});
   const unavailable = (key, name, reason, status = "unavailable") => ({
     ...base, key, name, status, reason, infrastructure, retainedCores: sum(retained), monthly: null, threeYear: null,
   });
@@ -89,6 +100,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     }
     const vmRate = key === "vm" && deployments ? positiveRate(rate, `${input.region} ${sku} ${plan}`) - windowsCredit : 0;
     let compute = 0, sqlLicense = 0, coveredCores = 0;
+    const ahbBackingCores = {standard: 0, enterprise: 0};
     const allocation = [];
     for (const edition of ["standard", "enterprise"]) {
       const count = units[edition];
@@ -99,6 +111,8 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       const eligibleMovedCores = input.ahb ? moved[edition] * ratio : 0;
       const coveredUnits = Math.min(count, Math.floor(eligibleMovedCores / input.unitCores));
       coveredCores += coveredUnits * input.unitCores;
+      // Source licence cores consumed by the benefit, back through the ratio.
+      ahbBackingCores[edition] = coveredUnits * input.unitCores / ratio;
       if (key === "vm") {
         compute += vmRate * count * HOURS;
         sqlLicense += positiveRate(prices.vmLicensePerCoreHour[edition], `${edition} VM license`) *
@@ -134,6 +148,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       storageDetail = `${deployments} × ${perUnit} GB reserved storage (32 GB increments)`;
     }
     return total({...base, key, name, plan, infrastructure, compute, sqlLicense, storage, storageDetail,
+      sa: saMonthly(retained) + saMonthly(ahbBackingCores),
       allocation, coveredCores, azureCores: deployments * input.unitCores, deployments, retainedCores: sum(retained)});
   });
   const serverlessName = "Azure SQL Database serverless";
@@ -245,6 +260,7 @@ if (typeof document !== "undefined") {
       const miRates = regionalPrices.miPlans?.[input.miPlan];
       const rows = [
         ["On-premises infrastructure / operations", "infrastructure"],
+        ["SQL Server Software Assurance (retained + AHB-backing cores)", "sa"],
         [`Azure compute (VM ${input.ahb ? "excludes Windows via AHB" : "includes Windows"}; serverless includes SQL)`, "compute"],
         ["Azure SQL licensing (VM / MI)", "sqlLicense"], ["Azure storage", "storage"],
       ];
@@ -266,7 +282,7 @@ if (typeof document !== "undefined") {
           <div class="note warn">Only ${input.avoidablePct}% of baseline on-premises operations is assumed avoidable, proportional to actual migrated cores; the fixed share remains even at 100% migration.
           ${input.onPremPerCoreMonth === 0 ? "On-premises operations are omitted: not a full TCO or savings claim." : ""}
           ${input.storageGB === 0 ? "Migrated storage is unspecified: VM data disks omitted; MI uses 32 GB per instance; serverless needs a storage input." : ""}
-          Ongoing SA / subscription fees are excluded, not free or eliminated. AHB requires active eligible SA/subscription.
+          Software Assurance is charged at published list on cores retained on-premises and on the cores whose rights back AHB, because AHB requires active eligible SA or a qualifying subscription. Actual SA pricing is agreement-specific.
           These partial-cost comparisons are not full TCO or guaranteed savings.
           ${sum(moved) === 0 && input.migrationPct > 0 ? "This percentage rounds down to zero migrated cores." : ""}
           Core counts and this estimate do not prove license entitlements or feature readiness.</div>

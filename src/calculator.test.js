@@ -5,6 +5,7 @@ const livePrices = require("./calculator-prices.json");
 
 const fixture = {
   sql2022Pack: {standard:3945, enterprise:15123},
+  sqlSaPack: {standard:796.08, enterprise:3052.80},
   vmLicensePerCoreHour: {standard: 0.1, enterprise: 0.375},
   regions: {test: {
     miPlans: {payg: {base: 0.15, included: 0.25}, ri1: {base: 0.12, included: 0.22},
@@ -41,11 +42,13 @@ test("four alternatives: PAYG VM/MI includes SQL/storage; unconfigured serverles
   assert.equal(s.threeYear, null);
   assert.equal(s.deltaPct, null);
 });
-test("default refresh uses published two-core packs once, not annual renewal", () => {
+test("default refresh uses published two-core packs once, plus ongoing Software Assurance", () => {
   const r = calculateCoreOptions({standard: 100, enterprise: 40, migrationPct: 50, region: "test"}, fixture);
   near(r.baseline.infrastructure, 140 * 37.5);
   near(r.baseline.upfront,50*3945+20*15123);
-  near(r.baseline.threeYear,r.baseline.upfront+36*140*37.5);
+  // SA is recurring on every on-premises core, priced per two-core pack per year.
+  near(r.baseline.sa, 100*796.08/24 + 40*3052.80/24);
+  near(r.baseline.threeYear,r.baseline.upfront+36*(140*37.5+r.baseline.sa));
   assert.equal(r.input.rightSizePct,20);
   assert.equal(r.input.avoidablePct,50);
   assert.equal(r.input.discountPct,0);
@@ -132,16 +135,21 @@ test("right-sizing is not an entitlement ratio and serverless is sized independe
   const without=run({...serverless,standard:0,enterprise:20,rightSizePct:0});
   near(r.scenarios[2].monthly,without.scenarios[2].monthly);
 });
-test("AHB has no invented SA fee or new-license entitlement; no serverless AHB", () => {
+test("AHB charges SA on the backing cores, stays net cheaper, and never applies to serverless", () => {
   const without=run(serverless), withAHB=run({...serverless,ahb:true});
   for(let i=0;i<2;i++) {
     assert.equal(withAHB.scenarios[i].coveredCores,16);
     assert.equal(withAHB.scenarios[i].renewal,undefined);
     assert.equal(withAHB.scenarios[i].sqlLicense,0);
+    // The benefit is not free: SA is charged on the 16 source cores backing it.
+    near(withAHB.scenarios[i].sa,16*796.08/24);
+    near(without.scenarios[i].sa,0);
+    // It still has to beat paying the Azure SQL licence meter outright.
     assert.ok(withAHB.scenarios[i].monthly<without.scenarios[i].monthly);
   }
   near(withAHB.baseline.threeYear,without.baseline.threeYear);
   near(withAHB.scenarios[2].threeYear,without.scenarios[2].threeYear);
+  near(withAHB.scenarios[2].sa,0);
 });
 test("rounding preserves all source cores and handles tiny percentages", () => {
   const r=run({standard:1,enterprise:1,migrationPct:25});
@@ -330,4 +338,48 @@ test("AHB fails loudly when no Windows uplift is published rather than crediting
 test("zero Azure deployments take no Windows AHB credit", () => {
   const r = run({migrationPct: 0, ahb: true});
   near(r.scenarios[0].compute, 0);
+});
+
+test("Software Assurance is edition-sensitive and recurring even in existing-license mode", () => {
+  const std = run({standard: 100, enterprise: 0, migrationPct: 0, licenseBasis: "existing"});
+  const ent = run({standard: 0, enterprise: 100, migrationPct: 0, licenseBasis: "existing"});
+  // The old defect: identical on-premises cost regardless of edition.
+  assert.ok(ent.baseline.threeYear > std.baseline.threeYear);
+  near(std.baseline.sa, 100 * 796.08 / 24);
+  near(ent.baseline.sa, 100 * 3052.80 / 24);
+  // Sunk purchases are still excluded; SA is what remains.
+  near(std.baseline.upfront, 0);
+  near(std.baseline.threeYear, 36 * std.baseline.sa);
+});
+
+test("migrating without AHB retires SA on the moved cores; retained cores keep paying", () => {
+  const r = run({standard: 100, enterprise: 0, migrationPct: 40, rightSizePct: 0,
+    licenseBasis: "existing", ahb: false, vmPlan: "payg", miPlan: "payg"});
+  near(r.baseline.sa, 100 * 796.08 / 24);
+  for (const s of r.scenarios) near(s.sa, 60 * 796.08 / 24);
+});
+
+test("MI Enterprise AHB bills SA on source cores, not the four-to-one vCore expansion", () => {
+  const r = run({standard: 0, enterprise: 64, migrationPct: 100, rightSizePct: 0,
+    unitCores: 16, licenseBasis: "existing", ahb: true, vmPlan: "payg", miPlan: "payg"});
+  const [vm, mi] = r.scenarios;
+  // VM is one-to-one: 64 vCPU covered needs 64 source cores of SA.
+  near(vm.sa, 64 * 3052.80 / 24);
+  // MI Enterprise stretches 1 core to 4 vCores, so the same 64 vCores need 16.
+  near(mi.sa, 16 * 3052.80 / 24);
+  assert.equal(mi.coveredCores, 64);
+});
+
+test("the discount applies to Software Assurance but on-premises operations stay at list", () => {
+  const full = run({standard: 40, enterprise: 0, migrationPct: 0, discountPct: 0, onPremPerCoreMonth: 10});
+  const cut = run({standard: 40, enterprise: 0, migrationPct: 0, discountPct: 25, onPremPerCoreMonth: 10});
+  near(cut.baseline.sa, full.baseline.sa * 0.75);
+  near(cut.baseline.infrastructure, full.baseline.infrastructure);
+});
+
+test("a missing published SA price fails rather than treating Software Assurance as free", () => {
+  const bare = structuredClone(fixture);
+  delete bare.sqlSaPack.standard;
+  assert.throws(() => calculateCoreOptions({standard: 16, enterprise: 0, migrationPct: 0,
+    region: "test", licenseBasis: "existing"}, bare), /Software Assurance/);
 });

@@ -19,7 +19,8 @@
     "miTable": "First Standard-series (Gen 5) table: classic General Purpose, first 4-vCore row; per-core rates divided by 4. Cells selected by exact class token, not position.",
     "mi": "https://azure.microsoft.com/en-us/pricing/details/azure-sql-managed-instance/single/",
     "serverless": "https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-billing",
-    "reservations": "https://learn.microsoft.com/en-us/azure/azure-sql/database/reservations-discount-overview"
+    "reservations": "https://learn.microsoft.com/en-us/azure/azure-sql/database/reservations-discount-overview",
+    "sqlSa": "SQL Server 2022 list Software Assurance per two-core pack per year: Standard $796.08, Enterprise $3,052.80. Agreement-specific pricing varies."
   },
   "regions": {
     "eastus": {
@@ -1766,7 +1767,7 @@
           "P60": 1144.7,
           "P20": 88.594,
           "P1": 0.75,
-          "P3": 3.0,
+          "P3": 3,
           "P2": 1.5,
           "P15": 45.9926
         }
@@ -1969,7 +1970,7 @@
         "backup_lrs_per_gb_mo": 0.125,
         "premium_ssd_lrs_per_disk_mo": {
           "P20": 88.594,
-          "P3": 3.0,
+          "P3": 3,
           "P30": 163.548,
           "P80": 4360.78,
           "P60": 1144.7,
@@ -3595,23 +3596,23 @@
         },
         "Standard_E8ds_v5": {
           "linux": 0.632,
-          "windows": 1.0
+          "windows": 1
         },
         "Standard_E16ds_v5": {
           "linux": 1.264,
-          "windows": 2.0
+          "windows": 2
         },
         "Standard_E32ds_v5": {
           "linux": 2.528,
-          "windows": 4.0
+          "windows": 4
         },
         "Standard_E48ds_v5": {
           "linux": 3.792,
-          "windows": 6.0
+          "windows": 6
         },
         "Standard_E64ds_v5": {
           "linux": 5.056,
-          "windows": 8.0
+          "windows": 8
         },
         "Standard_D2ds_v5": {
           "linux": 0.126,
@@ -3856,5 +3857,9 @@
         }
       }
     }
+  },
+  "sqlSaPack": {
+    "standard": 796.08,
+    "enterprise": 3052.8
   }
 }
