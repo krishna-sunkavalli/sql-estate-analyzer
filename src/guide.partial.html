@@ -1,3 +1,27 @@
+<div class="card quick-tree">
+  <h3>Start here <span class="hint">a quick route to your Azure SQL shortlist</span></h3>
+  <div class="quick-tree-step">
+    <div><b>1. Must keep OS access, local dependencies or a specific SQL Server version?</b></div>
+    <div>Yes &rarr; <b>SQL Server on Azure VM</b></div>
+  </div>
+  <div class="quick-tree-next">No &darr;</div>
+  <div class="quick-tree-step">
+    <div><b>2. Must keep supported instance features, such as SQL Agent, CLR or native cross-database queries?</b></div>
+    <div>Yes &rarr; <b>Azure SQL Managed Instance</b></div>
+  </div>
+  <div class="quick-tree-next">No &darr;</div>
+  <div class="quick-tree-database">
+    <b>Azure SQL Database</b>
+    <div class="sub">3. Choose the compute model for your workload.</div>
+    <div class="quick-tree-compute">
+      <div>Steady use or predictable response times &rarr; <b>Provisioned</b></div>
+      <div>Intermittent use, with tolerance for resume delays &rarr; <b>Serverless</b></div>
+    </div>
+  </div>
+  <p class="sub">A starting point, not a compatibility ruling. If unsure, use the technical examples
+    below to confirm feature support, availability requirements and cost.</p>
+</div>
+
 <div class="card">
   <h3>Three Azure SQL options <span class="hint">and how to choose between them</span></h3>
   <div class="opt-grid">

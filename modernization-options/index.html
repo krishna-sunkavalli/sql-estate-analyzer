@@ -356,6 +356,17 @@ details.acc[open] summary { margin-bottom: 9px; }
    Static explainer, no estate data. Reachable before anything is uploaded,
    because the first thing most customers need is not a number — it is to know
    that Managed Instance and serverless are not competing choices at all. */
+.quick-tree { font-size: 12.5px; }
+.quick-tree-step { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; padding: 12px 16px; border: 1px solid var(--cp-border); border-radius: 8px; }
+.quick-tree-step > div:last-child { color: var(--cp-accent); }
+.quick-tree-next { padding: 6px 16px; color: var(--cp-text-muted); }
+.quick-tree-database { padding: 12px 16px; background: var(--cp-accent-soft); border: 1px solid var(--cp-border); border-radius: 8px; }
+.quick-tree-compute { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.quick-tree-compute > div { padding: 10px 12px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 6px; }
+.quick-tree b { font-weight: 600; }
+@media (max-width: 760px) {
+  .quick-tree-step, .quick-tree-compute { grid-template-columns: 1fr; }
+}
 .q { border-left: 3px solid var(--cp-accent); padding: 0 0 0 18px; margin: 0 0 4px; }
 .q-head { display: flex; align-items: baseline; gap: 10px; }
 .q-n {
@@ -417,6 +428,30 @@ details.acc[open] summary { margin-bottom: 9px; }
     <button id="btnTheme" class="ghost" title="Toggle light/dark">&#9680;</button>
   </header>
   <section>
+<div class="card quick-tree">
+  <h3>Start here <span class="hint">a quick route to your Azure SQL shortlist</span></h3>
+  <div class="quick-tree-step">
+    <div><b>1. Must keep OS access, local dependencies or a specific SQL Server version?</b></div>
+    <div>Yes &rarr; <b>SQL Server on Azure VM</b></div>
+  </div>
+  <div class="quick-tree-next">No &darr;</div>
+  <div class="quick-tree-step">
+    <div><b>2. Must keep supported instance features, such as SQL Agent, CLR or native cross-database queries?</b></div>
+    <div>Yes &rarr; <b>Azure SQL Managed Instance</b></div>
+  </div>
+  <div class="quick-tree-next">No &darr;</div>
+  <div class="quick-tree-database">
+    <b>Azure SQL Database</b>
+    <div class="sub">3. Choose the compute model for your workload.</div>
+    <div class="quick-tree-compute">
+      <div>Steady use or predictable response times &rarr; <b>Provisioned</b></div>
+      <div>Intermittent use, with tolerance for resume delays &rarr; <b>Serverless</b></div>
+    </div>
+  </div>
+  <p class="sub">A starting point, not a compatibility ruling. If unsure, use the technical examples
+    below to confirm feature support, availability requirements and cost.</p>
+</div>
+
 <div class="card">
   <h3>Three Azure SQL options <span class="hint">and how to choose between them</span></h3>
   <div class="opt-grid">
