@@ -38,11 +38,15 @@ cost model, and the raw inventory.
 
 **▶ https://krishna-sunkavalli.github.io/sql-estate-analyzer/modernization-options/**
 
-A short static guide — no data, no upload, nothing to install — for the
-conversation that happens before anyone has an inventory to scan. It leads with the
-misunderstanding that wastes the most time: Managed Instance and serverless are not
-competing choices. One is an *instance*, the other is a *billing mode* for a single
-database.
+A static, three-question guide with technical examples and Microsoft Learn
+references. Expandable details explain feature restrictions, serverless billing
+and availability without overwhelming the initial decision.
+
+MI is a deployment option; serverless is a compute tier of SQL Database, not MI.
+They can still be alternative destinations when a workload fits both. The guide
+does not treat source edition, CDC, logins or an existing availability group as
+automatic destination rules, and does not claim a universal serverless break-even.
+This guide is separate from the scanner's heuristic placement and cost engine.
 
 ![Decision guide](docs/img/shot-guide.png)
 
