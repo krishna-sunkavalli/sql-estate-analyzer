@@ -42,15 +42,27 @@ function positiveRate(value, name) {
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
     storageGB: 0, licenseBasis: "refresh", discountPct: 0, ahb: true,
-    vmPlan: "ri3", miPlan: "ri3",
+    vmPlan: "ri3", miPlan: "ri3", estateStandard: null, estateEnterprise: null,
     serverlessEnabled: false, databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
+  // standard and enterprise are the cores being migrated, not the whole estate.
+  // The estate total is optional context and never enters the comparison.
   for (const key of ["standard", "enterprise"]) {
     if (!Number.isInteger(input[key]) || input[key] < 0 || input[key] > 100000) {
       throw new Error(`${key} cores must be a whole number between 0 and 100,000.`);
     }
   }
-  if (input.standard + input.enterprise === 0) throw new Error("Enter at least one Standard or Enterprise core.");  for (const [key, max] of [["migrationPct", 100], ["rightSizePct", 60], ["avoidablePct", 100],
+  if (input.standard + input.enterprise === 0) throw new Error("Enter at least one Standard or Enterprise core to migrate.");
+  for (const [key, edition] of [["estateStandard", "standard"], ["estateEnterprise", "enterprise"]]) {
+    if (input[key] === null || input[key] === "") { input[key] = null; continue; }
+    if (!Number.isInteger(input[key]) || input[key] < 0 || input[key] > 100000) {
+      throw new Error(`Total ${edition} cores in the estate must be a whole number between 0 and 100,000.`);
+    }
+    if (input[key] < input[edition]) {
+      throw new Error(`The estate cannot hold fewer ${edition} cores (${input[key]}) than the ${input[edition]} being migrated.`);
+    }
+  }
+  for (const [key, max] of [["rightSizePct", 60], ["avoidablePct", 100],
     ["discountPct", 100], ["onPremPerCoreMonth", 10000], ["storageGB", 10000000]]) {
     if (!Number.isFinite(input[key]) || input[key] < 0 || input[key] > max) throw new Error(`Invalid ${key}.`);
   }
@@ -64,8 +76,9 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   }
   const region = prices.regions[input.region];
   if (!region) throw new Error("Choose a region with published prices.");
-  const source = {standard: input.standard, enterprise: input.enterprise};
-  const moved = Object.fromEntries(Object.entries(source).map(([e, n]) => [e, Math.floor(n * input.migrationPct / 100)]));
+  const moved = {standard: input.standard, enterprise: input.enterprise};
+  const source = {standard: input.estateStandard ?? moved.standard,
+    enterprise: input.estateEnterprise ?? moved.enterprise};
   const retained = Object.fromEntries(Object.entries(source).map(([e, n]) => [e, n - moved[e]]));
   const required = Object.fromEntries(Object.entries(moved).map(([e, n]) => [e, n ? Math.ceil(n * (1 - input.rightSizePct / 100)) : 0]));
   const packs = key => Object.fromEntries(Object.entries(required).map(([e, n]) =>
@@ -267,7 +280,7 @@ if (typeof document !== "undefined") {
       root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
     };
     const sync = () => {
-      for (const id of ["migrationPct", "rightSizePct"]) document.getElementById(`${id}Value`).textContent = `${form.elements[id].value}%`;
+      document.getElementById("rightSizePctValue").textContent = `${form.elements.rightSizePct.value}%`;
       const r = CALCULATOR_PRICES.regions[region.value];
       const sku = `Standard_E${form.elements.unitCores.value}bds_v5`;
       for (const key of ["vm", "mi"]) {
@@ -297,11 +310,14 @@ if (typeof document !== "undefined") {
       error.textContent = "";
       if (!form.reportValidity()) return;
       const input = {};
-      for (const key of ["standard","enterprise","migrationPct","rightSizePct","unitCores",
+      for (const key of ["standard","enterprise","rightSizePct","unitCores",
         "onPremPerCoreMonth","avoidablePct","storageGB","serverlessMin","serverlessMax","serverlessBillable","activePct"]) {
         input[key] = Number(form.elements[key].value);
       }
       input.databaseCount = form.elements.databaseCount.value === "" ? null : Number(form.elements.databaseCount.value);
+      for (const key of ["estateStandard","estateEnterprise"]) {
+        input[key] = form.elements[key].value === "" ? null : Number(form.elements[key].value);
+      }
       for (const key of ["ahb","serverlessEnabled"]) input[key] = form.elements[key].checked;
       for (const key of ["region","vmPlan","miPlan","licenseBasis"]) input[key] = form.elements[key].value;
       let report;
@@ -325,11 +341,11 @@ if (typeof document !== "undefined") {
       const inScope = sum(moved);
       results.innerHTML = `
         <div class="card">
-          <h2>Four ways to host the ${inScope.toLocaleString()} cores you selected for migration</h2>
-          <p>${inScope.toLocaleString()} of ${sum(source).toLocaleString()} source cores are in scope: ${moved.standard} Standard + ${moved.enterprise} Enterprise.
+          <h2>Four ways to host the ${inScope.toLocaleString()} cores you want to move</h2>
+          <p>${moved.standard} Standard + ${moved.enterprise} Enterprise cores are in scope.
           Every column below costs <b>this same workload</b>, hosted four different ways. On-premises needs all ${inScope.toLocaleString()} cores; the Azure options may need fewer after right-sizing.</p>
-          ${report.retainedContext.cores > 0 ? `<div class="note">The other ${report.retainedContext.cores.toLocaleString()} cores (${retained.standard} Standard + ${retained.enterprise} Enterprise) stay on-premises in <b>all four</b> scenarios and cost about ${money(report.retainedContext.threeYear)} over three years no matter which you choose.
-          They are excluded from the comparison because an identical amount in every column cannot change the decision, only shrink the visible difference. Add them back for a full-estate figure.</div>` : ""}
+          ${report.retainedContext.cores > 0 ? `<div class="note">You also entered a total estate of ${sum(source).toLocaleString()} cores. The other ${report.retainedContext.cores.toLocaleString()} (${retained.standard} Standard + ${retained.enterprise} Enterprise) stay on-premises whichever option you choose, and cost about ${money(report.retainedContext.threeYear)} over three years.
+          That figure is context only and is deliberately outside the comparison: an identical amount in every column cannot change the decision, only shrink the visible difference. Add it to any column for a full-estate view.</div>` : ""}
           <p class="calc-muted">${escape(input.region)} · 730 hours/month · ${input.rightSizePct}% assumed VM / MI right-sizing · deployments sized up to ${input.unitCores} cores and fitted to the published size ladder.
           </p>
           <p><b>${input.licenseBasis === "refresh" ? "License-refresh scenario: one-time SQL license purchase modeled over 3 years, not annual renewal." : "Existing-license scenario: sunk purchases excluded; no refresh purchase."}</b>
@@ -341,7 +357,6 @@ if (typeof document !== "undefined") {
           ${input.storageGB === 0 ? "Migrated storage is unspecified: VM data disks omitted; MI uses 32 GB per instance; serverless needs a storage input." : ""}
           Software Assurance is charged at published list: on all in-scope cores if they stay, or on the cores whose rights back AHB if they move, because AHB requires active eligible SA or a qualifying subscription. Actual SA pricing is agreement-specific.
           These partial-cost comparisons are not full TCO or guaranteed savings.
-          ${inScope === 0 ? "<b>No cores are selected for migration, so there is nothing to compare. Raise the migration percentage.</b>" : ""}
           Core counts and this estimate do not prove license entitlements or feature readiness.</div>
           <div class="calc-results">${all.map(s => `
             <article class="calc-option"><h3>${s.name}</h3>
@@ -358,9 +373,9 @@ if (typeof document !== "undefined") {
             <p>Refresh purchase = ceil(Standard cores / 2) × $3,945 + ceil(Enterprise cores / 2) × $15,123.
             These are published SQL Server 2022 two-core pack list prices, not annual SA rates or a current-contract quote.
             Refresh is a hypothetical planned replacement purchase, not a recharge of historical licenses. Existing-license mode excludes it.
-            On-premises uses all source cores; each Azure alternative uses retained cores only. With AHB, migrated existing eligible rights must be independently available; no new rights or SA are assumed free.</p>
+            Only the on-premises column buys licenses for these cores; moving them avoids that purchase. With AHB, existing eligible rights must be independently available; no new rights or SA are assumed free.</p>
             ${scenarios.filter(s => s.status === "ready").map(s => `<p><b>${s.name}</b>: ${escape(s.allocation.join("; ") || "No migration")}. ${escape(s.storageDetail)}.</p>`).join("")}
-            <p>Standard and Enterprise workloads are sized separately: floor migrated cores, ceil right-sized demand, then fit that demand to the published Azure size ladder largest-first, so only the final deployment carries rounding.
+            <p>Standard and Enterprise workloads are sized separately: ceil right-sized demand, then fit that demand to the published Azure size ladder largest-first, so only the final deployment carries rounding.
             These 4/8/16-core groups are illustrative consolidation, not an exact topology. Memory, IOPS, HA/DR replicas and compatibility are not inferred.</p>
             <p>VM: Windows Ebdsv5, one P10 OS disk per VM. MI: classic General Purpose standard-series Gen5, not Business Critical or next-gen GP.
             Storage is spread evenly; actual placement and service limits require review.</p>

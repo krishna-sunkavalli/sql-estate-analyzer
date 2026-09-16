@@ -23,7 +23,7 @@ const fixture = {
 };
 // Existing cases pin the pre-default baseline explicitly so they keep asserting
 // unbenefited pay-as-you-go behaviour; the shipped defaults are covered separately.
-const defaults = {standard: 16, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+const defaults = {standard: 16, enterprise: 0, rightSizePct: 0,
   region: "test", unitCores: 16, licenseBasis: "existing", onPremPerCoreMonth: 0,
   ahb: false, vmPlan: "payg", miPlan: "payg"};
 const serverless = {serverlessEnabled: true, databaseCount: 2, storageGB: 100,
@@ -43,8 +43,9 @@ test("four alternatives: PAYG VM/MI includes SQL/storage; unconfigured serverles
   assert.equal(s.deltaPct, null);
 });
 test("default refresh uses published two-core packs once, plus ongoing Software Assurance", () => {
-  const r = calculateCoreOptions({standard: 100, enterprise: 40, migrationPct: 50, region: "test"}, fixture);
-  // Scoped to the 70 migrated cores, not the 140-core estate.
+  const r = calculateCoreOptions({standard: 50, enterprise: 20, region: "test",
+    estateStandard: 100, estateEnterprise: 40}, fixture);
+  // Scoped to the 70 cores being migrated, not the 140-core estate.
   near(r.baseline.infrastructure, 70 * 37.5);
   near(r.baseline.upfront,25*3945+10*15123);
   // SA is recurring on the in-scope cores if they stay put.
@@ -56,29 +57,39 @@ test("default refresh uses published two-core packs once, plus ongoing Software 
   assert.equal(r.input.licenseBasis,"refresh");
   // Moving these cores avoids buying licenses for them entirely.
   for (const s of r.scenarios) near(s.upfront,0);
-  // The retained remainder is reported as context, never inside the comparison.
+  // The remainder of the estate is reported as context, never in the comparison.
   assert.equal(r.retainedContext.cores,70);
   near(r.retainedContext.infrastructure,70*37.5);
   near(r.retainedContext.upfront,25*3945+10*15123);
   assert.equal(r.baseline.renewal,undefined);
 });
-test("zero migration leaves nothing in scope, and reports the whole estate as retained", () => {
-  const r = run({standard:33, enterprise:17, migrationPct:0, licenseBasis:"refresh", onPremPerCoreMonth:50});
-  near(r.baseline.threeYear,0);
-  for (const s of r.scenarios) {
-    assert.equal(s.scopedCores,0);
-    assert.equal(s.deployments,0);
-    assert.equal(s.status,"ready");
-    near(s.monthly,0);
-    near(s.threeYear,0);
+test("the estate total is optional and purely contextual", () => {
+  const withEstate = run({standard:33, enterprise:17, licenseBasis:"refresh",
+    onPremPerCoreMonth:50, estateStandard:66, estateEnterprise:34});
+  const without = run({standard:33, enterprise:17, licenseBasis:"refresh", onPremPerCoreMonth:50});
+  // Supplying an estate cannot move a single number in the comparison.
+  near(withEstate.baseline.threeYear, without.baseline.threeYear);
+  for (let i = 0; i < without.scenarios.length; i++) {
+    if (without.scenarios[i].status !== "ready") continue;
+    near(withEstate.scenarios[i].threeYear, without.scenarios[i].threeYear);
   }
-  // Nothing moved, so the entire estate sits in the retained-context figure.
-  assert.equal(r.retainedContext.cores,50);
-  near(r.retainedContext.infrastructure,50*50);
-  near(r.retainedContext.upfront,Math.ceil(33/2)*3945+Math.ceil(17/2)*15123);
+  // It only populates the out-of-scope context.
+  assert.equal(withEstate.retainedContext.cores, 50);
+  near(withEstate.retainedContext.infrastructure, 50*50);
+  near(withEstate.retainedContext.upfront, Math.ceil(33/2)*3945+Math.ceil(17/2)*15123);
+  assert.equal(without.retainedContext.cores, 0);
+  near(without.retainedContext.threeYear, 0);
 });
-test("every column prices the same in-scope cores; the retained remainder sits outside", () => {
-  const r=run({...serverless,standard:100,enterprise:40,migrationPct:25,onPremPerCoreMonth:10,licenseBasis:"refresh"});
+test("an estate smaller than the migrating footprint is rejected, not silently clamped", () => {
+  assert.throws(() => run({standard:50, enterprise:0, estateStandard:40}), /cannot hold fewer standard cores/);
+  assert.throws(() => run({standard:0, enterprise:8, estateEnterprise:4}), /cannot hold fewer enterprise cores/);
+  // Equal is fine: the whole estate is moving.
+  const all = run({standard:50, enterprise:0, estateStandard:50});
+  assert.equal(all.retainedContext.cores, 0);
+});
+test("every column prices the same in-scope cores; the estate remainder sits outside", () => {
+  const r=run({...serverless,standard:25,enterprise:10,estateStandard:100,estateEnterprise:40,
+    onPremPerCoreMonth:10,licenseBasis:"refresh"});
   assert.deepEqual(r.moved,{standard:25,enterprise:10});
   assert.deepEqual(r.retained,{standard:75,enterprise:30});
   assert.equal(r.baseline.scopedCores,35);
@@ -106,8 +117,9 @@ test("existing-license mode excludes sunk purchases; AHB assumes existing eligib
   assert.equal(r.scenarios[1].sqlLicense,0);
 });
 test("refresh buys only for in-scope cores that stay; moving them avoids the purchase", () => {
-  for(const migrationPct of [0,50,100]) for(const ahb of [false,true]) {
-    const r=run({...serverless,standard:33,enterprise:17,migrationPct,ahb,licenseBasis:"refresh"});
+  for(const estateMultiple of [1,2,3]) for(const ahb of [false,true]) {
+    const r=run({...serverless,standard:33,enterprise:17,ahb,licenseBasis:"refresh",
+      estateStandard:33*estateMultiple,estateEnterprise:17*estateMultiple});
     // The baseline buys packs for the migrated slice only.
     near(r.baseline.upfront,Math.ceil(r.moved.standard/2)*3945+Math.ceil(r.moved.enterprise/2)*15123);
     // The retained remainder's purchase sits in context, outside the comparison.
@@ -122,7 +134,7 @@ test("refresh buys only for in-scope cores that stay; moving them avoids the pur
 });
 test("single additional discount applies to purchases and selected Azure charges, never operations", () => {
   for(const licenseBasis of ["refresh","existing"]) for(const vmPlan of ["payg","ri1","sp3"]) for(const miPlan of ["payg","ri3","sp1"]) {
-    const input={...serverless,standard:100,enterprise:40,migrationPct:50,onPremPerCoreMonth:37.5,licenseBasis,vmPlan,miPlan};
+    const input={...serverless,standard:100,enterprise:40,onPremPerCoreMonth:37.5,licenseBasis,vmPlan,miPlan};
     const undiscounted=run(input);
     for(const discountPct of [0,10,100]) {
       const r=run({...input,discountPct});
@@ -142,15 +154,15 @@ test("missing published license prices fail refresh but do not recharge existing
 });
 test("AHB never reuses retained rights or partially covers a deployment", () => {
   // Entitlement exactly matches the fitted deployment, so it is fully covered.
-  const exact=run({migrationPct:50,ahb:true});
+  const exact=run({standard:8,estateStandard:16,ahb:true});
   assert.deepEqual(exact.scenarios[0].sizes,[8]);
   for(const s of exact.scenarios.slice(0,2)) assert.equal(s.coveredCores,8);
-  // Retained rights are never pooled: 8 of 16 cores move, so only 8 are eligible
+  // Estate rights are never pooled: 8 of 16 cores move, so only 8 are eligible
   // even though the estate holds 16.
   near(exact.scenarios[0].sa, 8*796.08/24);
   // 10 source cores fit as 8 + 4 = 12 vCores. On VM the 1:1 entitlement covers
   // the 8, but the leftover 2 cannot part-cover the 4, so it pays the meter.
-  const partial=run({standard:0,enterprise:20,migrationPct:50,ahb:true});
+  const partial=run({standard:0,enterprise:10,ahb:true});
   assert.deepEqual(partial.scenarios[0].sizes,[8,4]);
   assert.equal(partial.scenarios[0].coveredCores,8);
   assert.ok(partial.scenarios[0].sqlLicense>0);
@@ -182,15 +194,20 @@ test("AHB charges SA on the backing cores, stays net cheaper, and never applies 
   near(withAHB.scenarios[2].threeYear,without.scenarios[2].threeYear);
   near(withAHB.scenarios[2].sa,0);
 });
-test("rounding preserves all source cores and handles tiny percentages", () => {
-  const r=run({standard:1,enterprise:1,migrationPct:25});
-  assert.deepEqual(r.moved,{standard:0,enterprise:0});
-  assert.deepEqual(r.retained,{standard:1,enterprise:1});
-  for(const s of r.scenarios) assert.equal(s.deployments,0);
+test("a single core still produces a valid minimum deployment", () => {
+  const r=run({standard:1,enterprise:1});
+  assert.deepEqual(r.moved,{standard:1,enterprise:1});
+  assert.deepEqual(r.retained,{standard:0,enterprise:0});
+  // Each edition is sized separately, so each gets the smallest valid size.
+  for(const s of r.scenarios.slice(0,2)) {
+    assert.deepEqual(s.sizes,[4,4]);
+    assert.equal(s.azureCores,8);
+  }
 });
-test("invalid core, discount, purchase basis, scope and plan inputs fail explicitly", () => {
-  for(const bad of [{standard:0},{standard:-1},{standard:1.5},{migrationPct:101},{rightSizePct:61},
+test("invalid core, estate, discount, purchase basis, scope and plan inputs fail explicitly", () => {
+  for(const bad of [{standard:0,enterprise:0},{standard:-1},{standard:1.5},{rightSizePct:61},
     {region:"missing"},{unitCores:6},{ahb:"yes"},{vmPlan:"ri1+sp1"},{storageGB:NaN},
+    {estateStandard:1.5},{estateStandard:-1},{estateStandard:8},
     {avoidablePct:-1},{discountPct:NaN},{discountPct:-1},{discountPct:101},{licenseBasis:"annual"}]) assert.throws(()=>run(bad));
 });
 test("missing PAYG and storage rates fail rather than creating free resources", () => {
@@ -314,7 +331,7 @@ test("all 18 live regions, 3 deployment sizes, AHB on/off and every captured com
       const vmPlans=Object.keys(rates.vmPlans[`Standard_E${unitCores}bds_v5`].rates);
       for(const vmPlan of vmPlans) for(const miPlan of Object.keys(rates.miPlans)) {
         const r=calculateCoreOptions({...defaults,...serverless,region,unitCores,ahb,vmPlan,miPlan,
-          standard:100,enterprise:200,migrationPct:50,rightSizePct:20,licenseBasis:"refresh"},livePrices);
+          standard:100,enterprise:200,rightSizePct:20,licenseBasis:"refresh"},livePrices);
         for(const s of [r.baseline,...r.scenarios]) {
           assert.equal(s.status,"ready",`${region} ${s.key}`);
           assert.ok(Number.isFinite(s.threeYear)&&s.threeYear>0);
@@ -326,7 +343,7 @@ test("all 18 live regions, 3 deployment sizes, AHB on/off and every captured com
 });
 
 test("shipped defaults are 3-year reservations with SQL and Windows Azure Hybrid Benefit", () => {
-  const r = calculateCoreOptions({standard: 16, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+  const r = calculateCoreOptions({standard: 16, enterprise: 0, rightSizePct: 0,
     region: "test", unitCores: 16, licenseBasis: "existing", onPremPerCoreMonth: 0}, fixture);
   const [vm, mi] = r.scenarios;
   assert.equal(vm.plan, "ri3");
@@ -339,7 +356,7 @@ test("shipped defaults are 3-year reservations with SQL and Windows Azure Hybrid
 });
 
 test("the single AHB toggle covers Windows on VM and deducts an undiscounted uplift from every term", () => {
-  const input = {standard: 16, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+  const input = {standard: 16, enterprise: 0, rightSizePct: 0,
     region: "test", unitCores: 16, licenseBasis: "existing", onPremPerCoreMonth: 0};
   const uplift = 16 * 0.046 * 730;
   for (const [plan, rate] of [["payg", 1.6], ["ri1", 1.28], ["ri3", 0.96], ["sp1", 1.44], ["sp3", 1.12]]) {
@@ -361,19 +378,26 @@ test("the single AHB toggle covers Windows on VM and deducts an undiscounted upl
 test("AHB fails loudly when no Windows uplift is published rather than crediting zero", () => {
   const bare = structuredClone(fixture);
   delete bare.regions.test.vmPlans.Standard_E16bds_v5.windowsLicensePerHour;
-  assert.throws(() => calculateCoreOptions({standard: 16, enterprise: 0, migrationPct: 100,
+  assert.throws(() => calculateCoreOptions({standard: 16, enterprise: 0,
     rightSizePct: 0, region: "test", unitCores: 16, licenseBasis: "existing",
     onPremPerCoreMonth: 0, ahb: true}, bare), /Windows Server licence uplift/);
 });
 
-test("zero Azure deployments take no Windows AHB credit", () => {
-  const r = run({migrationPct: 0, ahb: true});
-  near(r.scenarios[0].compute, 0);
+test("the smallest possible migration still produces a valid, positive comparison", () => {
+  // Validation guarantees at least one core, so there is always at least one
+  // deployment; a zero-capacity Azure column can no longer be produced.
+  const r = run({standard: 1, enterprise: 0, ahb: true, onPremPerCoreMonth: 37.5});
+  for (const s of r.scenarios.slice(0, 2)) {
+    assert.equal(s.status, "ready");
+    assert.deepEqual(s.sizes, [4]);
+    assert.ok(s.compute > 0);
+    assert.ok(s.threeYear > 0);
+  }
 });
 
 test("Software Assurance is edition-sensitive and recurring even in existing-license mode", () => {
-  const std = run({standard: 100, enterprise: 0, migrationPct: 100, licenseBasis: "existing"});
-  const ent = run({standard: 0, enterprise: 100, migrationPct: 100, licenseBasis: "existing"});
+  const std = run({standard: 100, enterprise: 0, licenseBasis: "existing"});
+  const ent = run({standard: 0, enterprise: 100, licenseBasis: "existing"});
   // The old defect: identical on-premises cost regardless of edition.
   assert.ok(ent.baseline.threeYear > std.baseline.threeYear);
   near(std.baseline.sa, 100 * 796.08 / 24);
@@ -384,7 +408,7 @@ test("Software Assurance is edition-sensitive and recurring even in existing-lic
 });
 
 test("migrating without AHB drops SA entirely for the in-scope cores", () => {
-  const r = run({standard: 100, enterprise: 0, migrationPct: 40, rightSizePct: 0,
+  const r = run({standard: 40, enterprise: 0, estateStandard: 100, rightSizePct: 0,
     licenseBasis: "existing", ahb: false, vmPlan: "payg", miPlan: "payg"});
   // Staying put keeps SA on all 40 in-scope cores.
   near(r.baseline.sa, 40 * 796.08 / 24);
@@ -399,7 +423,7 @@ test("migrating without AHB drops SA entirely for the in-scope cores", () => {
 });
 
 test("MI Enterprise AHB bills SA on source cores, not the four-to-one vCore expansion", () => {
-  const r = run({standard: 0, enterprise: 64, migrationPct: 100, rightSizePct: 0,
+  const r = run({standard: 0, enterprise: 64, rightSizePct: 0,
     unitCores: 16, licenseBasis: "existing", ahb: true, vmPlan: "payg", miPlan: "payg"});
   const [vm, mi] = r.scenarios;
   // VM is one-to-one: 64 vCPU covered needs 64 source cores of SA.
@@ -410,8 +434,8 @@ test("MI Enterprise AHB bills SA on source cores, not the four-to-one vCore expa
 });
 
 test("the discount applies to Software Assurance but on-premises operations stay at list", () => {
-  const full = run({standard: 40, enterprise: 0, migrationPct: 0, discountPct: 0, onPremPerCoreMonth: 10});
-  const cut = run({standard: 40, enterprise: 0, migrationPct: 0, discountPct: 25, onPremPerCoreMonth: 10});
+  const full = run({standard: 40, enterprise: 0, discountPct: 0, onPremPerCoreMonth: 10});
+  const cut = run({standard: 40, enterprise: 0, discountPct: 25, onPremPerCoreMonth: 10});
   near(cut.baseline.sa, full.baseline.sa * 0.75);
   near(cut.baseline.infrastructure, full.baseline.infrastructure);
 });
@@ -419,12 +443,12 @@ test("the discount applies to Software Assurance but on-premises operations stay
 test("a missing published SA price fails rather than treating Software Assurance as free", () => {
   const bare = structuredClone(fixture);
   delete bare.sqlSaPack.standard;
-  assert.throws(() => calculateCoreOptions({standard: 16, enterprise: 0, migrationPct: 0,
+  assert.throws(() => calculateCoreOptions({standard: 16, enterprise: 0,
     region: "test", licenseBasis: "existing"}, bare), /Software Assurance/);
 });
 
 test("all four columns price the same in-scope workload, and Azure right-sizes below it", () => {
-  const r = run({...serverless, standard: 100, enterprise: 0, migrationPct: 50,
+  const r = run({...serverless, standard: 50, enterprise: 0, estateStandard: 100,
     rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, licenseBasis: "refresh"});
   // Same scope in every column: the 50 cores selected for migration.
   for (const s of [r.baseline, ...r.scenarios]) assert.equal(s.scopedCores, 50);
@@ -443,11 +467,11 @@ test("all four columns price the same in-scope workload, and Azure right-sizes b
 });
 
 test("scaling the estate while holding migrated cores constant does not move the comparison", () => {
-  // The retained remainder is a constant in every column, so growing it must
-  // not change any scenario total or any delta.
-  const small = run({standard: 60, enterprise: 0, migrationPct: 50, rightSizePct: 0,
+  // The estate remainder is a constant in every column, so growing it must not
+  // change any scenario total or any delta.
+  const small = run({standard: 30, enterprise: 0, estateStandard: 60, rightSizePct: 0,
     licenseBasis: "refresh", onPremPerCoreMonth: 20});
-  const large = run({standard: 300, enterprise: 0, migrationPct: 10, rightSizePct: 0,
+  const large = run({standard: 30, enterprise: 0, estateStandard: 300, rightSizePct: 0,
     licenseBasis: "refresh", onPremPerCoreMonth: 20});
   assert.equal(small.moved.standard, 30);
   assert.equal(large.moved.standard, 30);
@@ -467,7 +491,7 @@ test("scaling the estate while holding migrated cores constant does not move the
 test("deployments fit the published size ladder instead of rounding to uniform blocks", () => {
   // 40 required used to become three 16-core blocks (48 vCores). It now fits
   // exactly, so Azure is not charged for capacity an architect would not buy.
-  const r = run({standard: 50, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16});
+  const r = run({standard: 50, enterprise: 0, rightSizePct: 20, unitCores: 16});
   assert.equal(r.required.standard, 40);
   assert.deepEqual(r.scenarios[0].sizes, [16, 16, 8]);
   assert.equal(r.scenarios[0].azureCores, 40);
@@ -477,7 +501,7 @@ test("deployments fit the published size ladder instead of rounding to uniform b
 
 test("fitted capacity is never wasteful and never short across many core counts", () => {
   for (let cores = 1; cores <= 200; cores++) {
-    const r = run({standard: cores, enterprise: 0, migrationPct: 100, rightSizePct: 0, unitCores: 16});
+    const r = run({standard: cores, enterprise: 0, rightSizePct: 0, unitCores: 16});
     for (const s of r.scenarios.slice(0, 2)) {
       // Always enough capacity for the requirement.
       assert.ok(s.azureCores >= cores, `${cores}: provisioned ${s.azureCores}`);
@@ -490,7 +514,7 @@ test("fitted capacity is never wasteful and never short across many core counts"
 
 test("the maximum deployment size caps individual deployments without inflating total capacity", () => {
   for (const unitCores of [4, 8, 16]) {
-    const r = run({standard: 64, enterprise: 0, migrationPct: 100, rightSizePct: 0, unitCores});
+    const r = run({standard: 64, enterprise: 0, rightSizePct: 0, unitCores});
     for (const s of r.scenarios.slice(0, 2)) {
       assert.ok(Math.max(...s.sizes) <= unitCores);
       // 64 is reachable exactly at every cap, so the cap changes deployment

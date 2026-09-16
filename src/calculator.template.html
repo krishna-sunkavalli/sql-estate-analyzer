@@ -53,12 +53,11 @@
     <button id="btnTheme" class="ghost" aria-label="Toggle light and dark theme">&#9680;</button>
   </header>
   <form id="calculatorForm" class="card">
-    <h2>What is your SQL footprint?</h2>
-    <p class="calc-muted">Enter non-overlapping workload cores by edition, not repeated instance or database counts. Licensed-core totals alone do not prove available entitlements. No discovery, upload or application tier.</p>
+    <h2>How many cores do you want to move to Azure?</h2>
+    <p class="calc-muted">Enter the non-overlapping workload cores you intend to migrate, by edition, not repeated instance or database counts. Licensed-core totals alone do not prove available entitlements. No discovery, upload or application tier.</p>
     <div class="calc-inputs">
-      <div class="calc-field"><label for="standard">Standard cores</label><input id="standard" name="standard" type="number" min="0" max="100000" step="1" value="0" required></div>
-      <div class="calc-field"><label for="enterprise">Enterprise cores</label><input id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required></div>
-      <div class="calc-field"><label for="migrationPct">Migrate to Azure <output id="migrationPctValue">50%</output></label><input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="5" value="50"><span class="calc-muted">Applied to both editions</span></div>
+      <div class="calc-field"><label for="standard">Standard cores to migrate</label><input id="standard" name="standard" type="number" min="0" max="100000" step="1" value="0" required></div>
+      <div class="calc-field"><label for="enterprise">Enterprise cores to migrate</label><input id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required></div>
       <div class="calc-field"><label for="region">Azure region</label><select id="region" name="region" required></select></div>
     </div>
     <div class="calc-ahb">
@@ -67,6 +66,8 @@
     <details class="acc calc-assumptions">
       <summary>Assumptions behind the estimate</summary>
       <div class="calc-inputs">
+        <div class="calc-field"><label for="estateStandard">Total Standard cores in the estate (optional)</label><input id="estateStandard" name="estateStandard" type="number" min="0" max="100000" step="1" placeholder="leave blank to skip"><span class="calc-muted">Context only: never enters the comparison</span></div>
+        <div class="calc-field"><label for="estateEnterprise">Total Enterprise cores in the estate (optional)</label><input id="estateEnterprise" name="estateEnterprise" type="number" min="0" max="100000" step="1" placeholder="leave blank to skip"><span class="calc-muted">Context only: never enters the comparison</span></div>
         <div class="calc-field"><label for="licenseBasis">License purchase scenario</label><select id="licenseBasis" name="licenseBasis"><option value="refresh">Planned license refresh (one-time purchase)</option><option value="existing">Existing licenses (sunk purchase excluded)</option></select><span class="calc-muted">Refresh is a planned replacement, not a recharge of past purchases</span></div>
         <div class="calc-field"><label for="rightSizePct">Right-sizing reduction <output id="rightSizePctValue">20%</output></label><input id="rightSizePct" name="rightSizePct" type="range" min="0" max="60" step="5" value="20"><span class="calc-muted">Scenario assumption, not measured utilization</span></div>
         <div class="calc-field"><label for="unitCores">VM / MI reference deployment cores</label><select id="unitCores" name="unitCores"><option value="4">4</option><option value="8">8</option><option value="16" selected>16</option></select><span class="calc-muted">Illustrative grouping, not an exact topology</span></div>
