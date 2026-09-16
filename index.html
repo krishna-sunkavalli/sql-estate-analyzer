@@ -4484,6 +4484,28 @@ const DISKS = [
 ];
 const sum = o => o.standard + o.enterprise;
 
+// Azure capacity is not sold in one uniform block size. An architect fits the
+// workload to the real size ladder, so the last deployment is sized to the
+// remainder instead of rounding a whole block up. Sizes below are the SKUs
+// actually priced in the snapshot; the MI ladder is the published Gen5 set.
+const VM_SIZES = [16, 8, 4];
+const MI_SIZES = [80, 64, 40, 32, 24, 16, 8, 4];
+
+function packDeployments(required, maxSize, ladder) {
+  const usable = ladder.filter(s => s <= maxSize).sort((a, b) => b - a);
+  if (!usable.length) throw new Error("No Azure deployment size fits the selected maximum.");
+  const smallest = usable[usable.length - 1];
+  const out = [];
+  let left = required;
+  while (left > 0) {
+    // Take the largest size that still fits; below the smallest size, the
+    // smallest size is the minimum billable unit.
+    out.push(left < smallest ? smallest : usable.find(s => s <= left));
+    left -= out[out.length - 1];
+  }
+  return out;
+}
+
 function positiveRate(value, name) {
   if (!Number.isFinite(value) || value <= 0) throw new Error(`Missing or invalid published rate: ${name}.`);
   return value;
@@ -4518,8 +4540,8 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const moved = Object.fromEntries(Object.entries(source).map(([e, n]) => [e, Math.floor(n * input.migrationPct / 100)]));
   const retained = Object.fromEntries(Object.entries(source).map(([e, n]) => [e, n - moved[e]]));
   const required = Object.fromEntries(Object.entries(moved).map(([e, n]) => [e, n ? Math.ceil(n * (1 - input.rightSizePct / 100)) : 0]));
-  const units = Object.fromEntries(Object.entries(required).map(([e, n]) => [e, n ? Math.ceil(n / input.unitCores) : 0]));
-  const deployments = sum(units);
+  const packs = key => Object.fromEntries(Object.entries(required).map(([e, n]) =>
+    [e, n ? packDeployments(n, input.unitCores, key === "vm" ? VM_SIZES : MI_SIZES) : []]));
   const discountFactor = 1 - input.discountPct / 100;
   const licensePurchase = counts => input.licenseBasis === "existing" ? 0 :
     Object.entries(counts).reduce((total, [edition, cores]) => total + (cores ? Math.ceil(cores / 2) *
@@ -4559,48 +4581,67 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const scenarios = ["vm", "mi"].map(key => {
     const name = key === "vm" ? "SQL Server on Azure VM" : "SQL Managed Instance GP";
     const plan = input[`${key}Plan`];
-    const sku = `Standard_E${input.unitCores}bds_v5`;
-    const rate = key === "vm" ? region.vmPlans?.[sku]?.rates?.[plan] : region.miPlans?.[plan];
-    if (deployments && !rate && plan !== "payg") return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} ${key === "vm" ? sku : "MI GP Gen5"} rate in this snapshot. Select a supported plan.`);
-    // The single Azure Hybrid Benefit choice also covers Windows Server on the
-    // VM scenario. Windows AHB removes the Windows licence uplift embedded in
-    // the VM meter. Reservations and savings plans never discount that uplift,
-    // so it is deducted at its unchanged PAYG value from the selected term.
-    let windowsCredit = 0;
-    if (key === "vm" && input.ahb && deployments) {
-      windowsCredit = positiveRate(region.vmPlans?.[sku]?.windowsLicensePerHour,
-        `${input.region} ${sku} Windows Server licence uplift`);
-      if (windowsCredit >= positiveRate(rate, `${input.region} ${sku} ${plan}`)) {
+    const layout = packs(key);
+    const sizes = [...layout.standard, ...layout.enterprise];
+    const deployments = sizes.length;
+    const azureCores = sizes.reduce((t, s) => t + s, 0);
+    const vmRateFor = size => {
+      const sku = `Standard_E${size}bds_v5`;
+      const published = region.vmPlans?.[sku]?.rates?.[plan];
+      if (!published) return null;
+      // Windows AHB removes the Windows uplift embedded in the VM meter. The
+      // uplift is never discounted by a reservation or savings plan, so it is
+      // deducted at its unchanged pay-as-you-go value from the selected term.
+      const credit = input.ahb
+        ? positiveRate(region.vmPlans?.[sku]?.windowsLicensePerHour, `${input.region} ${sku} Windows Server licence uplift`)
+        : 0;
+      if (credit >= positiveRate(published, `${input.region} ${sku} ${plan}`)) {
         throw new Error("Windows Server licence uplift is not below the published VM rate.");
       }
+      return published - credit;
+    };
+    if (deployments) {
+      // A missing commitment rate is a real gap in the snapshot, so the scenario
+      // is marked unavailable. A missing pay-as-you-go rate means the price file
+      // itself is broken, so it must fail loudly rather than quietly vanish.
+      if (key === "vm") {
+        const missing = [...new Set(sizes)].find(s => !region.vmPlans?.[`Standard_E${s}bds_v5`]?.rates?.[plan]);
+        if (missing && plan !== "payg") return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} Standard_E${missing}bds_v5 rate in this snapshot. Select a supported plan.`);
+      } else if (!region.miPlans?.[plan] && plan !== "payg") {
+        return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} MI GP Gen5 rate in this snapshot. Select a supported plan.`);
+      }
     }
-    const vmRate = key === "vm" && deployments ? positiveRate(rate, `${input.region} ${sku} ${plan}`) - windowsCredit : 0;
     let compute = 0, sqlLicense = 0, coveredCores = 0;
     const ahbBackingCores = {standard: 0, enterprise: 0};
     const allocation = [];
     for (const edition of ["standard", "enterprise"]) {
-      const count = units[edition];
-      if (!count) continue;
+      const sizeList = layout[edition];
+      if (!sizeList.length) continue;
       const ratio = key === "mi" && edition === "enterprise" ? 4 : 1;
       // This is conditional coverage, not entitlement evidence. Rights retained
       // on-premises are never pooled with the migrated share.
-      const eligibleMovedCores = input.ahb ? moved[edition] * ratio : 0;
-      const coveredUnits = Math.min(count, Math.floor(eligibleMovedCores / input.unitCores));
-      coveredCores += coveredUnits * input.unitCores;
-      // Source licence cores consumed by the benefit, back through the ratio.
-      ahbBackingCores[edition] = coveredUnits * input.unitCores / ratio;
-      if (key === "vm") {
-        compute += vmRate * count * HOURS;
-        sqlLicense += positiveRate(prices.vmLicensePerCoreHour[edition], `${edition} VM license`) *
-          (count - coveredUnits) * input.unitCores * HOURS;
-      } else {
-        const baseRate = positiveRate(rate?.base, `MI GP ${plan} base`);
-        const included = positiveRate(rate?.included, `MI GP ${plan} license-included`);
-        if (included < baseRate) throw new Error("MI license-included rate is below its base rate.");
-        compute += baseRate * count * input.unitCores * HOURS;
-        sqlLicense += (included - baseRate) * (count - coveredUnits) * input.unitCores * HOURS;
+      let entitled = input.ahb ? moved[edition] * ratio : 0;
+      let covered = 0;
+      for (const size of sizeList) {
+        // AHB applies per deployment, so a deployment is only covered when the
+        // entitlement stretches across the whole of it.
+        const takes = entitled >= size;
+        if (takes) { entitled -= size; covered += size; }
+        const rate = key === "vm" ? vmRateFor(size) : positiveRate(region.miPlans?.[plan]?.base, `MI GP ${plan} base`);
+        if (key === "vm") {
+          compute += positiveRate(rate, `${input.region} Standard_E${size}bds_v5 ${plan}`) * HOURS;
+          if (!takes) sqlLicense += positiveRate(prices.vmLicensePerCoreHour[edition], `${edition} VM license`) * size * HOURS;
+        } else {
+            const included = positiveRate(region.miPlans?.[plan]?.included, `MI GP ${plan} license-included`);
+          if (included < rate) throw new Error("MI license-included rate is below its base rate.");
+          compute += rate * size * HOURS;
+          if (!takes) sqlLicense += (included - rate) * size * HOURS;
+        }
       }
-      allocation.push(`${edition}: ${count} × ${input.unitCores} ${key === "vm" ? "vCPU" : "vCore"}; ${coveredUnits} assumed SQL AHB deployment(s)${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
+      coveredCores += covered;
+      // Source licence cores consumed by the benefit, back through the ratio.
+      ahbBackingCores[edition] = covered / ratio;
+      allocation.push(`${edition}: ${sizeList.length} deployment(s) of ${sizeList.join(" + ")} ${key === "vm" ? "vCPU" : "vCore"} for ${required[edition]} required; ${covered} ${key === "vm" ? "vCPU" : "vCore"} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
     }
     let storage = 0, storageDetail = "No Azure deployments";
     if (deployments && key === "vm") {
@@ -4618,14 +4659,14 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       } else storageDetail += "; data disks unspecified / omitted";
     } else if (deployments) {
       const perUnit = Math.max(32, Math.ceil(input.storageGB / deployments / 32) * 32);
-      const limit = input.unitCores === 4 ? 2048 : 8192;
+      const limit = Math.min(...sizes) === 4 ? 2048 : 8192;
       if (perUnit > limit) return unavailable(key, name, `MI storage needs ${perUnit} GB per instance, above this model's ${limit} GB limit. Increase deployment size or review placement.`);
       storage = perUnit * deployments * positiveRate(region.storage.mi_gp_per_gb_mo, "MI GP storage");
       storageDetail = `${deployments} × ${perUnit} GB reserved storage (32 GB increments)`;
     }
     return total({...base, key, name, plan, infrastructure, compute, sqlLicense, storage, storageDetail,
       sa: saMonthly(ahbBackingCores),
-      allocation, coveredCores, azureCores: deployments * input.unitCores, deployments, scopedCores: sum(moved)});
+      allocation, coveredCores, azureCores, deployments, sizes, scopedCores: sum(moved)});
   });
   const serverlessName = "Azure SQL Database serverless";
   const serverlessBase = {...base, key: "serverless", name: serverlessName, infrastructure, scopedCores: sum(moved), plan: "payg"};
@@ -4761,7 +4802,7 @@ if (typeof document !== "undefined") {
           Every column below costs <b>this same workload</b>, hosted four different ways. On-premises needs all ${inScope.toLocaleString()} cores; the Azure options may need fewer after right-sizing.</p>
           ${report.retainedContext.cores > 0 ? `<div class="note">The other ${report.retainedContext.cores.toLocaleString()} cores (${retained.standard} Standard + ${retained.enterprise} Enterprise) stay on-premises in <b>all four</b> scenarios and cost about ${money(report.retainedContext.threeYear)} over three years no matter which you choose.
           They are excluded from the comparison because an identical amount in every column cannot change the decision, only shrink the visible difference. Add them back for a full-estate figure.</div>` : ""}
-          <p class="calc-muted">${escape(input.region)} · 730 hours/month · ${input.rightSizePct}% assumed VM / MI right-sizing · illustrative ${input.unitCores}-core reference deployments.
+          <p class="calc-muted">${escape(input.region)} · 730 hours/month · ${input.rightSizePct}% assumed VM / MI right-sizing · deployments sized up to ${input.unitCores} cores and fitted to the published size ladder.
           </p>
           <p><b>${input.licenseBasis === "refresh" ? "License-refresh scenario: one-time SQL license purchase modeled over 3 years, not annual renewal." : "Existing-license scenario: sunk purchases excluded; no refresh purchase."}</b>
           ${input.licenseBasis === "refresh" ? "Staying on-premises buys licenses for these cores; the Azure options do not. AHB assumes separate eligible existing rights, not free new licenses." : ""}
@@ -4779,7 +4820,7 @@ if (typeof document !== "undefined") {
             ${s.status !== "ready" ? `<p><b>${s.status === "input-needed" ? "Input needed" : "Unavailable"}</b></p><p>${escape(s.reason)}</p><p class="calc-muted">No total or savings reported; not $0. The retained footprint and ongoing costs still apply.</p>` : `
               <div class="calc-price">${money(s.threeYear)}<span>total over three years, including the one-time license purchase</span></div>
               <p><b>${money(s.monthly)}</b> per month recurring${s.plan && s.plan !== "payg" ? ", amortized commitment" : ""}<br><b>${money(s.upfront)}</b> one-time SQL license purchase</p>
-              <p class="calc-muted">${s.key === "stay" ? `${s.scopedCores} cores stay on-premises` : `${s.scopedCores} source cores move to ${s.deployments} Azure ${s.key === "serverless" ? "database(s)" : `reference deployment(s)`}${s.key === "serverless" ? "" : ` totalling ${s.azureCores} vCore`}`}</p>
+              <p class="calc-muted">${s.key === "stay" ? `${s.scopedCores} cores stay on-premises` : `${s.scopedCores} source cores move to ${s.deployments} Azure ${s.key === "serverless" ? "database(s)" : `deployment(s) totalling ${s.azureCores} vCore${s.sizes ? ` (${s.sizes.join(" + ")})` : ""}`}`}</p>
               ${s.key === "stay" ? "" : `<p class="calc-muted">${s.key === "serverless" ? "Illustrative PAYG; no AHB or reservation. SQL license included in compute." : `${escape(PLANS[s.plan])}; ${input.ahb ? `${s.coveredCores} of ${s.azureCores} Azure cores conditionally covered by AHB` : "no AHB, SQL license included"}.`}</p><p class="calc-delta">${delta(s)}</p>`}
             `}</article>`).join("")}</div>
           <details class="acc"><summary>Monthly cost breakdown, rates and scope</summary>
@@ -4791,7 +4832,7 @@ if (typeof document !== "undefined") {
             Refresh is a hypothetical planned replacement purchase, not a recharge of historical licenses. Existing-license mode excludes it.
             On-premises uses all source cores; each Azure alternative uses retained cores only. With AHB, migrated existing eligible rights must be independently available; no new rights or SA are assumed free.</p>
             ${scenarios.filter(s => s.status === "ready").map(s => `<p><b>${s.name}</b>: ${escape(s.allocation.join("; ") || "No migration")}. ${escape(s.storageDetail)}.</p>`).join("")}
-            <p>Standard and Enterprise workloads are sized separately: floor migrated cores, ceil right-sized demand, then round to whole reference deployments.
+            <p>Standard and Enterprise workloads are sized separately: floor migrated cores, ceil right-sized demand, then fit that demand to the published Azure size ladder largest-first, so only the final deployment carries rounding.
             These 4/8/16-core groups are illustrative consolidation, not an exact topology. Memory, IOPS, HA/DR replicas and compatibility are not inferred.</p>
             <p>VM: Windows Ebdsv5, one P10 OS disk per VM. MI: classic General Purpose standard-series Gen5, not Business Critical or next-gen GP.
             Storage is spread evenly; actual placement and service limits require review.</p>

@@ -140,12 +140,24 @@ test("missing published license prices fail refresh but do not recharge existing
   assert.throws(()=>calculateCoreOptions({...defaults,licenseBasis:"refresh"},broken),/two-core pack/);
   assert.equal(calculateCoreOptions(defaults,broken).baseline.upfront,0);
 });
-test("AHB never reuses retained rights or partially covers a reference unit", () => {
-  const r=run({migrationPct:50,ahb:true});
-  for(const s of r.scenarios.slice(0,2)) assert.equal(s.coveredCores,0);
-  const e=run({standard:0,enterprise:16,migrationPct:50,ahb:true});
-  assert.equal(e.scenarios[0].coveredCores,0);
-  assert.equal(e.scenarios[1].coveredCores,16);
+test("AHB never reuses retained rights or partially covers a deployment", () => {
+  // Entitlement exactly matches the fitted deployment, so it is fully covered.
+  const exact=run({migrationPct:50,ahb:true});
+  assert.deepEqual(exact.scenarios[0].sizes,[8]);
+  for(const s of exact.scenarios.slice(0,2)) assert.equal(s.coveredCores,8);
+  // Retained rights are never pooled: 8 of 16 cores move, so only 8 are eligible
+  // even though the estate holds 16.
+  near(exact.scenarios[0].sa, 8*796.08/24);
+  // 10 source cores fit as 8 + 4 = 12 vCores. On VM the 1:1 entitlement covers
+  // the 8, but the leftover 2 cannot part-cover the 4, so it pays the meter.
+  const partial=run({standard:0,enterprise:20,migrationPct:50,ahb:true});
+  assert.deepEqual(partial.scenarios[0].sizes,[8,4]);
+  assert.equal(partial.scenarios[0].coveredCores,8);
+  assert.ok(partial.scenarios[0].sqlLicense>0);
+  // MI stretches Enterprise 4:1, so 10 source cores entitle 40 vCores and both
+  // deployments are covered outright.
+  assert.equal(partial.scenarios[1].coveredCores,12);
+  near(partial.scenarios[1].sqlLicense,0);
 });
 test("right-sizing is not an entitlement ratio and serverless is sized independently", () => {
   const r=run({...serverless,standard:0,enterprise:20,rightSizePct:20,ahb:true});
@@ -450,4 +462,40 @@ test("scaling the estate while holding migrated cores constant does not move the
   // Only the out-of-scope context differs.
   assert.equal(small.retainedContext.cores, 30);
   assert.equal(large.retainedContext.cores, 270);
+});
+
+test("deployments fit the published size ladder instead of rounding to uniform blocks", () => {
+  // 40 required used to become three 16-core blocks (48 vCores). It now fits
+  // exactly, so Azure is not charged for capacity an architect would not buy.
+  const r = run({standard: 50, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16});
+  assert.equal(r.required.standard, 40);
+  assert.deepEqual(r.scenarios[0].sizes, [16, 16, 8]);
+  assert.equal(r.scenarios[0].azureCores, 40);
+  // Provisioned capacity never drops below the right-sized requirement.
+  for (const s of r.scenarios.slice(0, 2)) assert.ok(s.azureCores >= r.required.standard);
+});
+
+test("fitted capacity is never wasteful and never short across many core counts", () => {
+  for (let cores = 1; cores <= 200; cores++) {
+    const r = run({standard: cores, enterprise: 0, migrationPct: 100, rightSizePct: 0, unitCores: 16});
+    for (const s of r.scenarios.slice(0, 2)) {
+      // Always enough capacity for the requirement.
+      assert.ok(s.azureCores >= cores, `${cores}: provisioned ${s.azureCores}`);
+      // Never more than the smallest deployment size of slack, so rounding can
+      // only ever cost part of one 4-core deployment.
+      assert.ok(s.azureCores - cores < 4, `${cores}: slack ${s.azureCores - cores}`);
+    }
+  }
+});
+
+test("the maximum deployment size caps individual deployments without inflating total capacity", () => {
+  for (const unitCores of [4, 8, 16]) {
+    const r = run({standard: 64, enterprise: 0, migrationPct: 100, rightSizePct: 0, unitCores});
+    for (const s of r.scenarios.slice(0, 2)) {
+      assert.ok(Math.max(...s.sizes) <= unitCores);
+      // 64 is reachable exactly at every cap, so the cap changes deployment
+      // count and unit price, never the provisioned total.
+      assert.equal(s.azureCores, 64);
+    }
+  }
 });
