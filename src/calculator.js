@@ -338,6 +338,19 @@ if (typeof document !== "undefined") {
     form.addEventListener("input", sync);
     form.addEventListener("change", sync);
     sync();
+    // Collapsing the form on submit keeps the inputs available as context while
+    // giving the answer the whole viewport. Editing restores them in place.
+    const summary = document.getElementById("calcSummary");
+    const collapse = on => {
+      form.hidden = on;
+      summary.hidden = !on;
+    };
+    document.getElementById("btnEdit").addEventListener("click", () => {
+      collapse(false);
+      results.hidden = true;
+      form.scrollIntoView({block: "start", behavior: "smooth"});
+      form.elements.standard.focus();
+    });
     form.addEventListener("submit", event => {
       event.preventDefault();
       results.hidden = true;
@@ -453,6 +466,16 @@ if (typeof document !== "undefined") {
           <p class="calc-muted">Excluded: ongoing SA/subscription fees, application tier, ESU, migration effort, networking, extra backup storage, DR, security services, taxes and free allowances.
           No negotiated price is verified by this calculator. <a href="modernization-options/">Review the decision guide</a> and use Azure Migrate before committing.</p>
         </div>`;
+      const setSum = (id, text) => { document.getElementById(id).textContent = text; };
+      const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
+      setSum("sumFootprint", [
+        source.standard ? plural(source.standard, "Standard core") : "",
+        source.enterprise ? plural(source.enterprise, "Enterprise core") : "",
+      ].filter(Boolean).join(" + "));
+      setSum("sumMoving", `${inScope.toLocaleString()} of ${sum(source).toLocaleString()} (${input.migrationPct}%)`);
+      setSum("sumRegion", REGION_NAMES[input.region] ?? input.region);
+      setSum("sumAhb", input.ahb ? "Applied" : "Not applied");
+      collapse(true);
       results.hidden = false;
       results.focus();
     });

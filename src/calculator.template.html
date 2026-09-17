@@ -57,6 +57,17 @@
 .calculator button[type=submit] { display: inline-flex; justify-content: center; align-items: center; gap: 10px; min-height: 40px; padding: 10px 18px; border: 0; border-radius: 8px; background: var(--cp-accent); color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background .15s; }
 .calculator button[type=submit]:hover { background: var(--cp-accent-hover); }
 .help { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: 10px; line-height: 1.5; }
+/* Collapsed state: the summary bar and the results below it read as one panel,
+   so the inputs stay visible as context without competing with the answer. */
+.calc-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  padding: 14px 19px; background: var(--cp-surface); border: 1px solid var(--cp-border);
+  border-radius: 16px 16px 0 0; border-bottom: 0; }
+.calc-summary dl { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
+.calc-summary dl > div { display: flex; flex-direction: column; gap: 2px; }
+.calc-summary dt { font-size: 10.5px; color: var(--cp-text-muted); }
+.calc-summary dd { margin: 0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.calc-summary + #calculatorResults .card:first-child { border-radius: 0 0 16px 16px; border-top: 0; }
+.calc-summary:not([hidden]) ~ #calculatorResults { margin-top: 0; }
 .calc-error { color: var(--cp-danger); font-size: 13px; }
 .calc-muted { color: var(--cp-text-muted); }
 .calc-error { color: var(--cp-danger); font-size: 13px; }
@@ -94,6 +105,12 @@
   .summary-note { flex-basis: 100%; margin-left: 20px; text-align: left; }
   .calculator input, .calculator select { font-size: 16px; }
   .core-box input { font-size: 19px; }
+  .calc-summary { padding: 12px 14px; gap: 10px; }
+  .calc-summary dl { gap: 4px 16px; }
+  .calc-summary dl > div { flex-direction: row; align-items: baseline; gap: 6px; }
+  .calc-summary dt::after { content: ":"; }
+  .calc-summary dd { font-size: 12.5px; }
+  .calc-summary button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .switch, .switch::after, .calculator button[type=submit] { transition: none !important; }
@@ -249,6 +266,15 @@
     <p id="calcError" class="calc-error" role="alert"></p>
     <p class="help">Count each workload once. SQL AHB requires eligible SA or subscription licenses; Windows AHB is separate.</p>
   </form>
+  <div id="calcSummary" class="calc-summary" hidden>
+    <dl>
+      <div><dt>Footprint</dt><dd id="sumFootprint"></dd></div>
+      <div><dt>Moving</dt><dd id="sumMoving"></dd></div>
+      <div><dt>Region</dt><dd id="sumRegion"></dd></div>
+      <div><dt>Hybrid Benefit</dt><dd id="sumAhb"></dd></div>
+    </dl>
+    <button type="button" id="btnEdit" class="ghost">Edit inputs</button>
+  </div>
   <section id="calculatorResults" tabindex="-1" aria-label="Calculated cost options" hidden></section>
   <footer>
     <p id="priceDate"></p>
