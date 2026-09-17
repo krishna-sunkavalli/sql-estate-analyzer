@@ -352,10 +352,9 @@ if (typeof document !== "undefined") {
       const moved = counts.map(n => Math.floor(n * pct / 100));
       const total = counts[0] + counts[1], moving = moved[0] + moved[1];
       const num = n => n.toLocaleString();
-      document.getElementById("movingLabel").textContent = total
-        ? `${num(moving)} migrate` : "Keep on-premises";
-      document.getElementById("stayingLabel").textContent = total
-        ? `${num(total - moving)} stay on-premises` : "Move everything";
+      document.getElementById("scopeReadout").textContent = total
+        ? `${num(moving)} migrate · ${num(total - moving)} stay on-premises`
+        : "Enter cores to see the split";
       document.getElementById("assumptionSummary").textContent =
         `${form.elements.rightSizePct.value}% right-sizing · ${form.elements.licenseBasis.selectedOptions[0].textContent}`;
       const r = CALCULATOR_PRICES.regions[region.value];
