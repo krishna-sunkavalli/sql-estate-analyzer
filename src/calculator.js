@@ -47,6 +47,19 @@ function packDeployments(required, maxSize, ladder) {
   return out;
 }
 
+// With a known instance count the topology is given, not inferred: each instance
+// becomes its own deployment sized to its share. This matters because both VM
+// and MI have a four-core floor, so many small instances cost far more than the
+// same cores consolidated, which the packing above would otherwise assume.
+function sizePerInstance(required, instances, maxSize, ladder) {
+  const usable = ladder.filter(s => s <= maxSize).sort((a, b) => a - b);
+  if (!usable.length) throw new Error("No Azure deployment size fits the selected maximum.");
+  const share = Math.ceil(required / instances);
+  const size = usable.find(s => s >= share);
+  if (!size) return null;
+  return Array.from({length: instances}, () => size);
+}
+
 function positiveRate(value, name) {
   if (!Number.isFinite(value) || value <= 0) throw new Error(`Missing or invalid published rate: ${name}.`);
   return value;
@@ -55,7 +68,7 @@ function positiveRate(value, name) {
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
-    vmPlan: "ri3", miPlan: "ri3", migrationPct: 50,
+    vmPlan: "ri3", miPlan: "ri3", migrationPct: 50, instanceCount: null,
     databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
   for (const key of ["standard", "enterprise"]) {
@@ -88,8 +101,33 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       : `${input.migrationPct}% of this footprint rounds down to zero cores. Raise the percentage.`);
   }
   const required = Object.fromEntries(Object.entries(moved).map(([e, n]) => [e, n ? Math.ceil(n * (1 - input.rightSizePct / 100)) : 0]));
-  const packs = key => Object.fromEntries(Object.entries(required).map(([e, n]) =>
-    [e, n ? packDeployments(n, input.unitCores, key === "vm" ? VM_SIZES : MI_SIZES) : []]));
+  // Instances are shared out in proportion to each edition's right-sized
+  // demand, with at least one wherever that edition has cores.
+  const editions = ["standard", "enterprise"].filter(e => required[e] > 0);
+  let instancesPer = null;
+  if (input.instanceCount !== null) {
+    if (!Number.isInteger(input.instanceCount) || input.instanceCount < 1 || input.instanceCount > 100000) {
+      throw new Error("Instance count must be a whole number from 1 to 100,000.");
+    }
+    if (input.instanceCount < editions.length) {
+      throw new Error(`This footprint spans ${editions.length} editions, so it needs at least ${editions.length} instances.`);
+    }
+    instancesPer = {standard: 0, enterprise: 0};
+    if (editions.length === 1) {
+      instancesPer[editions[0]] = input.instanceCount;
+    } else {
+      const first = Math.min(input.instanceCount - 1,
+        Math.max(1, Math.round(input.instanceCount * required.standard / sum(required))));
+      instancesPer.standard = first;
+      instancesPer.enterprise = input.instanceCount - first;
+    }
+  }
+  const packs = key => Object.fromEntries(Object.entries(required).map(([e, n]) => {
+    if (!n) return [e, []];
+    const ladder = key === "vm" ? VM_SIZES : MI_SIZES;
+    if (instancesPer) return [e, sizePerInstance(n, instancesPer[e], input.unitCores, ladder)];
+    return [e, packDeployments(n, input.unitCores, ladder)];
+  }));
   const discountFactor = 1 - input.discountPct / 100;
   const licensePurchase = counts => input.licenseBasis === "existing" ? 0 :
     Object.entries(counts).reduce((total, [edition, cores]) => total + (cores ? Math.ceil(cores / 2) *
@@ -131,6 +169,10 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     const name = key === "vm" ? "SQL Server on Azure VM" : "SQL Managed Instance GP";
     const plan = input[`${key}Plan`];
     const layout = packs(key);
+    if (Object.values(layout).some(v => v === null)) {
+      const worst = editions.find(e => layout[e] === null);
+      return unavailable(key, name, `${input.instanceCount} instance(s) puts about ${Math.ceil(required[worst] / instancesPer[worst])} ${key === "vm" ? "vCPU" : "vCore"} on each ${worst} instance, above the ${input.unitCores}-core maximum. Raise the largest deployment size or split the workload across more instances.`);
+    }
     const sizes = [...layout.standard, ...layout.enterprise];
     const deployments = sizes.length;
     const azureCores = sizes.reduce((t, s) => t + s, 0);
@@ -190,7 +232,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       coveredCores += covered;
       // Source licence cores consumed by the benefit, back through the ratio.
       ahbBackingCores[edition] = covered / ratio;
-      allocation.push(`${edition}: ${sizeList.length} deployment(s) of ${sizeList.join(" + ")} ${key === "vm" ? "vCPU" : "vCore"} for ${required[edition]} required; ${covered} ${key === "vm" ? "vCPU" : "vCore"} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
+      allocation.push(`${edition}: ${sizeList.length} ${instancesPer ? "instance" : "deployment"}(s) of ${sizeList.length > 6 ? `${sizeList[0]} ${key === "vm" ? "vCPU" : "vCore"} each` : sizeList.join(" + ")} for ${required[edition]} required; ${covered} ${key === "vm" ? "vCPU" : "vCore"} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
     }
     let storage = 0, storageDetail = "No Azure deployments";
     if (deployments && key === "vm") {
@@ -348,6 +390,9 @@ if (typeof document !== "undefined") {
     document.getElementById("btnEdit").addEventListener("click", () => {
       collapse(false);
       results.hidden = true;
+      // The derived labels are only refreshed on input, so restoring the form
+      // without this leaves the readouts showing the previous footprint.
+      sync();
       form.scrollIntoView({block: "start", behavior: "smooth"});
       form.elements.standard.focus();
     });
@@ -362,6 +407,7 @@ if (typeof document !== "undefined") {
         input[key] = Number(form.elements[key].value);
       }
       input.databaseCount = form.elements.databaseCount.value === "" ? null : Number(form.elements.databaseCount.value);
+      input.instanceCount = form.elements.instanceCount.value === "" ? null : Number(form.elements.instanceCount.value);
       input.ahb = form.elements.ahb.checked;
       for (const key of ["region","vmPlan","miPlan","licenseBasis"]) input[key] = form.elements[key].value;
       let report;
@@ -473,9 +519,12 @@ if (typeof document !== "undefined") {
         source.enterprise ? plural(source.enterprise, "Enterprise core") : "",
       ].filter(Boolean).join(" + "));
       setSum("sumMoving", `${inScope.toLocaleString()} of ${sum(source).toLocaleString()} (${input.migrationPct}%)`);
+      setSum("sumTopology", [
+        input.instanceCount ? plural(input.instanceCount, "instance") : "instances assumed",
+        input.databaseCount ? plural(input.databaseCount, "database") : "databases assumed",
+      ].join(" · "));
       setSum("sumRegion", REGION_NAMES[input.region] ?? input.region);
-      setSum("sumAhb", input.ahb ? "Applied" : "Not applied");
-      collapse(true);
+      setSum("sumAhb", input.ahb ? "Applied" : "Not applied");      collapse(true);
       results.hidden = false;
       results.focus();
     });

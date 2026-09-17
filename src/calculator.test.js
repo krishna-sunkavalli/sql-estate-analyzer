@@ -599,3 +599,70 @@ test("every priced region has a display name, and every display name is priced",
   // A label left behind after a region is dropped is dead weight.
   for (const r of named) assert.ok(priced.includes(r), `${r} is named but not priced`);
 });
+
+test("a known instance count replaces consolidation and respects the four-core floor", () => {
+  // 80 right-sized cores. Consolidated, that is 5 x 16 = 80 vCores.
+  const packed = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16});
+  assert.equal(packed.required.standard, 80);
+  assert.deepEqual(packed.scenarios[0].sizes, [16,16,16,16,16]);
+  assert.equal(packed.scenarios[0].azureCores, 80);
+  // Twenty instances of four cores each still totals 80: no penalty yet.
+  const twenty = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16, instanceCount: 20});
+  assert.equal(twenty.scenarios[0].deployments, 20);
+  assert.equal(twenty.scenarios[0].azureCores, 80);
+  // Eighty single-core instances cannot go below the four-core floor, so the
+  // same workload now needs 320 vCores. This is the case consolidation hides.
+  const eighty = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16, instanceCount: 80});
+  assert.equal(eighty.scenarios[0].deployments, 80);
+  assert.equal(eighty.scenarios[0].azureCores, 320);
+  assert.ok(eighty.scenarios[0].monthly > packed.scenarios[0].monthly * 3);
+  assert.ok(eighty.scenarios[1].monthly > packed.scenarios[1].monthly * 3);
+});
+
+test("instances are shared between editions in proportion to their demand", () => {
+  const r = run({standard: 75, enterprise: 25, migrationPct: 100, rightSizePct: 0,
+    unitCores: 16, instanceCount: 8});
+  // 75 and 25 cores across 8 instances splits 6 / 2.
+  assert.equal(r.scenarios[0].sizes.length, 8);
+  assert.equal(r.scenarios[0].deployments, 8);
+  // Every edition present gets at least one instance, even when tiny.
+  const lopsided = run({standard: 30, enterprise: 2, migrationPct: 100, rightSizePct: 0,
+    unitCores: 16, instanceCount: 4});
+  assert.equal(lopsided.scenarios[0].deployments, 4);
+  // The single Enterprise instance is sized to its own small share, not to the
+  // Standard share, so editions never subsidise each other's capacity.
+  assert.ok(lopsided.scenarios[0].sizes.includes(4));
+});
+
+test("an instance count too small for the deployment cap is refused, not silently resized", () => {
+  // 200 cores over 2 instances is 100 each, far above a 16-core maximum.
+  const r = run({standard: 200, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+    unitCores: 16, instanceCount: 2});
+  for (const s of r.scenarios.slice(0, 2)) {
+    assert.equal(s.status, "unavailable");
+    assert.match(s.reason, /above the 16-core maximum/);
+    assert.equal(s.monthly, null);
+  }
+  // Serverless is sized independently and is unaffected.
+  assert.equal(r.scenarios[2].status, "ready");
+});
+
+test("instance and database counts are validated, and optional", () => {
+  assert.throws(() => run({instanceCount: 0}), /Instance count/);
+  assert.throws(() => run({instanceCount: 2.5}), /Instance count/);
+  assert.throws(() => run({standard: 10, enterprise: 10, instanceCount: 1}), /at least 2 instances/);
+  // Omitting both keeps the previous consolidated behaviour exactly.
+  const bare = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20});
+  const explicitNull = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20,
+    instanceCount: null, databaseCount: null});
+  near(bare.scenarios[0].threeYear, explicitNull.scenarios[0].threeYear);
+});
+
+test("a supplied database count overrides the serverless assumption and clears the label", () => {
+  const assumed = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20, storageGB: 500});
+  assert.ok(assumed.scenarios[2].assumed.length > 0);
+  const given = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20,
+    storageGB: 500, databaseCount: 12});
+  assert.equal(given.scenarios[2].deployments, 12);
+  assert.equal(given.scenarios[2].assumed.length, 0);
+});

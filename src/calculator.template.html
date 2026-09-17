@@ -18,7 +18,8 @@
 .calculator .subtitle { margin: 3px 0 0; color: var(--cp-text-muted); font-size: 12px; }
 .database-icon { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; background: var(--cp-accent-soft); color: var(--cp-accent); }
 .calculator .grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-.calculator .grid.is-primary { grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2.1fr); align-items: end; }
+.calculator .grid.is-primary { grid-template-columns: repeat(4,minmax(0,1fr)); align-items: end; }
+.calculator .grid.is-scope { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.4fr); align-items: end; }
 .field-label { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 600; }
 .core-box, .migration-box { border: 1px solid var(--cp-border); border-radius: 9px; padding: 7px 11px; }
 .core-box { display: block; color: var(--cp-text-muted); font-size: 10.5px; }
@@ -99,7 +100,7 @@
 }
 @media(max-width:600px) {
   .calculator { padding: 18px; }
-  .calculator .grid, .calculator .grid.is-primary { grid-template-columns: 1fr; gap: 12px; }
+  .calculator .grid, .calculator .grid.is-primary, .calculator .grid.is-scope { grid-template-columns: 1fr; gap: 12px; }
   .calculator .footer { flex-direction: column; align-items: stretch; }
   .assumptions summary { flex-wrap: wrap; }
   .summary-note { flex-basis: 100%; margin-left: 20px; text-align: left; }
@@ -150,6 +151,17 @@
         Enterprise cores
         <input name="enterprise" type="number" min="0" max="100000" step="1" value="1000" required>
       </label>
+      <label class="core-box">
+        SQL instances
+        <input id="instanceCount" name="instanceCount" type="number" min="1" max="100000" step="1" placeholder="optional">
+      </label>
+      <label class="core-box">
+        Databases
+        <input id="databaseCount" name="databaseCount" type="number" min="1" max="100000" step="1" placeholder="optional">
+      </label>
+    </div>
+
+    <div class="grid settings is-scope">
       <div class="migration-box">
         <div class="migration-heading">
           <label for="migrationPct">Move to Azure</label>
@@ -161,9 +173,6 @@
           <span id="stayingLabel">Move everything</span>
         </div>
       </div>
-    </div>
-
-    <div class="grid settings">
       <label>
         <span class="field-label">Azure region</span>
         <select class="region-select" id="region" name="region" required></select>
@@ -231,9 +240,6 @@
           <span class="summary-note">Optional &middot; For intermittent workloads</span>
         </summary>
         <div class="grid detail-fields">
-          <label>Migrating database count
-            <input class="small-input" id="databaseCount" name="databaseCount" type="number" min="1" max="100000" step="1" placeholder="assumed from cores">
-          </label>
           <label>Billable online time (%)
             <input class="small-input" id="activePct" name="activePct" type="number" min="0" max="100" step="1" value="25" required>
           </label>
@@ -270,6 +276,7 @@
     <dl>
       <div><dt>Footprint</dt><dd id="sumFootprint"></dd></div>
       <div><dt>Moving</dt><dd id="sumMoving"></dd></div>
+      <div><dt>Topology</dt><dd id="sumTopology"></dd></div>
       <div><dt>Region</dt><dd id="sumRegion"></dd></div>
       <div><dt>Hybrid Benefit</dt><dd id="sumAhb"></dd></div>
     </dl>
