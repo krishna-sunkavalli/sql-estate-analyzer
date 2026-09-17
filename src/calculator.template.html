@@ -8,55 +8,57 @@
 .calc h2 { font-size: 18px; font-weight: 600; margin: 0 0 10px; }
 .calc p { font-size: 13px; line-height: 1.55; }
 .calc a { color: var(--cp-link); }
-.calc-inputs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; align-items: start; }
-.calc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
-.calc-kicker { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--cp-accent); margin: 0 0 6px; }
-.calc-form h2 { font-size: 26px; font-weight: 650; margin: 0 0 6px; letter-spacing: -.01em; }
-.calc-lede { margin: 0; color: var(--cp-text-muted); }
-.calc-badge { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--cp-accent-soft); color: var(--cp-accent); display: grid; place-items: center; font-size: 18px; }
-.calc-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px 24px; }
-.calc-group-label { font-size: 12.5px; font-weight: 600; margin: 0 0 8px; }
-.calc-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-.calc-box { border: 1px solid var(--cp-border); border-radius: 10px; padding: 12px 14px; background: var(--cp-surface); }
-.calc-box label { display: block; font-size: 12px; color: var(--cp-text-muted); margin-bottom: 2px; }
-.calc-box input { width: 100%; min-width: 0; border: 0; background: none; padding: 0; font-size: 26px; font-weight: 600; color: inherit; font-variant-numeric: tabular-nums; }
-.calc-box input:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 4px; }
-.calc-box.is-select { padding: 0; }
-.calc-box.is-select select { width: 100%; min-width: 0; border: 0; background: none; padding: 18px 14px; font-size: 14px; color: inherit; }
-.calc-readout { font-size: 12px; color: var(--cp-text-muted); margin: 8px 0 0; }
-.calc-readout b { color: var(--cp-text); font-variant-numeric: tabular-nums; }
-.calc-panel { border: 1px solid var(--cp-border); border-radius: 10px; padding: 14px; background: var(--cp-surface); }
-.calc-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.calc-panel-head label { font-size: 13px; font-weight: 600; }
-.calc-pct { font-size: 22px; font-weight: 700; color: var(--cp-accent); font-variant-numeric: tabular-nums; }
-.calc-panel input[type=range] { width: 100%; }
-.calc-ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--cp-text-muted); margin-top: 6px; }
-.calc-panel.is-toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 14px; }
-.calc-panel.is-toggle label { font-size: 13px; font-weight: 600; }
-.calc-panel.is-toggle p { margin: 2px 0 0; font-size: 12px; color: var(--cp-text-muted); }
-.calc-switch { flex: none; appearance: none; width: 42px; height: 24px; border-radius: 999px; background: var(--cp-border); position: relative; cursor: pointer; transition: background .15s; }
-.calc-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
-.calc-switch:checked { background: var(--cp-accent); }
-.calc-switch:checked::after { transform: translateX(18px); }
-.calc-switch:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 3px; }
-.calc-accs { margin: 22px 0 0; border-radius: 10px; overflow: hidden; }
-.calc-accs .acc { margin: 0; border-radius: 0; }
-.calc-accs .acc + .acc { border-top: 0; }
-.calc-acc-note { float: right; font-size: 12px; font-weight: 400; color: var(--cp-text-muted); }
-.calc-fineprint { font-size: 11.5px; color: var(--cp-text-muted); margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--cp-border); }
-.calc-field { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
-.calc-field label { font-weight: 600; }
-.calc-field input, .calc-field select { width: 100%; min-width: 0; }
-.calc-field input[type=range] { accent-color: var(--cp-accent); margin: 0; }
+/* Form shell, adapted from the supplied design. Hard-coded colours are mapped
+   to the shared theme tokens so the light appearance is unchanged and the dark
+   toggle keeps working. */
+.calculator { padding: 30px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 18px; box-shadow: 0 8px 32px rgba(23,43,70,.024); }
+.calculator .header { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.calculator .eyebrow { margin: 0 0 8px; color: var(--cp-accent); font-size: 11px; font-weight: 700; letter-spacing: 1.5px; }
+.calculator h2 { margin: 0; font-size: clamp(24px, 4vw, 29px); font-weight: 650; letter-spacing: -.8px; line-height: 1.2; }
+.calculator .subtitle { margin: 8px 0 0; color: var(--cp-text-muted); font-size: 13px; }
+.database-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 13px; background: var(--cp-accent-soft); color: var(--cp-accent); }
+.calculator .grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+.field-label { display: block; margin-bottom: 10px; font-size: 12px; font-weight: 600; }
+.core-inputs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.core-box, .migration-box { height: 116px; border: 1px solid var(--cp-border); border-radius: 11px; padding: 16px; }
+.core-box { display: block; color: var(--cp-text-muted); font-size: 11px; }
+.core-box:focus-within { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(0,120,212,.08); }
+.core-box input { width: 100%; min-width: 0; margin-top: 8px; padding: 0; border: 0; outline: none; background: transparent; color: var(--cp-text); font-family: inherit; font-size: 32px; font-weight: 600; line-height: 1.3; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.migration-box { display: flex; flex-direction: column; justify-content: space-between; }
+.migration-heading, .range-labels { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.migration-heading { font-size: 13px; }
+.migration-heading output { color: var(--cp-accent); font-size: 28px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.calculator input[type=range] { width: 100%; height: 6px; margin: 10px 0; accent-color: var(--cp-accent); cursor: pointer; }
+.range-labels { color: var(--cp-text-muted); font-size: 10px; }
+.calculator .settings { margin-top: 24px; }
+.calculator select, .small-input { width: 100%; min-width: 0; min-height: 44px; padding: 11px 14px; border: 1px solid var(--cp-border); border-radius: 10px; background: var(--cp-surface); color: var(--cp-text); font: inherit; font-size: 13px; }
+.region-select { height: 64px; }
+.license-box { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 64px; padding: 12px 16px; border: 1px solid var(--cp-border); border-radius: 10px; cursor: pointer; }
+.license-title { display: block; font-size: 13px; font-weight: 600; }
+.license-note { display: block; margin-top: 3px; color: var(--cp-text-muted); font-size: 10px; }
+.switch { appearance: none; -webkit-appearance: none; position: relative; width: 40px; height: 24px; margin: 0; flex-shrink: 0; border-radius: 20px; background: #aebccc; cursor: pointer; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.switch:checked { background: var(--cp-accent); }
+.switch:checked::after { transform: translateX(16px); }
+.calculator :focus-visible { outline: 3px solid rgba(0,120,212,.4); outline-offset: 3px; }
+.assumptions { margin-top: 24px; overflow: hidden; border: 1px solid var(--cp-border); border-radius: 11px; background: var(--cp-bg-elevated); }
+.assumptions details + details { border-top: 1px solid var(--cp-border); }
+.assumptions summary { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 16px; list-style: none; cursor: pointer; font-size: 12px; font-weight: 600; }
+.assumptions summary::-webkit-details-marker { display: none; }
+.assumptions summary::before { content: "+"; width: 14px; color: var(--cp-text-muted); font-size: 18px; font-weight: 400; }
+.assumptions details[open] > summary::before { content: "\2212"; }
+.summary-note { margin-left: auto; color: var(--cp-text-muted); font-size: 10px; font-weight: 400; text-align: right; }
+.detail-fields { padding: 0 16px 18px; gap: 16px; }
+.detail-fields label { display: block; color: var(--cp-text-muted); font-size: 11px; }
+.detail-fields input, .detail-fields select { margin-top: 6px; }
+.detail-note { grid-column: 1 / -1; margin: 0; color: var(--cp-text-muted); font-size: 11px; line-height: 1.6; }
+.calculator .footer { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-top: 24px; }
+.calculator .footer p { max-width: 390px; margin: 0; color: var(--cp-text-muted); font-size: 11px; line-height: 1.6; }
+.calculator button[type=submit] { display: inline-flex; justify-content: center; align-items: center; gap: 14px; min-height: 48px; padding: 12px 22px; border: 0; border-radius: 10px; background: var(--cp-accent); color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background .15s; }
+.calculator button[type=submit]:hover { background: var(--cp-accent-hover); }
+.help { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: 10px; line-height: 1.6; }
+.calc-error { color: var(--cp-danger); font-size: 13px; }
 .calc-muted { color: var(--cp-text-muted); }
-.calc .calc-assumptions { margin-top: 18px; }
-.calc-assumptions .calc-inputs { grid-template-columns: repeat(3,minmax(0,1fr)); margin: 12px 0; }
-.calc-checkboxes { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; font-size: 12.5px; }
-.calc-ahb { display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 0 0 7px; }
-.calc-ahb label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; margin: 0; }
-.calc-ahb input { accent-color: var(--cp-accent); margin: 0; }
-.calc .calc-action { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 22px; }
-.calc-action button { padding: 12px 26px; border-radius: 8px; }
 .calc-error { color: var(--cp-danger); font-size: 13px; }
 .calc-results { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin: 18px 0; }
 .calc fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -81,18 +83,20 @@
 .calc-table th, .calc-table td { white-space: normal; font-size: 12px; }
 .calc-table tbody th { position: static; text-transform: none; cursor: default; }
 .calc footer { font-size: 12px; color: var(--cp-text-muted); }
-@media(max-width:980px) {
-  .calc-grid { grid-template-columns: 1fr; }
-}
 @media(max-width:760px) {
-  .calc-inputs, .calc-assumptions .calc-inputs { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .calc-results { grid-template-columns: 1fr; }
-  .calc-acc-note { display: none; }
 }
-@media(max-width:440px) {
-  .calc-inputs, .calc-assumptions .calc-inputs { grid-template-columns: 1fr; }
-  .calc-form h2 { font-size: 22px; }
-  .calc .calc-action { flex-direction: column-reverse; align-items: stretch; }
+@media(max-width:600px) {
+  .calculator { padding: 22px; }
+  .calculator .grid { grid-template-columns: 1fr; gap: 20px; }
+  .calculator .footer { flex-direction: column; align-items: stretch; }
+  .assumptions summary { flex-wrap: wrap; }
+  .summary-note { flex-basis: 100%; margin-left: 26px; text-align: left; }
+  .calculator input, .calculator select { font-size: 16px; }
+  .core-box input { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch, .switch::after, .calculator button[type=submit] { transition: none !important; }
 }
 </style>
 </head>
@@ -104,90 +108,155 @@
     <a class="btn" href="modernization-options/">Which option is right?</a>
     <button id="btnTheme" class="ghost" aria-label="Toggle light and dark theme">&#9680;</button>
   </header>
-  <form id="calculatorForm" class="card calc-form">
-    <div class="calc-head">
+  <form class="calculator" id="calculatorForm">
+    <header class="header">
       <div>
-        <p class="calc-kicker">Your SQL estate</p>
+        <p class="eyebrow">YOUR SQL ESTATE</p>
         <h2>What could Azure save you?</h2>
-        <p class="calc-lede">Start with your cores. Explore your options.</p>
+        <p class="subtitle">Start with your cores. Explore your options.</p>
       </div>
-      <div class="calc-badge" aria-hidden="true">&#128451;</div>
-    </div>
-    <div class="calc-grid">
-      <section class="calc-group">
-        <h3 class="calc-group-label">Current workload</h3>
-        <div class="calc-pair">
-          <div class="calc-box"><label for="standard">Standard cores</label><input id="standard" name="standard" type="number" min="0" max="100000" step="1" value="0" required></div>
-          <div class="calc-box"><label for="enterprise">Enterprise cores</label><input id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required></div>
+      <div class="database-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <ellipse cx="12" cy="5" rx="7" ry="3"/>
+          <path d="M5 5v14c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/>
+          <path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/>
+        </svg>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section aria-labelledby="workloadLabel">
+        <span class="field-label" id="workloadLabel">Current workload</span>
+        <div class="core-inputs">
+          <label class="core-box">
+            Standard cores
+            <input name="standard" type="number" min="0" max="100000" step="1" value="0" required>
+          </label>
+          <label class="core-box">
+            Enterprise cores
+            <input name="enterprise" type="number" min="0" max="100000" step="1" value="1000" required>
+          </label>
         </div>
-        <p class="calc-readout"><b id="totalCores">0</b> total on-premises cores</p>
       </section>
-      <section class="calc-group">
-        <h3 class="calc-group-label">Migration scope</h3>
-        <div class="calc-panel">
-          <div class="calc-panel-head"><label for="migrationPct">Move to Azure</label><output id="migrationPctValue" class="calc-pct">50%</output></div>
-          <input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="5" value="50">
-          <div class="calc-ends"><span>Keep on-premises</span><span>Move everything</span></div>
-        </div>
-        <p class="calc-readout"><b id="movingCores">0</b> migrate &nbsp; <b id="stayingCores">0</b> stay on-premises</p>
-      </section>
-      <section class="calc-group">
-        <h3 class="calc-group-label">Azure region</h3>
-        <div class="calc-box is-select"><select id="region" name="region" required aria-label="Azure region"></select></div>
-      </section>
-      <section class="calc-group">
-        <h3 class="calc-group-label">Licensing</h3>
-        <div class="calc-panel is-toggle">
-          <div>
-            <label for="ahb">SQL Azure Hybrid Benefit</label>
-            <p>Use eligible existing SQL licenses</p>
+
+      <section>
+        <label class="field-label" for="migrationPct">Migration scope</label>
+        <div class="migration-box">
+          <div class="migration-heading">
+            <span>Move to Azure</span>
+            <output id="migrationValue" for="migrationPct">50%</output>
           </div>
-          <input id="ahb" name="ahb" type="checkbox" class="calc-switch" checked>
+          <input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="1" value="50">
+          <div class="range-labels">
+            <span id="movingLabel">Keep on-premises</span>
+            <span id="stayingLabel">Move everything</span>
+          </div>
         </div>
       </section>
     </div>
-    <div class="calc-accs">
-    <details class="acc calc-assumptions">
-      <summary>Estimate assumptions<span class="calc-acc-note" id="assumeNote"></span></summary>
-      <div class="calc-inputs">
-        <div class="calc-field"><label for="licenseBasis">License purchase scenario</label><select id="licenseBasis" name="licenseBasis"><option value="existing" selected>Licenses already owned (Software Assurance only)</option><option value="refresh">Planned license refresh (adds a one-time purchase)</option></select><span class="calc-muted">Default assumes the licenses are paid for and only SA continues</span></div>
-        <div class="calc-field"><label for="rightSizePct">Right-sizing reduction <output id="rightSizePctValue">20%</output></label><input id="rightSizePct" name="rightSizePct" type="range" min="0" max="60" step="5" value="20"><span class="calc-muted">Scenario assumption, not measured utilization</span></div>
-        <div class="calc-field"><label for="unitCores">VM / MI reference deployment cores</label><select id="unitCores" name="unitCores"><option value="4">4</option><option value="8">8</option><option value="16" selected>16</option></select><span class="calc-muted">Illustrative grouping, not an exact topology</span></div>
-        <div class="calc-field"><label for="onPremPerCoreMonth">On-premises operations ($/source core/month)</label><input id="onPremPerCoreMonth" name="onPremPerCoreMonth" type="number" min="0" max="10000" step="0.01" value="37.50" required><span class="calc-muted">$450/core/year default; exclude renewal fees</span></div>
-        <div class="calc-field"><label for="avoidablePct">Avoidable share of on-premises operations (%)</label><input id="avoidablePct" name="avoidablePct" type="number" min="0" max="100" step="1" value="50" required><span class="calc-muted">Only this share reduces with migrated cores; the fixed share remains</span></div>
-        <div class="calc-field"><label for="storageGB">Migrated data storage (GB, total)</label><input id="storageGB" name="storageGB" type="number" min="0" max="10000000" step="1" value="0" required><span class="calc-muted">0 means unspecified; see storage exclusions</span></div>
-        <div class="calc-field"><label for="vmPlan">Azure VM infrastructure pricing</label><select id="vmPlan" name="vmPlan"></select></div>
-        <div class="calc-field"><label for="miPlan">SQL Managed Instance pricing</label><select id="miPlan" name="miPlan"></select></div>
+
+    <div class="grid settings">
+      <label>
+        <span class="field-label">Azure region</span>
+        <select class="region-select" id="region" name="region" required></select>
+      </label>
+      <div>
+        <span class="field-label">Licensing</span>
+        <label class="license-box">
+          <span>
+            <span class="license-title">SQL Azure Hybrid Benefit</span>
+            <span class="license-note">Use eligible existing SQL licenses</span>
+          </span>
+          <input class="switch" id="ahb" name="ahb" type="checkbox" aria-label="Use SQL Azure Hybrid Benefit" checked>
+        </label>
       </div>
-      <p class="calc-muted">730 hours/month; Windows Ebdsv5 or classic MI General Purpose Gen5. Commitments assume 100% hourly utilization, no RI/savings-plan stacking, and 1-year terms repurchased at the same rate throughout the 3-year projection.
-        VM commitment discounts do not discount Windows/SQL licensing or storage. Windows AHB, when selected, removes the Windows uplift at its undiscounted rate.
-        Unsupported term rates are marked unavailable, never guessed or treated as free. Physical-host and unlimited-virtualization licensing need separate review.</p>
-    </details>
-    <details class="acc calc-assumptions">
-      <summary>Serverless assumptions<span class="calc-acc-note">Optional · For intermittent workloads</span></summary>
-      <fieldset id="serverlessFields">
-        <legend class="calc-muted">These databases represent the selected migrating footprint, not the full estate</legend>
-        <div class="calc-inputs">
-          <div class="calc-field"><label for="databaseCount">Migrating database count</label><input id="databaseCount" name="databaseCount" type="number" min="1" max="100000" step="1" placeholder="assumed from cores"><span class="calc-muted">Cannot be inferred from cores. Left blank, a capacity-equivalent count is assumed and labelled</span></div>
-          <div class="calc-field"><label for="serverlessMin">Minimum vCores / database</label><input id="serverlessMin" name="serverlessMin" type="number" min="0.5" max="8" step="0.5" value="1" required><span class="calc-muted">Min 0.5 at max 2/4; min 1 at max 8</span></div>
-          <div class="calc-field"><label for="serverlessMax">Maximum vCores / database</label><select id="serverlessMax" name="serverlessMax"><option value="2">2</option><option value="4">4</option><option value="8" selected>8</option></select></div>
-          <div class="calc-field"><label for="serverlessBillable">Assumed active billable vCores / database</label><input id="serverlessBillable" name="serverlessBillable" type="number" min="0.5" max="8" step="0.01" value="2" required><span class="calc-muted">Within min/max; includes memory/3 GB. At min 0.5, billing floor is 0.684 (max 2) or 0.7 (max 4)</span></div>
-          <div class="calc-field"><label for="activePct">Active-use / billable online time (%)</label><input id="activePct" name="activePct" type="number" min="0" max="100" step="1" value="25" required><span class="calc-muted">Include idle auto-pause delay; 100% if unable to pause</span></div>
+    </div>
+
+    <div class="assumptions">
+      <details>
+        <summary>
+          Estimate assumptions
+          <span class="summary-note" id="assumptionSummary">20% right-sizing &middot; Existing licenses</span>
+        </summary>
+        <div class="grid detail-fields">
+          <label>Purchase basis
+            <select id="licenseBasis" name="licenseBasis">
+              <option value="existing" selected>Existing licenses</option>
+              <option value="refresh">Planned license refresh</option>
+            </select>
+          </label>
+          <label>Assumed right-sizing (%)
+            <input class="small-input" id="rightSizePct" name="rightSizePct" type="number" min="0" max="60" step="5" value="20" required>
+          </label>
+          <label>Largest deployment (cores)
+            <select id="unitCores" name="unitCores">
+              <option value="4">4</option>
+              <option value="8">8</option>
+              <option value="16" selected>16</option>
+            </select>
+          </label>
+          <label>On-premises operations ($/core/month)
+            <input class="small-input" id="onPremPerCoreMonth" name="onPremPerCoreMonth" type="number" min="0" max="10000" step="0.01" value="37.50" required>
+          </label>
+          <label>Avoidable share of those operations (%)
+            <input class="small-input" id="avoidablePct" name="avoidablePct" type="number" min="0" max="100" step="1" value="50" required>
+          </label>
+          <label>Migrated data storage (GB, total)
+            <input class="small-input" id="storageGB" name="storageGB" type="number" min="0" max="10000000" step="1" value="0" required>
+          </label>
+          <label>Azure VM pricing
+            <select id="vmPlan" name="vmPlan"></select>
+          </label>
+          <label>Managed Instance pricing
+            <select id="miPlan" name="miPlan"></select>
+          </label>
+          <p class="detail-note">730 hours/month; Windows Ebdsv5 or classic MI General Purpose Gen5. Right-sizing is a scenario assumption, not measured utilization, and deployment size is a cap fitted to the published size ladder, not an exact topology.
+            Only the avoidable share of on-premises operations falls away with the migrated cores. Storage left at 0 means unspecified: VM data disks are omitted and MI uses its 32 GB floor.
+            Commitments assume 100% hourly utilization, no RI/savings-plan stacking, and 1-year terms repurchased at the same rate across the 3-year projection. VM commitment discounts never discount Windows/SQL licensing or storage; Windows AHB removes the Windows uplift at its undiscounted rate.
+            Unsupported term rates are marked unavailable, never guessed or treated as free. Physical-host and unlimited-virtualization licensing need separate review.</p>
         </div>
-      </fieldset>
-      <p class="calc-muted">The serverless column is directional whenever the database count or migrated storage is left blank: a capacity-equivalent database count and a 32 GB per-database floor are assumed and reported on the card. Enter real figures to replace them.
-        Conservative supported model: max 2/4/8 vCores, 1–1,024 GB per database.
-        Minimum-memory billing is enforced. Count × chosen capacity is assumed to serve the full selected footprint, not proven equivalent to source cores.
-        Only eligible GP databases can auto-pause. Active billable usage is declared, not measured. Storage bills while paused.
-        PAYG only here; no AHB or RI. Database savings plans require separate hourly usage/commitment analysis and are not modeled. Feature readiness and universal savings are not inferred.</p>
-    </details>
+      </details>
+
+      <details>
+        <summary>
+          Serverless assumptions
+          <span class="summary-note">Optional &middot; For intermittent workloads</span>
+        </summary>
+        <div class="grid detail-fields">
+          <label>Migrating database count
+            <input class="small-input" id="databaseCount" name="databaseCount" type="number" min="1" max="100000" step="1" placeholder="assumed from cores">
+          </label>
+          <label>Billable online time (%)
+            <input class="small-input" id="activePct" name="activePct" type="number" min="0" max="100" step="1" value="25" required>
+          </label>
+          <label>Minimum vCores / database
+            <input class="small-input" id="serverlessMin" name="serverlessMin" type="number" min="0.5" max="8" step="0.5" value="1" required>
+          </label>
+          <label>Maximum vCores / database
+            <select id="serverlessMax" name="serverlessMax">
+              <option value="2">2</option>
+              <option value="4">4</option>
+              <option value="8" selected>8</option>
+            </select>
+          </label>
+          <label>Assumed billable vCores / database
+            <input class="small-input" id="serverlessBillable" name="serverlessBillable" type="number" min="0.5" max="8" step="0.01" value="2" required>
+          </label>
+          <p class="detail-note">These databases represent the selected migrating footprint, not the full estate. The column is directional whenever the database count or migrated storage is left blank: a capacity-equivalent count and a 32 GB per-database floor are assumed and named on the card, and the column is excluded from the lowest-cost highlight until real figures replace them.
+            Conservative supported model: max 2/4/8 vCores, 1&ndash;1,024 GB per database, minimum-memory billing enforced. Count &times; chosen capacity is assumed to serve the selected footprint, not proven equivalent to source cores.
+            Only eligible General Purpose databases can auto-pause; include idle auto-pause delay in billable online time, or 100% if unable to pause. Storage bills while paused.
+            PAYG only: no AHB or reservations. Database savings plans need separate hourly usage and commitment analysis and are not modeled.</p>
+        </div>
+      </details>
     </div>
-    <div class="calc-action">
-      <span class="calc-muted">Compare on-premises, SQL on IaaS, Managed Instance and serverless.</span>
-      <button class="primary" type="submit">Compare costs <span aria-hidden="true">&rarr;</span></button>
+
+    <div class="footer">
+      <p>Compare on-premises, SQL on IaaS, Managed Instance and serverless.</p>
+      <button type="submit">Compare costs <span aria-hidden="true">&rarr;</span></button>
     </div>
+
     <p id="calcError" class="calc-error" role="alert"></p>
-    <p class="calc-fineprint">Count each workload once. SQL AHB requires eligible SA or subscription licenses; Windows AHB is separate.</p>
+    <p class="help">Count each workload once. SQL AHB requires eligible SA or subscription licenses; Windows AHB is separate.</p>
   </form>
   <section id="calculatorResults" tabindex="-1" aria-label="Calculated cost options" hidden></section>
   <footer>
@@ -207,3 +276,4 @@
 <!--APP_SCRIPT-->
 </body>
 </html>
+

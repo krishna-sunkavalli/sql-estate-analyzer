@@ -303,18 +303,19 @@ if (typeof document !== "undefined") {
     };
     const sync = () => {
       const pct = Number(form.elements.migrationPct.value);
-      document.getElementById("migrationPctValue").textContent = `${pct}%`;
-      document.getElementById("rightSizePctValue").textContent = `${form.elements.rightSizePct.value}%`;
-      // Live readouts mirror the model's own floor-per-edition split, so the
-      // numbers on screen are the numbers that get priced.
+      document.getElementById("migrationValue").textContent = `${pct}%`;
+      // The slider end labels double as live readouts, using the model's own
+      // floor-per-edition split so the counts shown are the counts priced.
       const counts = ["standard", "enterprise"].map(k => Math.max(0, Math.floor(Number(form.elements[k].value) || 0)));
       const moved = counts.map(n => Math.floor(n * pct / 100));
+      const total = counts[0] + counts[1], moving = moved[0] + moved[1];
       const num = n => n.toLocaleString();
-      document.getElementById("totalCores").textContent = num(counts[0] + counts[1]);
-      document.getElementById("movingCores").textContent = num(moved[0] + moved[1]);
-      document.getElementById("stayingCores").textContent = num(counts[0] + counts[1] - moved[0] - moved[1]);
-      document.getElementById("assumeNote").textContent =
-        `${form.elements.rightSizePct.value}% right-sizing · ${form.elements.licenseBasis.selectedOptions[0].value === "existing" ? "Existing licenses" : "License refresh"}`;
+      document.getElementById("movingLabel").textContent = total
+        ? `${num(moving)} migrate` : "Keep on-premises";
+      document.getElementById("stayingLabel").textContent = total
+        ? `${num(total - moving)} stay on-premises` : "Move everything";
+      document.getElementById("assumptionSummary").textContent =
+        `${form.elements.rightSizePct.value}% right-sizing · ${form.elements.licenseBasis.selectedOptions[0].textContent}`;
       const r = CALCULATOR_PRICES.regions[region.value];
       const sku = `Standard_E${form.elements.unitCores.value}bds_v5`;
       for (const key of ["vm", "mi"]) {
