@@ -49,7 +49,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
     vmPlan: "ri3", miPlan: "ri3", migrationPct: 50,
-    serverlessEnabled: false, databaseCount: null, serverlessMin: 1, serverlessMax: 8,
+    databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
   for (const key of ["standard", "enterprise"]) {
     if (!Number.isInteger(input[key]) || input[key] < 0 || input[key] > 100000) {
@@ -63,7 +63,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   }
   if (![4, 8, 16].includes(input.unitCores)) throw new Error("Choose 4, 8 or 16 cores per reference deployment.");
   if (!["refresh", "existing"].includes(input.licenseBasis)) throw new Error("Choose a license-refresh or existing-license scenario.");
-  for (const key of ["ahb", "serverlessEnabled"]) {
+  for (const key of ["ahb"]) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
   for (const key of ["vmPlan", "miPlan"]) {
@@ -214,15 +214,21 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const serverlessName = "Azure SQL Database serverless";
   const serverlessBase = {...base, key: "serverless", name: serverlessName, infrastructure, scopedCores: sum(moved), plan: "payg"};
   let serverless;
-  if (!sum(moved)) {
-    serverless = total(serverlessBase);
-  } else if (!input.serverlessEnabled || input.databaseCount === null || input.databaseCount === "") {
-    serverless = unavailable("serverless", serverlessName, "Input needed: enable the optional estimate and enter the database count for the selected migrating footprint. Core totals cannot determine database count.", "input-needed");
-  } else {
-    const dbs = input.databaseCount;
-    const min = input.serverlessMin, max = input.serverlessMax, billable = input.serverlessBillable;
-    if (!Number.isInteger(dbs) || dbs < 1 || dbs > 100000) throw new Error("Serverless database count must be a whole number from 1 to 100,000.");
+  {
+    const max = input.serverlessMax;
     if (![2, 4, 8].includes(max)) throw new Error("Serverless maximum must be 2, 4 or 8 vCores in this conservative model.");
+    // Core totals cannot reveal how many databases exist. When the count is not
+    // supplied, assume a capacity-equivalent layout: enough databases, each
+    // capped at the chosen maximum, to cover the same right-sized demand. This
+    // is a declared assumption for directional guidance, not a discovery.
+    const assumed = [];
+    let dbs = input.databaseCount;
+    if (dbs === null || dbs === "") {
+      dbs = Math.max(1, Math.ceil(sum(required) / max));
+      assumed.push(`${dbs} database(s) assumed: right-sized demand divided by the ${max}-vCore maximum`);
+    }
+    const min = input.serverlessMin, billable = input.serverlessBillable;
+    if (!Number.isInteger(dbs) || dbs < 1 || dbs > 100000) throw new Error("Serverless database count must be a whole number from 1 to 100,000.");
     const floor = max === 8 ? 1 : 0.5;
     if (!Number.isFinite(min) || min < floor || min > max || min * 2 !== Math.round(min * 2)) throw new Error(`Serverless minimum must be ${floor}–${max} vCores, in 0.5 increments.`);
     // Gen5's minimum memory at 0.5 configured vCores increases billing above
@@ -230,16 +236,23 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     const billingFloor = min === 0.5 ? (max === 2 ? 2.05 / 3 : 0.7) : min;
     if (!Number.isFinite(billable) || billable < billingFloor || billable > max) throw new Error(`Assumed active billable vCores must be between ${billingFloor.toFixed(3)} and ${max}, including the memory-normalized minimum.`);
     if (!Number.isFinite(input.activePct) || input.activePct < 0 || input.activePct > 100) throw new Error("Serverless active-use percentage must be 0–100.");
-    if (input.storageGB <= 0) {
-      serverless = unavailable("serverless", serverlessName, "Input needed: enter total migrated data storage in the assumptions. Serverless storage is billed even while paused.", "input-needed");
-    } else if (Math.ceil(input.storageGB / dbs) > 1024) {
-      serverless = unavailable("serverless", serverlessName, "Storage exceeds this conservative model's 1,024 GB per-database limit. Review database placement; do not change the real database count just to fit.");
+    // Storage is billed even while a database is paused, so it is never
+    // omitted. Unspecified storage falls back to the same 32 GB floor the
+    // Managed Instance column uses, and says so.
+    let perDB;
+    if (input.storageGB > 0) {
+      perDB = Math.max(1, Math.ceil(input.storageGB / dbs));
     } else {
-      const perDB = Math.max(1, Math.ceil(input.storageGB / dbs));
+      perDB = 32;
+      assumed.push("32 GB per database assumed: no migrated storage was entered");
+    }
+    if (perDB > 1024) {
+      serverless = unavailable("serverless", serverlessName, `Storage needs ${perDB} GB per database, above this conservative model's 1,024 GB limit. Review database placement; do not change the real database count just to fit.`);
+    } else {
       const compute = dbs * billable * HOURS * input.activePct / 100 *
         positiveRate(region.serverless?.paygPerCoreHour, "SQL Database GP Gen5 serverless PAYG");
       const storage = dbs * perDB * positiveRate(region.storage.db_gp_per_gb_mo, "SQL Database GP storage");
-      serverless = total({...serverlessBase, compute, storage, deployments: dbs, azureCores: dbs * max,
+      serverless = total({...serverlessBase, compute, storage, deployments: dbs, azureCores: dbs * max, assumed,
         allocation: [`${dbs} database(s); ${min}–${max} configured vCores each; assumed ${billable} memory-normalized billable vCores while online; ${input.activePct}% billable online time`],
         storageDetail: `${dbs} × ${perDB} GB reserved data storage, charged online and paused`});
     }
@@ -300,7 +313,6 @@ if (typeof document !== "undefined") {
         // the results, never silently replaced by a different price.
         select.value = selected;
       }
-      document.getElementById("serverlessFields").disabled = !form.elements.serverlessEnabled.checked;
       results.hidden = true;
       error.textContent = "";
     };
@@ -318,7 +330,7 @@ if (typeof document !== "undefined") {
         input[key] = Number(form.elements[key].value);
       }
       input.databaseCount = form.elements.databaseCount.value === "" ? null : Number(form.elements.databaseCount.value);
-      for (const key of ["ahb","serverlessEnabled"]) input[key] = form.elements[key].checked;
+      input.ahb = form.elements.ahb.checked;
       for (const key of ["region","vmPlan","miPlan","licenseBasis"]) input[key] = form.elements[key].value;
       let report;
       try { report = calculateCoreOptions(input); }
@@ -336,11 +348,14 @@ if (typeof document !== "undefined") {
         ["Azure SQL licensing (VM / MI)", "sqlLicense"], ["Azure storage", "storage"],
       ];
       const inScope = sum(moved);
-      // Highlight the lowest modeled three-year cost. This is arithmetic, not a
-      // readiness or suitability recommendation, and is labelled as such.
+      // Highlight the lowest modeled three-year cost. Directional estimates are
+      // excluded: an option running on assumed inputs is not comparable on the
+      // same evidence, and would otherwise win precisely because it was guessed.
       const ready = all.filter(s => s.status === "ready");
-      const bestKey = ready.length > 1
-        ? ready.reduce((a, b) => a.threeYear <= b.threeYear ? a : b).key : null;
+      const comparable = ready.filter(s => !s.assumed?.length);
+      const bestKey = comparable.length > 1
+        ? comparable.reduce((a, b) => a.threeYear <= b.threeYear ? a : b).key : null;
+      const anyDirectional = ready.some(s => s.assumed?.length);
       const editionLabel = moved.standard && moved.enterprise ? "Mixed-edition"
         : moved.enterprise ? "Enterprise" : "Standard";
       results.innerHTML = `
@@ -368,8 +383,7 @@ if (typeof document !== "undefined") {
             const label = CARD_LABELS[s.key];
             const eyebrow = s.key === "mi" && input.ahb && moved.enterprise > 0 ? "4:1 Enterprise AHB" : label.eyebrow;
             const subtitle = s.key === "stay" ? `${editionLabel} footprint staying put` : label.subtitle;
-            const head = `<p class="calc-eyebrow">${eyebrow}</p><h3>${label.title}</h3><p class="calc-sub">${subtitle}</p>`;
-            if (s.status !== "ready") {
+            const head = `<p class="calc-eyebrow">${eyebrow}</p><h3>${label.title}</h3><p class="calc-sub">${subtitle}</p>`;            if (s.status !== "ready") {
               return `<article class="calc-option">${head}
                 <p class="calc-pending"><b>${s.status === "input-needed" ? "Input needed" : "Unavailable"}</b></p>
                 <p class="calc-pending">${escape(s.reason)}</p>
@@ -382,9 +396,10 @@ if (typeof document !== "undefined") {
               <dl class="calc-specs">
                 <div><dt>3-year TCO</dt><dd>${money(s.threeYear)}</dd></div>
                 <div><dt>Savings</dt>${savings}</div>
-              </dl></article>`;
+              </dl>
+              ${s.assumed?.length ? `<p class="calc-assumed">Directional: ${escape(s.assumed.join("; "))}.</p>` : ""}</article>`;
           }).join("")}</div>
-          ${bestKey ? `<p class="calc-muted">Highlighted: lowest modeled 3-year cost. That is an arithmetic result for the assumptions above, not a recommendation; compatibility, readiness and operational fit are not assessed here.</p>` : ""}
+          ${bestKey ? `<p class="calc-muted">Highlighted: lowest modeled 3-year cost${anyDirectional ? " among the options with complete inputs" : ""}. That is an arithmetic result for the assumptions above, not a recommendation; compatibility, readiness and operational fit are not assessed here.${anyDirectional ? " Any column marked directional is running on assumed inputs and is excluded from that comparison until real figures are entered." : ""}</p>` : ""}
           <details class="acc"><summary>Monthly cost breakdown, rates and scope</summary>
             <div class="tbl-wrap"><table class="calc-table"><thead><tr><th>Monthly component</th>${all.map(s => `<th>${CARD_LABELS[s.key].title}</th>`).join("")}</tr></thead>
             <tbody>${rows.map(([label,key]) => `<tr><th scope="row">${label}</th>${all.map(s => `<td>${s.status === "ready" ? money(s[key]) : "Not calculated"}</td>`).join("")}</tr>`).join("")}

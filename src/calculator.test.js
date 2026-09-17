@@ -37,10 +37,10 @@ test("four alternatives: PAYG VM/MI includes SQL/storage; unconfigured serverles
   assert.equal(r.scenarios.length, 3);
   near(vm.monthly, 16 * 0.1 * 730 + 16 * 0.1 * 730 + 10);
   near(mi.monthly, 16 * 0.25 * 730 + 32 * 0.1);
-  assert.equal(s.status, "input-needed");
-  assert.equal(s.monthly, null);
-  assert.equal(s.threeYear, null);
-  assert.equal(s.deltaPct, null);
+  // Serverless is directional rather than blank when its inputs are unset.
+  assert.equal(s.status, "ready");
+  assert.ok(s.monthly > 0);
+  assert.ok(s.assumed.length > 0);
 });
 test("the shipped default owns its licenses and pays only Software Assurance", () => {
   const r = calculateCoreOptions({standard: 100, enterprise: 40, migrationPct: 50, region: "test"}, fixture);
@@ -262,14 +262,40 @@ test("oversized MI storage only blocks MI; data storage costs are separate", () 
   assert.equal(huge.scenarios[1].status,"unavailable");
   assert.match(huge.scenarios[1].reason,/MI storage/);
 });
-test("serverless requires explicit count and storage, never interpreting unset as zero", () => {
-  for(const changes of [{serverlessEnabled:true},{...serverless,databaseCount:null},{...serverless,storageGB:0}]) {
-    const s=run(changes).scenarios[2];
-    assert.equal(s.status,"input-needed");
-    assert.equal(s.monthly,null);
-  }
+test("serverless gives directional guidance when count and storage are unset, and labels it", () => {
+  // No database count: a capacity-equivalent count is assumed from right-sized
+  // demand divided by the chosen maximum, and declared on the result.
+  const bare = run({standard: 40, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+    serverlessMax: 8, onPremPerCoreMonth: 0});
+  const s = bare.scenarios[2];
+  assert.equal(s.status, "ready");
+  assert.equal(s.deployments, 5);
+  assert.ok(s.monthly > 0);
+  assert.equal(s.assumed.length, 2);
+  assert.match(s.assumed[0], /5 database\(s\) assumed/);
+  assert.match(s.assumed[1], /32 GB per database assumed/);
+  // Storage is never dropped just because it was not entered.
+  near(s.storage, 5 * 32 * 0.12);
+  // Supplying the real figures removes the assumptions entirely.
+  const exact = run({standard: 40, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+    databaseCount: 5, storageGB: 160, onPremPerCoreMonth: 0});
+  assert.equal(exact.scenarios[2].assumed.length, 0);
+  near(exact.scenarios[2].storage, 5 * 32 * 0.12);
+  // An explicitly entered count is never overridden by the assumption.
+  const explicit = run({...serverless, databaseCount: 7});
+  assert.equal(explicit.scenarios[2].deployments, 7);
+  assert.equal(explicit.scenarios[2].assumed.length, 0);
   assert.throws(()=>run({...serverless,databaseCount:0}),/database count/);
   assert.throws(()=>run({...serverless,databaseCount:1.5}),/database count/);
+});
+test("the assumed database count scales with the maximum vCores per database", () => {
+  for (const [max, expected] of [[2, 20], [4, 10], [8, 5]]) {
+    const r = run({standard: 40, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+      serverlessMax: max, serverlessMin: max === 8 ? 1 : 0.5, serverlessBillable: 1, onPremPerCoreMonth: 0});
+    assert.equal(r.scenarios[2].deployments, expected, `max ${max}`);
+    // Total configured ceiling always covers the right-sized demand.
+    assert.ok(r.scenarios[2].azureCores >= 40);
+  }
 });
 test("serverless 0/25/100 online percent bills online compute and all-month storage", () => {
   for(const activePct of [0,25,100]) {
