@@ -5,6 +5,12 @@ const HOURS = 730;
 const MONTHS = 36;
 const PLANS = {payg: "PAYG", ri1: "1-year reservation", ri3: "3-year reservation",
   sp1: "1-year savings plan", sp3: "3-year savings plan"};
+const CARD_LABELS = {
+  stay: {eyebrow: "Baseline", title: "On-premises", subtitle: "Existing footprint staying put"},
+  vm: {eyebrow: "Lift and shift", title: "SQL on IaaS", subtitle: "SQL Server on Azure Virtual Machines"},
+  mi: {eyebrow: "Managed platform", title: "SQL MI", subtitle: "Managed Instance, General Purpose"},
+  serverless: {eyebrow: "Intermittent workloads", title: "SQL serverless", subtitle: "Azure SQL Database · usage-based"},
+};
 const DISKS = [
   ["P4", 32], ["P6", 64], ["P10", 128], ["P15", 256], ["P20", 512],
   ["P30", 1024], ["P40", 2048], ["P50", 4096], ["P60", 8192],
@@ -98,7 +104,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   // Migrating frees only the declared avoidable share of that slice's operations.
   const infrastructure = scopedInfrastructure * (1 - input.avoidablePct / 100);
   const base = {upfront: 0, compute: 0, sqlLicense: 0, storage: 0, coveredCores: 0,
-    sa: 0,
+    sa: 0, licenseCores: 0,
     azureCores: 0, deployments: 0, allocation: [], storageDetail: "No Azure deployments"};
   const total = scenario => {
     const compute = scenario.compute * discountFactor;
@@ -109,7 +115,8 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     return {...scenario, compute, sqlLicense, storage, sa, status: "ready", monthly, threeYear: monthly * MONTHS + scenario.upfront};
   };
   const baseline = total({...base, upfront: licensePurchase(moved), key: "stay", name: "Stay on-premises",
-    infrastructure: scopedInfrastructure, sa: saMonthly(moved), scopedCores: sum(moved)});
+    infrastructure: scopedInfrastructure, sa: saMonthly(moved), scopedCores: sum(moved),
+    licenseCores: sum(moved)});
   const unavailable = (key, name, reason, status = "unavailable") => ({
     ...base, key, name, status, reason, infrastructure, scopedCores: sum(moved), monthly: null, threeYear: null,
   });
@@ -201,6 +208,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     }
     return total({...base, key, name, plan, infrastructure, compute, sqlLicense, storage, storageDetail,
       sa: saMonthly(ahbBackingCores),
+      licenseCores: sum(ahbBackingCores),
       allocation, coveredCores, azureCores, deployments, sizes, scopedCores: sum(moved)});
   });
   const serverlessName = "Azure SQL Database serverless";
@@ -327,10 +335,14 @@ if (typeof document !== "undefined") {
         [`Azure compute (VM ${input.ahb ? "excludes Windows via AHB" : "includes Windows"}; serverless includes SQL)`, "compute"],
         ["Azure SQL licensing (VM / MI)", "sqlLicense"], ["Azure storage", "storage"],
       ];
-      const delta = s => `${money(Math.abs(s.deltaThreeYear))} ${s.deltaThreeYear < 0 ? "lower" : s.deltaThreeYear > 0 ? "higher" : "difference"} over 3 years
-        (${s.deltaPct === null ? "percentage unavailable: zero baseline" : `${Math.abs(s.deltaPct).toFixed(1)}%`});
-        ${money(Math.abs(s.deltaMonthly))}/month ${s.deltaMonthly < 0 ? "lower" : s.deltaMonthly > 0 ? "higher" : "difference"} recurring cost vs on-premises (excludes initial purchase).`;
       const inScope = sum(moved);
+      // Highlight the lowest modeled three-year cost. This is arithmetic, not a
+      // readiness or suitability recommendation, and is labelled as such.
+      const ready = all.filter(s => s.status === "ready");
+      const bestKey = ready.length > 1
+        ? ready.reduce((a, b) => a.threeYear <= b.threeYear ? a : b).key : null;
+      const editionLabel = moved.standard && moved.enterprise ? "Mixed-edition"
+        : moved.enterprise ? "Enterprise" : "Standard";
       results.innerHTML = `
         <div class="card">
           <h2>Four ways to host the ${inScope.toLocaleString()} cores you are moving</h2>
@@ -350,16 +362,42 @@ if (typeof document !== "undefined") {
           Software Assurance is charged at published list: on all in-scope cores if they stay, or on the cores whose rights back AHB if they move, because AHB requires active eligible SA or a qualifying subscription. Actual SA pricing is agreement-specific.
           These partial-cost comparisons are not full TCO or guaranteed savings.
           Core counts and this estimate do not prove license entitlements or feature readiness.</div>
-          <div class="calc-results">${all.map(s => `
-            <article class="calc-option"><h3>${s.name}</h3>
-            ${s.status !== "ready" ? `<p><b>${s.status === "input-needed" ? "Input needed" : "Unavailable"}</b></p><p>${escape(s.reason)}</p><p class="calc-muted">No total or savings reported; not $0. The retained footprint and ongoing costs still apply.</p>` : `
-              <div class="calc-price">${money(s.threeYear)}<span>total over three years, including the one-time license purchase</span></div>
-              <p><b>${money(s.monthly)}</b> per month recurring${s.plan && s.plan !== "payg" ? ", amortized commitment" : ""}<br><b>${money(s.upfront)}</b> one-time SQL license purchase</p>
-              <p class="calc-muted">${s.key === "stay" ? `${s.scopedCores} cores stay on-premises` : `${s.scopedCores} source cores move to ${s.deployments} Azure ${s.key === "serverless" ? "database(s)" : `deployment(s) totalling ${s.azureCores} vCore${s.sizes ? ` (${s.sizes.join(" + ")})` : ""}`}`}</p>
-              ${s.key === "stay" ? "" : `<p class="calc-muted">${s.key === "serverless" ? "Illustrative PAYG; no AHB or reservation. SQL license included in compute." : `${escape(PLANS[s.plan])}; ${input.ahb ? `${s.coveredCores} of ${s.azureCores} Azure cores conditionally covered by AHB` : "no AHB, SQL license included"}.`}</p><p class="calc-delta">${delta(s)}</p>`}
-            `}</article>`).join("")}</div>
+          <div class="calc-results">${all.map(s => {
+            const label = CARD_LABELS[s.key];
+            const eyebrow = s.key === "mi" && input.ahb && moved.enterprise > 0 ? "4:1 Enterprise AHB" : label.eyebrow;
+            const subtitle = s.key === "stay" ? `${editionLabel} footprint staying put` : label.subtitle;
+            const head = `<p class="calc-eyebrow">${eyebrow}</p><h3>${label.title}</h3><p class="calc-sub">${subtitle}</p>`;
+            if (s.status !== "ready") {
+              return `<article class="calc-option">${head}
+                <p class="calc-pending"><b>${s.status === "input-needed" ? "Input needed" : "Unavailable"}</b></p>
+                <p class="calc-pending">${escape(s.reason)}</p>
+                <p class="calc-muted">No total or savings reported; not $0. The retained footprint and ongoing costs still apply.</p></article>`;
+            }
+            const saving = s.key === "stay"
+              ? `<div class="calc-save is-base"><b>Comparison baseline</b><span>Everything below is measured against this</span></div>`
+              : `<div class="calc-save${s.deltaThreeYear > 0 ? " is-higher" : ""}">
+                  <b>${money(Math.abs(s.deltaThreeYear))} ${s.deltaThreeYear < 0 ? "saved" : s.deltaThreeYear > 0 ? "more" : "difference"}</b>
+                  <span>over 3 years${s.deltaPct === null ? "" : ` · ${Math.abs(s.deltaPct).toFixed(0)}% ${s.deltaThreeYear < 0 ? "lower" : s.deltaThreeYear > 0 ? "higher" : "difference"}`}</span></div>`;
+            const compute = s.key === "stay" ? `${s.scopedCores} cores`
+              : s.key === "serverless" ? `${s.deployments} database${s.deployments === 1 ? "" : "s"}`
+              : `${s.azureCores} ${s.key === "vm" ? "vCPU" : "vCore"}`;
+            const licence = s.key === "stay" ? `${s.licenseCores} on SA`
+              : s.key === "serverless" ? "AHB unavailable"
+              : !input.ahb ? "AHB not applied"
+              : s.licenseCores > 0 ? `${s.licenseCores} on SA` : "none eligible";
+            return `<article class="calc-option${s.key === bestKey ? " is-best" : ""}">${head}
+              <div class="calc-price">${money(s.monthly)}<span>per month${s.plan && s.plan !== "payg" ? ", amortized commitment" : ""}</span></div>
+              ${saving}
+              <dl class="calc-specs">
+                <div><dt>Compute</dt><dd>${compute}</dd></div>
+                <div><dt>License cores</dt><dd>${licence}</dd></div>
+                <div><dt>One-time purchase</dt><dd>${money(s.upfront)}</dd></div>
+                <div><dt>3-year cost</dt><dd>${money(s.threeYear)}</dd></div>
+              </dl></article>`;
+          }).join("")}</div>
+          ${bestKey ? `<p class="calc-muted">Highlighted: lowest modeled 3-year cost. That is an arithmetic result for the assumptions above, not a recommendation; compatibility, readiness and operational fit are not assessed here.</p>` : ""}
           <details class="acc"><summary>Monthly cost breakdown, rates and scope</summary>
-            <div class="tbl-wrap"><table class="calc-table"><thead><tr><th>Monthly component</th>${all.map(s => `<th>${s.name}</th>`).join("")}</tr></thead>
+            <div class="tbl-wrap"><table class="calc-table"><thead><tr><th>Monthly component</th>${all.map(s => `<th>${CARD_LABELS[s.key].title}</th>`).join("")}</tr></thead>
             <tbody>${rows.map(([label,key]) => `<tr><th scope="row">${label}</th>${all.map(s => `<td>${s.status === "ready" ? money(s[key]) : "Not calculated"}</td>`).join("")}</tr>`).join("")}
             <tr><th scope="row">One-time SQL license purchase (not monthly)</th>${all.map(s => `<td>${s.status === "ready" ? money(s.upfront) : "Not calculated"}</td>`).join("")}</tr></tbody></table></div>
             <p>Refresh purchase = ceil(Standard cores / 2) × $3,945 + ceil(Enterprise cores / 2) × $15,123.

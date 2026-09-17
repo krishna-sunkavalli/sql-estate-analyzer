@@ -522,3 +522,33 @@ test("the maximum deployment size caps individual deployments without inflating 
     }
   }
 });
+
+test("licenseCores reports the cores actually bearing Software Assurance", () => {
+  // Staying put: every in-scope core carries SA.
+  const stay = run({standard: 40, enterprise: 0, migrationPct: 100, rightSizePct: 0, ahb: false});
+  assert.equal(stay.baseline.licenseCores, 40);
+  // Migrating without AHB: no SA obligation, the Azure meter is paid instead.
+  for (const s of stay.scenarios) assert.equal(s.licenseCores, 0);
+  // With AHB, VM is 1:1 so the covered vCPUs need the same number of source cores.
+  const vmAhb = run({standard: 40, enterprise: 0, migrationPct: 100, rightSizePct: 0, ahb: true});
+  assert.equal(vmAhb.scenarios[0].licenseCores, 40);
+  // MI stretches Enterprise 4:1, so 64 covered vCores need only 16 source cores.
+  const miAhb = run({standard: 0, enterprise: 64, migrationPct: 100, rightSizePct: 0, ahb: true});
+  assert.equal(miAhb.scenarios[0].licenseCores, 64);
+  assert.equal(miAhb.scenarios[1].licenseCores, 16);
+  // Serverless never carries AHB, so it never carries backing cores.
+  const sl = run({...serverless, standard: 40, enterprise: 0, migrationPct: 100, ahb: true});
+  assert.equal(sl.scenarios[2].licenseCores, 0);
+});
+
+test("licenseCores is always consistent with the Software Assurance charged", () => {
+  for (const ahb of [true, false]) for (const [s, e] of [[40, 0], [0, 40], [20, 20]]) {
+    const r = run({standard: s, enterprise: e, migrationPct: 100, rightSizePct: 0, ahb});
+    for (const x of [r.baseline, ...r.scenarios]) {
+      if (x.status !== "ready") continue;
+      // A zero core count must mean a zero charge, and vice versa: the card
+      // cannot claim licensed cores while billing nothing, or the reverse.
+      assert.equal(x.licenseCores === 0, x.sa === 0, `${x.key} ${s}S/${e}E ahb=${ahb}`);
+    }
+  }
+});
