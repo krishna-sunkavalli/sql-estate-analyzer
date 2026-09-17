@@ -9,7 +9,41 @@
 .calc p { font-size: 13px; line-height: 1.55; }
 .calc a { color: var(--cp-link); }
 .calc-inputs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; align-items: start; }
-.calc-inputs.is-primary { grid-template-columns: repeat(2,minmax(0,7rem)) minmax(0,1fr) minmax(0,12rem) minmax(0,auto); gap: 18px; align-items: end; }
+.calc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.calc-kicker { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--cp-accent); margin: 0 0 6px; }
+.calc-form h2 { font-size: 26px; font-weight: 650; margin: 0 0 6px; letter-spacing: -.01em; }
+.calc-lede { margin: 0; color: var(--cp-text-muted); }
+.calc-badge { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--cp-accent-soft); color: var(--cp-accent); display: grid; place-items: center; font-size: 18px; }
+.calc-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px 24px; }
+.calc-group-label { font-size: 12.5px; font-weight: 600; margin: 0 0 8px; }
+.calc-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.calc-box { border: 1px solid var(--cp-border); border-radius: 10px; padding: 12px 14px; background: var(--cp-surface); }
+.calc-box label { display: block; font-size: 12px; color: var(--cp-text-muted); margin-bottom: 2px; }
+.calc-box input { width: 100%; min-width: 0; border: 0; background: none; padding: 0; font-size: 26px; font-weight: 600; color: inherit; font-variant-numeric: tabular-nums; }
+.calc-box input:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 4px; }
+.calc-box.is-select { padding: 0; }
+.calc-box.is-select select { width: 100%; min-width: 0; border: 0; background: none; padding: 18px 14px; font-size: 14px; color: inherit; }
+.calc-readout { font-size: 12px; color: var(--cp-text-muted); margin: 8px 0 0; }
+.calc-readout b { color: var(--cp-text); font-variant-numeric: tabular-nums; }
+.calc-panel { border: 1px solid var(--cp-border); border-radius: 10px; padding: 14px; background: var(--cp-surface); }
+.calc-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.calc-panel-head label { font-size: 13px; font-weight: 600; }
+.calc-pct { font-size: 22px; font-weight: 700; color: var(--cp-accent); font-variant-numeric: tabular-nums; }
+.calc-panel input[type=range] { width: 100%; }
+.calc-ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--cp-text-muted); margin-top: 6px; }
+.calc-panel.is-toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 14px; }
+.calc-panel.is-toggle label { font-size: 13px; font-weight: 600; }
+.calc-panel.is-toggle p { margin: 2px 0 0; font-size: 12px; color: var(--cp-text-muted); }
+.calc-switch { flex: none; appearance: none; width: 42px; height: 24px; border-radius: 999px; background: var(--cp-border); position: relative; cursor: pointer; transition: background .15s; }
+.calc-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.calc-switch:checked { background: var(--cp-accent); }
+.calc-switch:checked::after { transform: translateX(18px); }
+.calc-switch:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 3px; }
+.calc-accs { margin: 22px 0 0; border-radius: 10px; overflow: hidden; }
+.calc-accs .acc { margin: 0; border-radius: 0; }
+.calc-accs .acc + .acc { border-top: 0; }
+.calc-acc-note { float: right; font-size: 12px; font-weight: 400; color: var(--cp-text-muted); }
+.calc-fineprint { font-size: 11.5px; color: var(--cp-text-muted); margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--cp-border); }
 .calc-field { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
 .calc-field label { font-weight: 600; }
 .calc-field input, .calc-field select { width: 100%; min-width: 0; }
@@ -21,8 +55,8 @@
 .calc-ahb { display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 0 0 7px; }
 .calc-ahb label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; margin: 0; }
 .calc-ahb input { accent-color: var(--cp-accent); margin: 0; }
-.calc .calc-action { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
-.calc-action button { padding: 10px 24px; }
+.calc .calc-action { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 22px; }
+.calc-action button { padding: 12px 26px; border-radius: 8px; }
 .calc-error { color: var(--cp-danger); font-size: 13px; }
 .calc-results { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin: 18px 0; }
 .calc fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -48,15 +82,17 @@
 .calc-table tbody th { position: static; text-transform: none; cursor: default; }
 .calc footer { font-size: 12px; color: var(--cp-text-muted); }
 @media(max-width:980px) {
-  .calc-inputs.is-primary { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; }
-  .calc-inputs.is-primary .calc-ahb { grid-column: 1 / -1; padding: 2px 0 0; white-space: normal; }
+  .calc-grid { grid-template-columns: 1fr; }
 }
 @media(max-width:760px) {
   .calc-inputs, .calc-assumptions .calc-inputs { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .calc-results { grid-template-columns: 1fr; }
+  .calc-acc-note { display: none; }
 }
 @media(max-width:440px) {
-  .calc-inputs, .calc-assumptions .calc-inputs, .calc-inputs.is-primary { grid-template-columns: 1fr; }
+  .calc-inputs, .calc-assumptions .calc-inputs { grid-template-columns: 1fr; }
+  .calc-form h2 { font-size: 22px; }
+  .calc .calc-action { flex-direction: column-reverse; align-items: stretch; }
 }
 </style>
 </head>
@@ -68,20 +104,51 @@
     <a class="btn" href="modernization-options/">Which option is right?</a>
     <button id="btnTheme" class="ghost" aria-label="Toggle light and dark theme">&#9680;</button>
   </header>
-  <form id="calculatorForm" class="card">
-    <h2>What is your SQL footprint?</h2>
-    <p class="calc-muted">Enter non-overlapping workload cores by edition, not repeated instance or database counts. Licensed-core totals do not prove available entitlements.</p>
-    <div class="calc-inputs is-primary">
-      <div class="calc-field"><label for="standard">Standard cores</label><input id="standard" name="standard" type="number" min="0" max="100000" step="1" value="0" required></div>
-      <div class="calc-field"><label for="enterprise">Enterprise cores</label><input id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required></div>
-      <div class="calc-field"><label for="migrationPct">Migrate to Azure <output id="migrationPctValue">50%</output></label><input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="5" value="50" title="Applied to both editions; the rest stays on-premises"></div>
-      <div class="calc-field"><label for="region">Azure region</label><select id="region" name="region" required></select></div>
-      <div class="calc-ahb">
-        <label title="Applies to SQL Server on VM and Managed Instance, and to Windows Server on VM. Not available for serverless."><input id="ahb" name="ahb" type="checkbox" checked> Azure Hybrid Benefit</label>
+  <form id="calculatorForm" class="card calc-form">
+    <div class="calc-head">
+      <div>
+        <p class="calc-kicker">Your SQL estate</p>
+        <h2>What could Azure save you?</h2>
+        <p class="calc-lede">Start with your cores. Explore your options.</p>
       </div>
+      <div class="calc-badge" aria-hidden="true">&#128451;</div>
     </div>
+    <div class="calc-grid">
+      <section class="calc-group">
+        <h3 class="calc-group-label">Current workload</h3>
+        <div class="calc-pair">
+          <div class="calc-box"><label for="standard">Standard cores</label><input id="standard" name="standard" type="number" min="0" max="100000" step="1" value="0" required></div>
+          <div class="calc-box"><label for="enterprise">Enterprise cores</label><input id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required></div>
+        </div>
+        <p class="calc-readout"><b id="totalCores">0</b> total on-premises cores</p>
+      </section>
+      <section class="calc-group">
+        <h3 class="calc-group-label">Migration scope</h3>
+        <div class="calc-panel">
+          <div class="calc-panel-head"><label for="migrationPct">Move to Azure</label><output id="migrationPctValue" class="calc-pct">50%</output></div>
+          <input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="5" value="50">
+          <div class="calc-ends"><span>Keep on-premises</span><span>Move everything</span></div>
+        </div>
+        <p class="calc-readout"><b id="movingCores">0</b> migrate &nbsp; <b id="stayingCores">0</b> stay on-premises</p>
+      </section>
+      <section class="calc-group">
+        <h3 class="calc-group-label">Azure region</h3>
+        <div class="calc-box is-select"><select id="region" name="region" required aria-label="Azure region"></select></div>
+      </section>
+      <section class="calc-group">
+        <h3 class="calc-group-label">Licensing</h3>
+        <div class="calc-panel is-toggle">
+          <div>
+            <label for="ahb">SQL Azure Hybrid Benefit</label>
+            <p>Use eligible existing SQL licenses</p>
+          </div>
+          <input id="ahb" name="ahb" type="checkbox" class="calc-switch" checked>
+        </div>
+      </section>
+    </div>
+    <div class="calc-accs">
     <details class="acc calc-assumptions">
-      <summary>Assumptions behind the estimate</summary>
+      <summary>Estimate assumptions<span class="calc-acc-note" id="assumeNote"></span></summary>
       <div class="calc-inputs">
         <div class="calc-field"><label for="licenseBasis">License purchase scenario</label><select id="licenseBasis" name="licenseBasis"><option value="existing" selected>Licenses already owned (Software Assurance only)</option><option value="refresh">Planned license refresh (adds a one-time purchase)</option></select><span class="calc-muted">Default assumes the licenses are paid for and only SA continues</span></div>
         <div class="calc-field"><label for="rightSizePct">Right-sizing reduction <output id="rightSizePctValue">20%</output></label><input id="rightSizePct" name="rightSizePct" type="range" min="0" max="60" step="5" value="20"><span class="calc-muted">Scenario assumption, not measured utilization</span></div>
@@ -97,7 +164,7 @@
         Unsupported term rates are marked unavailable, never guessed or treated as free. Physical-host and unlimited-virtualization licensing need separate review.</p>
     </details>
     <details class="acc calc-assumptions">
-      <summary>Serverless assumptions</summary>
+      <summary>Serverless assumptions<span class="calc-acc-note">Optional · For intermittent workloads</span></summary>
       <fieldset id="serverlessFields">
         <legend class="calc-muted">These databases represent the selected migrating footprint, not the full estate</legend>
         <div class="calc-inputs">
@@ -114,8 +181,13 @@
         Only eligible GP databases can auto-pause. Active billable usage is declared, not measured. Storage bills while paused.
         PAYG only here; no AHB or RI. Database savings plans require separate hourly usage/commitment analysis and are not modeled. Feature readiness and universal savings are not inferred.</p>
     </details>
-    <div class="calc-action"><button class="primary" type="submit">Calculate options</button><span class="calc-muted">Every scenario includes the workload staying on-premises.</span></div>
+    </div>
+    <div class="calc-action">
+      <span class="calc-muted">Compare on-premises, SQL on IaaS, Managed Instance and serverless.</span>
+      <button class="primary" type="submit">Compare costs <span aria-hidden="true">&rarr;</span></button>
+    </div>
     <p id="calcError" class="calc-error" role="alert"></p>
+    <p class="calc-fineprint">Count each workload once. SQL AHB requires eligible SA or subscription licenses; Windows AHB is separate.</p>
   </form>
   <section id="calculatorResults" tabindex="-1" aria-label="Calculated cost options" hidden></section>
   <footer>

@@ -5,8 +5,15 @@ const HOURS = 730;
 const MONTHS = 36;
 const PLANS = {payg: "PAYG", ri1: "1-year reservation", ri3: "3-year reservation",
   sp1: "1-year savings plan", sp3: "3-year savings plan"};
-const CARD_LABELS = {
-  stay: {eyebrow: "Baseline", title: "On-premises", subtitle: "Existing footprint staying put"},
+const REGION_NAMES = {
+  eastus: "East US", eastus2: "East US 2", westus2: "West US 2", westus3: "West US 3",
+  centralus: "Central US", southcentralus: "South Central US", northeurope: "North Europe",
+  westeurope: "West Europe", uksouth: "UK South", francecentral: "France Central",
+  germanywestcentral: "Germany West Central", swedencentral: "Sweden Central",
+  southeastasia: "Southeast Asia", australiaeast: "Australia East", japaneast: "Japan East",
+  centralindia: "Central India", canadacentral: "Canada Central", brazilsouth: "Brazil South",
+};
+const CARD_LABELS = {  stay: {eyebrow: "Baseline", title: "On-premises", subtitle: "Existing footprint staying put"},
   vm: {eyebrow: "Lift and shift", title: "SQL on IaaS", subtitle: "SQL Server on Azure Virtual Machines"},
   mi: {eyebrow: "Managed platform", title: "SQL MI", subtitle: "Managed Instance, General Purpose"},
   serverless: {eyebrow: "Intermittent workloads", title: "SQL serverless", subtitle: "Azure SQL Database · usage-based"},
@@ -286,7 +293,7 @@ if (typeof document !== "undefined") {
     const money = n => new Intl.NumberFormat("en-US", {style: "currency", currency: "USD", maximumFractionDigits: 0}).format(n);
     const escape = text => String(text).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
     const region = form.elements.region;
-    for (const name of Object.keys(CALCULATOR_PRICES.regions)) region.add(new Option(name, name));
+    for (const name of Object.keys(CALCULATOR_PRICES.regions)) region.add(new Option(REGION_NAMES[name] ?? name, name));
     region.value = "eastus";
     const date = v => new Date(v).toLocaleDateString("en-US", {year:"numeric", month:"short", day:"numeric", timeZone:"UTC"});
     document.getElementById("priceDate").textContent = `VM / MI / serverless / SQL license rates: ${date(CALCULATOR_PRICES.captured)}. Storage snapshot: ${date(CALCULATOR_PRICES.infrastructureSnapshot)}. USD public rates, embedded; no runtime requests.`;
@@ -295,8 +302,19 @@ if (typeof document !== "undefined") {
       root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
     };
     const sync = () => {
-      document.getElementById("migrationPctValue").textContent = `${form.elements.migrationPct.value}%`;
+      const pct = Number(form.elements.migrationPct.value);
+      document.getElementById("migrationPctValue").textContent = `${pct}%`;
       document.getElementById("rightSizePctValue").textContent = `${form.elements.rightSizePct.value}%`;
+      // Live readouts mirror the model's own floor-per-edition split, so the
+      // numbers on screen are the numbers that get priced.
+      const counts = ["standard", "enterprise"].map(k => Math.max(0, Math.floor(Number(form.elements[k].value) || 0)));
+      const moved = counts.map(n => Math.floor(n * pct / 100));
+      const num = n => n.toLocaleString();
+      document.getElementById("totalCores").textContent = num(counts[0] + counts[1]);
+      document.getElementById("movingCores").textContent = num(moved[0] + moved[1]);
+      document.getElementById("stayingCores").textContent = num(counts[0] + counts[1] - moved[0] - moved[1]);
+      document.getElementById("assumeNote").textContent =
+        `${form.elements.rightSizePct.value}% right-sizing · ${form.elements.licenseBasis.selectedOptions[0].value === "existing" ? "Existing licenses" : "License refresh"}`;
       const r = CALCULATOR_PRICES.regions[region.value];
       const sku = `Standard_E${form.elements.unitCores.value}bds_v5`;
       for (const key of ["vm", "mi"]) {
@@ -365,7 +383,7 @@ if (typeof document !== "undefined") {
           Every column below costs <b>this same workload</b>, hosted four different ways. On-premises needs all ${inScope.toLocaleString()} cores; the Azure options may need fewer after right-sizing.</p>
           ${report.retainedContext.cores > 0 ? `<div class="note">The other ${report.retainedContext.cores.toLocaleString()} cores (${retained.standard} Standard + ${retained.enterprise} Enterprise) stay on-premises whichever option you choose, and cost about ${money(report.retainedContext.threeYear)} over three years.
           That figure is context only and is deliberately outside the comparison: an identical amount in every column cannot change the decision, only shrink the visible difference. Add it to any column for a full-estate view.</div>` : ""}
-          <p class="calc-muted">${escape(input.region)} · 730 hours/month · ${input.rightSizePct}% assumed VM / MI right-sizing · deployments sized up to ${input.unitCores} cores and fitted to the published size ladder.
+          <p class="calc-muted">${escape(REGION_NAMES[input.region] ?? input.region)} · 730 hours/month · ${input.rightSizePct}% assumed VM / MI right-sizing · deployments sized up to ${input.unitCores} cores and fitted to the published size ladder.
           </p>
           <p><b>${input.licenseBasis === "existing"
             ? "Licenses are assumed already purchased, so only Software Assurance continues; no new purchase is charged to any column."

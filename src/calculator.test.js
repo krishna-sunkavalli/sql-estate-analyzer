@@ -586,3 +586,16 @@ test("licenseCores is always consistent with the Software Assurance charged", ()
     }
   }
 });
+
+test("every priced region has a display name, and every display name is priced", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "calculator.js"), "utf8");
+  const block = src.match(/const REGION_NAMES = \{([\s\S]*?)\n\};/);
+  assert.ok(block, "REGION_NAMES table not found");
+  const named = [...block[1].matchAll(/(\w+):\s*"/g)].map(m => m[1]);
+  const priced = Object.keys(livePrices.regions);
+  // A region added to the price file without a label would surface a raw key
+  // like "germanywestcentral" in the picker.
+  for (const r of priced) assert.ok(named.includes(r), `no display name for ${r}`);
+  // A label left behind after a region is dropped is dead weight.
+  for (const r of named) assert.ok(priced.includes(r), `${r} is named but not priced`);
+});
