@@ -42,25 +42,33 @@ test("four alternatives: PAYG VM/MI includes SQL/storage; unconfigured serverles
   assert.equal(s.threeYear, null);
   assert.equal(s.deltaPct, null);
 });
-test("default refresh uses published two-core packs once, plus ongoing Software Assurance", () => {
+test("the shipped default owns its licenses and pays only Software Assurance", () => {
   const r = calculateCoreOptions({standard: 100, enterprise: 40, migrationPct: 50, region: "test"}, fixture);
+  assert.equal(r.input.licenseBasis,"existing");
   // Scoped to the 70 migrating cores, not the 140-core footprint.
   near(r.baseline.infrastructure, 70 * 37.5);
-  near(r.baseline.upfront,25*3945+10*15123);
-  // SA is recurring on the in-scope cores if they stay put.
+  // Licenses are already paid for, so no column carries a purchase.
+  near(r.baseline.upfront,0);
+  for (const s of r.scenarios) near(s.upfront,0);
+  // SA is the recurring licensing cost on the in-scope cores if they stay put.
   near(r.baseline.sa, 50*796.08/24 + 20*3052.80/24);
-  near(r.baseline.threeYear,r.baseline.upfront+36*(70*37.5+r.baseline.sa));
+  near(r.baseline.threeYear,36*(70*37.5+r.baseline.sa));
   assert.equal(r.input.rightSizePct,20);
   assert.equal(r.input.avoidablePct,50);
   assert.equal(r.input.discountPct,0);
-  assert.equal(r.input.licenseBasis,"refresh");
-  // Moving these cores avoids buying licenses for them entirely.
-  for (const s of r.scenarios) near(s.upfront,0);
-  // The remainder is reported as context, never inside the comparison.
+  // The remainder is reported as context, never inside the comparison, and it
+  // carries no purchase either.
   assert.equal(r.retainedContext.cores,70);
   near(r.retainedContext.infrastructure,70*37.5);
-  near(r.retainedContext.upfront,25*3945+10*15123);
+  near(r.retainedContext.upfront,0);
   assert.equal(r.baseline.renewal,undefined);
+});
+test("opting into a refresh adds the published two-core packs on the staying column only", () => {
+  const r = calculateCoreOptions({standard: 100, enterprise: 40, migrationPct: 50,
+    region: "test", licenseBasis: "refresh"}, fixture);
+  near(r.baseline.upfront,25*3945+10*15123);
+  for (const s of r.scenarios) near(s.upfront,0);
+  near(r.retainedContext.upfront,25*3945+10*15123);
 });
 test("the retained remainder is contextual and cannot move the comparison", () => {
   // Same 30 migrating cores reached from two very different footprints.

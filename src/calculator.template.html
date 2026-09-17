@@ -34,15 +34,13 @@
 .calc-sub { font-size: 12px; color: var(--cp-text-muted); margin: 0 0 16px; }
 .calc-price { font-size: 30px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.12; }
 .calc-price span { display: block; font-size: 12px; font-weight: 400; color: var(--cp-text-muted); margin-top: 4px; }
-.calc-save { border-top: 1px solid var(--cp-border); margin-top: 14px; padding-top: 12px; }
-.calc-save b { display: block; font-size: 15px; color: var(--cp-success); }
-.calc-save.is-higher b { color: var(--cp-danger); }
-.calc-save.is-base b { color: var(--cp-accent); }
-.calc-save span { display: block; font-size: 12px; color: var(--cp-text-muted); margin-top: 3px; }
-.calc-specs { border-top: 1px solid var(--cp-border); margin: 12px 0 0; padding-top: 6px; font-size: 12.5px; }
-.calc-specs > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; }
+.calc-specs { border-top: 1px solid var(--cp-border); margin: 16px 0 0; padding-top: 8px; font-size: 13px; }
+.calc-specs > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 6px 0; }
 .calc-specs dt { color: var(--cp-text-muted); }
 .calc-specs dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.calc-specs dd.is-saving { color: var(--cp-success); }
+.calc-specs dd.is-higher { color: var(--cp-danger); }
+.calc-specs dd.is-base { color: var(--cp-text-muted); font-weight: 400; }
 .calc-pending { font-size: 12.5px; }
 .calc-table { min-width: 640px; }
 .calc-table th, .calc-table td { white-space: normal; font-size: 12px; }
@@ -78,7 +76,7 @@
     <details class="acc calc-assumptions">
       <summary>Assumptions behind the estimate</summary>
       <div class="calc-inputs">
-        <div class="calc-field"><label for="licenseBasis">License purchase scenario</label><select id="licenseBasis" name="licenseBasis"><option value="refresh">Planned license refresh (one-time purchase)</option><option value="existing">Existing licenses (sunk purchase excluded)</option></select><span class="calc-muted">Refresh is a planned replacement, not a recharge of past purchases</span></div>
+        <div class="calc-field"><label for="licenseBasis">License purchase scenario</label><select id="licenseBasis" name="licenseBasis"><option value="existing" selected>Licenses already owned (Software Assurance only)</option><option value="refresh">Planned license refresh (adds a one-time purchase)</option></select><span class="calc-muted">Default assumes the licenses are paid for and only SA continues</span></div>
         <div class="calc-field"><label for="rightSizePct">Right-sizing reduction <output id="rightSizePctValue">20%</output></label><input id="rightSizePct" name="rightSizePct" type="range" min="0" max="60" step="5" value="20"><span class="calc-muted">Scenario assumption, not measured utilization</span></div>
         <div class="calc-field"><label for="unitCores">VM / MI reference deployment cores</label><select id="unitCores" name="unitCores"><option value="4">4</option><option value="8">8</option><option value="16" selected>16</option></select><span class="calc-muted">Illustrative grouping, not an exact topology</span></div>
         <div class="calc-field"><label for="onPremPerCoreMonth">On-premises operations ($/source core/month)</label><input id="onPremPerCoreMonth" name="onPremPerCoreMonth" type="number" min="0" max="10000" step="0.01" value="37.50" required><span class="calc-muted">$450/core/year default; exclude renewal fees</span></div>

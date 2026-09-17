@@ -47,7 +47,7 @@ function positiveRate(value, name) {
 
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
-    storageGB: 0, licenseBasis: "refresh", discountPct: 0, ahb: true,
+    storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
     vmPlan: "ri3", miPlan: "ri3", migrationPct: 50,
     serverlessEnabled: false, databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
@@ -352,14 +352,16 @@ if (typeof document !== "undefined") {
           That figure is context only and is deliberately outside the comparison: an identical amount in every column cannot change the decision, only shrink the visible difference. Add it to any column for a full-estate view.</div>` : ""}
           <p class="calc-muted">${escape(input.region)} · 730 hours/month · ${input.rightSizePct}% assumed VM / MI right-sizing · deployments sized up to ${input.unitCores} cores and fitted to the published size ladder.
           </p>
-          <p><b>${input.licenseBasis === "refresh" ? "License-refresh scenario: one-time SQL license purchase modeled over 3 years, not annual renewal." : "Existing-license scenario: sunk purchases excluded; no refresh purchase."}</b>
-          ${input.licenseBasis === "refresh" ? "Staying on-premises buys licenses for these cores; the Azure options do not. AHB assumes separate eligible existing rights, not free new licenses." : ""}
-          Three-year total = one-time purchase + 36 × recurring monthly cost.</p>
+          <p><b>${input.licenseBasis === "existing"
+            ? "Licenses are assumed already purchased, so only Software Assurance continues; no new purchase is charged to any column."
+            : "License-refresh scenario: a one-time SQL license purchase is modeled over 3 years, not as an annual renewal."}</b>
+          ${input.licenseBasis === "refresh" ? "Staying on-premises buys licenses for these cores; the Azure options do not." : ""}
+          Three-year TCO = ${input.licenseBasis === "refresh" ? "one-time purchase + " : ""}36 × recurring monthly cost.</p>
           <p class="calc-muted">All figures are published list prices. Negotiated or agreement-specific discounts are not applied and will change these totals.</p>
           <div class="note warn">Only ${input.avoidablePct}% of these cores' on-premises operations is assumed avoidable; the fixed share remains in every Azure option.
           ${input.onPremPerCoreMonth === 0 ? "On-premises operations are omitted: not a full TCO or savings claim." : ""}
           ${input.storageGB === 0 ? "Migrated storage is unspecified: VM data disks omitted; MI uses 32 GB per instance; serverless needs a storage input." : ""}
-          Software Assurance is charged at published list: on all in-scope cores if they stay, or on the cores whose rights back AHB if they move, because AHB requires active eligible SA or a qualifying subscription. Actual SA pricing is agreement-specific.
+          Software Assurance is charged at published list: on all in-scope cores if they stay, or only on the cores whose rights back AHB if they move, because AHB requires active eligible SA or a qualifying subscription. Migrated cores without AHB pay the Azure SQL meter instead, never both. Actual SA pricing is agreement-specific.
           These partial-cost comparisons are not full TCO or guaranteed savings.
           Core counts and this estimate do not prove license entitlements or feature readiness.</div>
           <div class="calc-results">${all.map(s => {
@@ -373,26 +375,13 @@ if (typeof document !== "undefined") {
                 <p class="calc-pending">${escape(s.reason)}</p>
                 <p class="calc-muted">No total or savings reported; not $0. The retained footprint and ongoing costs still apply.</p></article>`;
             }
-            const saving = s.key === "stay"
-              ? `<div class="calc-save is-base"><b>Comparison baseline</b><span>Everything below is measured against this</span></div>`
-              : `<div class="calc-save${s.deltaThreeYear > 0 ? " is-higher" : ""}">
-                  <b>${money(Math.abs(s.deltaThreeYear))} ${s.deltaThreeYear < 0 ? "saved" : s.deltaThreeYear > 0 ? "more" : "difference"}</b>
-                  <span>over 3 years${s.deltaPct === null ? "" : ` · ${Math.abs(s.deltaPct).toFixed(0)}% ${s.deltaThreeYear < 0 ? "lower" : s.deltaThreeYear > 0 ? "higher" : "difference"}`}</span></div>`;
-            const compute = s.key === "stay" ? `${s.scopedCores} cores`
-              : s.key === "serverless" ? `${s.deployments} database${s.deployments === 1 ? "" : "s"}`
-              : `${s.azureCores} ${s.key === "vm" ? "vCPU" : "vCore"}`;
-            const licence = s.key === "stay" ? `${s.licenseCores} on SA`
-              : s.key === "serverless" ? "AHB unavailable"
-              : !input.ahb ? "AHB not applied"
-              : s.licenseCores > 0 ? `${s.licenseCores} on SA` : "none eligible";
+            const savings = s.key === "stay" ? `<dd class="is-base">Baseline</dd>`
+              : `<dd class="${s.deltaThreeYear < 0 ? "is-saving" : s.deltaThreeYear > 0 ? "is-higher" : ""}">${money(Math.abs(s.deltaThreeYear))}${s.deltaPct === null ? "" : ` · ${Math.abs(s.deltaPct).toFixed(0)}%`}${s.deltaThreeYear > 0 ? " more" : ""}</dd>`;
             return `<article class="calc-option${s.key === bestKey ? " is-best" : ""}">${head}
               <div class="calc-price">${money(s.monthly)}<span>per month${s.plan && s.plan !== "payg" ? ", amortized commitment" : ""}</span></div>
-              ${saving}
               <dl class="calc-specs">
-                <div><dt>Compute</dt><dd>${compute}</dd></div>
-                <div><dt>License cores</dt><dd>${licence}</dd></div>
-                <div><dt>One-time purchase</dt><dd>${money(s.upfront)}</dd></div>
-                <div><dt>3-year cost</dt><dd>${money(s.threeYear)}</dd></div>
+                <div><dt>3-year TCO</dt><dd>${money(s.threeYear)}</dd></div>
+                <div><dt>Savings</dt>${savings}</div>
               </dl></article>`;
           }).join("")}</div>
           ${bestKey ? `<p class="calc-muted">Highlighted: lowest modeled 3-year cost. That is an arithmetic result for the assumptions above, not a recommendation; compatibility, readiness and operational fit are not assessed here.</p>` : ""}
