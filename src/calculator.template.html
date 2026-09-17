@@ -8,19 +8,19 @@
 .calc h2 { font-size: 18px; font-weight: 600; margin: 0 0 10px; }
 .calc p { font-size: 13px; line-height: 1.55; }
 .calc a { color: var(--cp-link); }
-.calc-inputs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
+.calc-inputs { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; align-items: start; }
+.calc-inputs.is-primary { grid-template-columns: repeat(2,minmax(0,7rem)) minmax(0,1fr) minmax(0,12rem) minmax(0,auto); gap: 18px; align-items: end; }
 .calc-field { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
 .calc-field label { font-weight: 600; }
 .calc-field input, .calc-field select { width: 100%; min-width: 0; }
-.calc-field input[type=range] { accent-color: var(--cp-accent); }
+.calc-field input[type=range] { accent-color: var(--cp-accent); margin: 0; }
 .calc-muted { color: var(--cp-text-muted); }
 .calc .calc-assumptions { margin-top: 18px; }
 .calc-assumptions .calc-inputs { grid-template-columns: repeat(3,minmax(0,1fr)); margin: 12px 0; }
 .calc-checkboxes { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; font-size: 12.5px; }
-.calc-ahb { margin-top: 16px; padding: 12px 14px; background: var(--cp-accent-soft); border: 1px solid var(--cp-border); border-radius: 8px; }
-.calc-ahb label { font-size: 13px; font-weight: 600; }
-.calc-ahb input { accent-color: var(--cp-accent); }
-.calc-ahb p { margin: 5px 0 0; font-size: 12px; color: var(--cp-text-muted); }
+.calc-ahb { display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 0 0 7px; }
+.calc-ahb label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; margin: 0; }
+.calc-ahb input { accent-color: var(--cp-accent); margin: 0; }
 .calc .calc-action { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
 .calc-action button { padding: 10px 24px; }
 .calc-error { color: var(--cp-danger); font-size: 13px; }
@@ -47,11 +47,17 @@
 .calc-table th, .calc-table td { white-space: normal; font-size: 12px; }
 .calc-table tbody th { position: static; text-transform: none; cursor: default; }
 .calc footer { font-size: 12px; color: var(--cp-text-muted); }
+@media(max-width:980px) {
+  .calc-inputs.is-primary { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; }
+  .calc-inputs.is-primary .calc-ahb { grid-column: 1 / -1; padding: 2px 0 0; white-space: normal; }
+}
 @media(max-width:760px) {
   .calc-inputs, .calc-assumptions .calc-inputs { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .calc-results { grid-template-columns: 1fr; }
 }
-@media(max-width:440px) { .calc-inputs, .calc-assumptions .calc-inputs { grid-template-columns: 1fr; } }
+@media(max-width:440px) {
+  .calc-inputs, .calc-assumptions .calc-inputs, .calc-inputs.is-primary { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -64,15 +70,15 @@
   </header>
   <form id="calculatorForm" class="card">
     <h2>What is your SQL footprint?</h2>
-    <p class="calc-muted">Enter non-overlapping workload cores by edition, not repeated instance or database counts, then choose how much of it moves to Azure. Licensed-core totals alone do not prove available entitlements. No discovery, upload or application tier.</p>
-    <div class="calc-inputs">
+    <p class="calc-muted">Enter non-overlapping workload cores by edition, not repeated instance or database counts. Licensed-core totals do not prove available entitlements.</p>
+    <div class="calc-inputs is-primary">
       <div class="calc-field"><label for="standard">Standard cores</label><input id="standard" name="standard" type="number" min="0" max="100000" step="1" value="0" required></div>
       <div class="calc-field"><label for="enterprise">Enterprise cores</label><input id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required></div>
-      <div class="calc-field"><label for="migrationPct">Migrate to Azure <output id="migrationPctValue">50%</output></label><input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="5" value="50"><span class="calc-muted">Applied to both editions; the rest stays on-premises</span></div>
+      <div class="calc-field"><label for="migrationPct">Migrate to Azure <output id="migrationPctValue">50%</output></label><input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="5" value="50" title="Applied to both editions; the rest stays on-premises"></div>
       <div class="calc-field"><label for="region">Azure region</label><select id="region" name="region" required></select></div>
-    </div>
-    <div class="calc-ahb">
-      <label><input id="ahb" name="ahb" type="checkbox" checked> Apply Azure Hybrid Benefit (AHB / AHUB)</label>
+      <div class="calc-ahb">
+        <label title="Applies to SQL Server on VM and Managed Instance, and to Windows Server on VM. Not available for serverless."><input id="ahb" name="ahb" type="checkbox" checked> Azure Hybrid Benefit</label>
+      </div>
     </div>
     <details class="acc calc-assumptions">
       <summary>Assumptions behind the estimate</summary>
