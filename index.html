@@ -763,17 +763,9 @@ details.acc[open] summary { margin-bottom: 9px; }
   </div>
   <section id="calculatorResults" tabindex="-1" aria-label="Calculated cost options" hidden></section>
   <footer>
-    <p id="priceDate"></p>
-    <p>Sources:
-    <a href="https://www.microsoft.com/en-us/sql-server/sql-server-2022-pricing">SQL Server 2022 license list prices</a> ·
-    <a href="https://azure.microsoft.com/en-us/pricing/details/azure-sql-managed-instance/single/">MI prices</a> ·
-    <a href="https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices">Azure Retail Prices API</a> ·
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-hybrid-benefit?view=azuresql">AHB eligibility</a> ·
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-billing?view=azuresql">Serverless billing</a> ·
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/resource-limits-vcore-single-databases?view=azuresql">Serverless limits</a> ·
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/reservations-discount-overview?view=azuresql">Reservation scope</a></p>
-    <p>Planning estimates, not a licensing determination, compatibility assessment or quote. Taxes, negotiated discounts and excluded operational costs can materially change results.
-    Use Azure Migrate for a comprehensive assessment.</p>
+    <p>These are directional numbers to help you start evaluating SQL options in Azure. Run an
+    <a href="https://learn.microsoft.com/en-us/azure/migrate/migrate-services-overview">Azure Migrate assessment</a>
+    for an accurate estimate.</p>
   </footer>
 </main>
 <script>
@@ -4981,8 +4973,6 @@ if (typeof document !== "undefined") {
     const region = form.elements.region;
     for (const name of Object.keys(CALCULATOR_PRICES.regions)) region.add(new Option(REGION_NAMES[name] ?? name, name));
     region.value = "eastus";
-    const date = v => new Date(v).toLocaleDateString("en-US", {year:"numeric", month:"short", day:"numeric", timeZone:"UTC"});
-    document.getElementById("priceDate").textContent = `VM / MI / serverless / SQL license rates: ${date(CALCULATOR_PRICES.captured)}. Storage snapshot: ${date(CALCULATOR_PRICES.infrastructureSnapshot)}. USD public rates, embedded; no runtime requests.`;
     document.getElementById("btnTheme").onclick = () => {
       const root = document.documentElement;
       root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";

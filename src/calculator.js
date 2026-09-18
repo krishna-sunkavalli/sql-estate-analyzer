@@ -337,8 +337,6 @@ if (typeof document !== "undefined") {
     const region = form.elements.region;
     for (const name of Object.keys(CALCULATOR_PRICES.regions)) region.add(new Option(REGION_NAMES[name] ?? name, name));
     region.value = "eastus";
-    const date = v => new Date(v).toLocaleDateString("en-US", {year:"numeric", month:"short", day:"numeric", timeZone:"UTC"});
-    document.getElementById("priceDate").textContent = `VM / MI / serverless / SQL license rates: ${date(CALCULATOR_PRICES.captured)}. Storage snapshot: ${date(CALCULATOR_PRICES.infrastructureSnapshot)}. USD public rates, embedded; no runtime requests.`;
     document.getElementById("btnTheme").onclick = () => {
       const root = document.documentElement;
       root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
