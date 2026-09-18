@@ -521,14 +521,12 @@ details.acc[open] summary { margin-bottom: 9px; }
 .migration-box { display: flex; align-items: center; gap: 12px; height: 44px; padding: 7px 11px; }
 .migration-box:focus-within { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(0,120,212,.08); }
 .migration-box output { flex: none; min-width: 42px; text-align: right; color: var(--cp-accent); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.range-readout { margin: 5px 0 0; color: var(--cp-text-muted); font-size: 10.5px; }
 .calculator input[type=range] { flex: 1; width: 100%; height: 4px; margin: 0; accent-color: var(--cp-accent); cursor: pointer; }
 .calculator .settings { margin-top: 12px; }
 .calculator select, .small-input { width: 100%; min-width: 0; min-height: 38px; padding: 8px 11px; border: 1px solid var(--cp-border); border-radius: 9px; background: var(--cp-surface); color: var(--cp-text); font: inherit; font-size: 13px; }
 .region-select { height: 44px; }
 .license-box { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 7px 11px; border: 1px solid var(--cp-border); border-radius: 9px; cursor: pointer; }
-.license-title { display: block; font-size: 12.5px; font-weight: 600; }
-.license-note { display: block; margin-top: 1px; color: var(--cp-text-muted); font-size: 10px; }
+.license-title { font-size: 12.5px; font-weight: 600; }
 .switch { appearance: none; -webkit-appearance: none; position: relative; width: 36px; height: 21px; margin: 0; flex-shrink: 0; border-radius: 20px; background: #aebccc; cursor: pointer; transition: background .15s; }
 .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 15px; height: 15px; border-radius: 50%; background: #fff; transition: transform .15s; }
 .switch:checked { background: var(--cp-accent); }
@@ -545,11 +543,9 @@ details.acc[open] summary { margin-bottom: 9px; }
 .detail-fields label { display: block; color: var(--cp-text-muted); font-size: 11px; }
 .detail-fields input, .detail-fields select { margin-top: 3px; }
 .detail-note { grid-column: 1 / -1; margin: 0; color: var(--cp-text-muted); font-size: 11px; line-height: 1.55; }
-.calculator .footer { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 14px; }
-.calculator .footer p { max-width: 400px; margin: 0; color: var(--cp-text-muted); font-size: 11px; line-height: 1.5; }
+.calculator .footer { display: flex; justify-content: flex-end; align-items: center; gap: 18px; margin-top: 14px; }
 .calculator button[type=submit] { display: inline-flex; justify-content: center; align-items: center; gap: 10px; min-height: 40px; padding: 10px 18px; border: 0; border-radius: 8px; background: var(--cp-accent); color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background .15s; }
 .calculator button[type=submit]:hover { background: var(--cp-accent-hover); }
-.help { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: 10px; line-height: 1.5; }
 /* Collapsed state: the summary bar and the results below it read as one panel,
    so the inputs stay visible as context without competing with the answer. */
 .calc-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
@@ -660,7 +656,6 @@ details.acc[open] summary { margin-bottom: 9px; }
           <input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="1" value="50" aria-label="Share of the footprint to move to Azure">
           <output id="migrationValue" for="migrationPct">50%</output>
         </div>
-        <p class="range-readout" id="scopeReadout">Enter cores to see the split</p>
       </div>
       <label>
         <span class="field-label">Azure region</span>
@@ -669,11 +664,8 @@ details.acc[open] summary { margin-bottom: 9px; }
       <div>
         <span class="field-label">Licensing</span>
         <label class="license-box">
-          <span>
-            <span class="license-title">SQL Azure Hybrid Benefit</span>
-            <span class="license-note">Use eligible existing SQL licenses</span>
-          </span>
-          <input class="switch" id="ahb" name="ahb" type="checkbox" aria-label="Use SQL Azure Hybrid Benefit" checked>
+          <span class="license-title">Azure Hybrid Benefit</span>
+          <input class="switch" id="ahb" name="ahb" type="checkbox" aria-label="Use Azure Hybrid Benefit" checked>
         </label>
       </div>
     </div>
@@ -754,12 +746,10 @@ details.acc[open] summary { margin-bottom: 9px; }
     </div>
 
     <div class="footer">
-      <p>Compare on-premises, SQL on IaaS, Managed Instance and serverless.</p>
       <button type="submit">Compare costs <span aria-hidden="true">&rarr;</span></button>
     </div>
 
     <p id="calcError" class="calc-error" role="alert"></p>
-    <p class="help">Count each workload once. SQL AHB requires eligible SA or subscription licenses; Windows AHB is separate.</p>
   </form>
   <div id="calcSummary" class="calc-summary" hidden>
     <dl>
@@ -5000,15 +4990,6 @@ if (typeof document !== "undefined") {
     const sync = () => {
       const pct = Number(form.elements.migrationPct.value);
       document.getElementById("migrationValue").textContent = `${pct}%`;
-      // The slider end labels double as live readouts, using the model's own
-      // floor-per-edition split so the counts shown are the counts priced.
-      const counts = ["standard", "enterprise"].map(k => Math.max(0, Math.floor(Number(form.elements[k].value) || 0)));
-      const moved = counts.map(n => Math.floor(n * pct / 100));
-      const total = counts[0] + counts[1], moving = moved[0] + moved[1];
-      const num = n => n.toLocaleString();
-      document.getElementById("scopeReadout").textContent = total
-        ? `${num(moving)} migrate · ${num(total - moving)} stay on-premises`
-        : "Enter cores to see the split";
       document.getElementById("assumptionSummary").textContent =
         `${form.elements.rightSizePct.value}% right-sizing · ${form.elements.licenseBasis.selectedOptions[0].textContent}`;
       const r = CALCULATOR_PRICES.regions[region.value];

@@ -346,15 +346,6 @@ if (typeof document !== "undefined") {
     const sync = () => {
       const pct = Number(form.elements.migrationPct.value);
       document.getElementById("migrationValue").textContent = `${pct}%`;
-      // The slider end labels double as live readouts, using the model's own
-      // floor-per-edition split so the counts shown are the counts priced.
-      const counts = ["standard", "enterprise"].map(k => Math.max(0, Math.floor(Number(form.elements[k].value) || 0)));
-      const moved = counts.map(n => Math.floor(n * pct / 100));
-      const total = counts[0] + counts[1], moving = moved[0] + moved[1];
-      const num = n => n.toLocaleString();
-      document.getElementById("scopeReadout").textContent = total
-        ? `${num(moving)} migrate · ${num(total - moving)} stay on-premises`
-        : "Enter cores to see the split";
       document.getElementById("assumptionSummary").textContent =
         `${form.elements.rightSizePct.value}% right-sizing · ${form.elements.licenseBasis.selectedOptions[0].textContent}`;
       const r = CALCULATOR_PRICES.regions[region.value];
