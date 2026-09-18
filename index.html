@@ -548,13 +548,14 @@ details.acc[open] summary { margin-bottom: 9px; }
 .calculator button[type=submit]:hover { background: var(--cp-accent-hover); }
 /* Collapsed state: the summary bar and the results below it read as one panel,
    so the inputs stay visible as context without competing with the answer. */
-.calc-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
-  padding: 14px 19px; background: var(--cp-surface); border: 1px solid var(--cp-border);
+.calc-summary { padding: 14px 19px; background: var(--cp-surface); border: 1px solid var(--cp-border);
   border-radius: 16px 16px 0 0; border-bottom: 0; }
+.calc-summary-main { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .calc-summary dl { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0; }
 .calc-summary dl > div { display: flex; flex-direction: column; gap: 2px; }
 .calc-summary dt { font-size: 10.5px; color: var(--cp-text-muted); }
 .calc-summary dd { margin: 0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.calc-summary-note { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: 11px; }
 .calc-summary + #calculatorResults .card:first-child { border-radius: 0 0 16px 16px; border-top: 0; }
 .calc-summary:not([hidden]) ~ #calculatorResults { margin-top: 0; }
 .calc-error { color: var(--cp-danger); font-size: 13px; }
@@ -595,6 +596,7 @@ details.acc[open] summary { margin-bottom: 9px; }
   .calculator input, .calculator select { font-size: 16px; }
   .num-box { font-size: 16px; }
   .calc-summary { padding: 12px 14px; gap: 10px; }
+  .calc-summary-main { gap: 10px; }
   .calc-summary dl { gap: 4px 16px; }
   .calc-summary dl > div { flex-direction: row; align-items: baseline; gap: 6px; }
   .calc-summary dt::after { content: ":"; }
@@ -752,20 +754,23 @@ details.acc[open] summary { margin-bottom: 9px; }
     <p id="calcError" class="calc-error" role="alert"></p>
   </form>
   <div id="calcSummary" class="calc-summary" hidden>
-    <dl>
-      <div><dt>Footprint</dt><dd id="sumFootprint"></dd></div>
-      <div><dt>Moving</dt><dd id="sumMoving"></dd></div>
-      <div><dt>Topology</dt><dd id="sumTopology"></dd></div>
-      <div><dt>Region</dt><dd id="sumRegion"></dd></div>
-      <div><dt>Hybrid Benefit</dt><dd id="sumAhb"></dd></div>
-    </dl>
-    <button type="button" id="btnEdit" class="ghost">Edit inputs</button>
+    <div class="calc-summary-main">
+      <dl>
+        <div><dt>Footprint</dt><dd id="sumFootprint"></dd></div>
+        <div><dt>Moving</dt><dd id="sumMoving"></dd></div>
+        <div><dt>Topology</dt><dd id="sumTopology"></dd></div>
+        <div><dt>Region</dt><dd id="sumRegion"></dd></div>
+        <div><dt>Hybrid Benefit</dt><dd id="sumAhb"></dd></div>
+      </dl>
+      <button type="button" id="btnEdit" class="ghost">Edit inputs</button>
+    </div>
+    <p class="calc-summary-note">Directional estimate. Run an
+      <a href="https://learn.microsoft.com/en-us/azure/migrate/migrate-services-overview">Azure Migrate assessment</a>
+      for an accurate one.</p>
   </div>
   <section id="calculatorResults" tabindex="-1" aria-label="Calculated cost options" hidden></section>
   <footer>
-    <p>These are directional numbers to help you start evaluating SQL options in Azure. Run an
-    <a href="https://learn.microsoft.com/en-us/azure/migrate/migrate-services-overview">Azure Migrate assessment</a>
-    for an accurate estimate.</p>
+    <p>These are directional numbers to help you start evaluating SQL options in Azure.</p>
   </footer>
 </main>
 <script>
