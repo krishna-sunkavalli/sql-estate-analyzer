@@ -510,11 +510,13 @@ details.acc[open] summary { margin-bottom: 9px; }
 .calculator .grid.is-scope { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.4fr); align-items: start; }
 .field-label { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 600; }
 .core-box, .migration-box { border: 1px solid var(--cp-border); border-radius: 9px; padding: 7px 11px; }
-.core-box { display: block; color: var(--cp-text-muted); font-size: 10.5px; }
+/* The core boxes carry their label inside, so they are packed to the same 44
+   pixel height as the select and toggle on the row below. */
+.core-box { display: flex; flex-direction: column; justify-content: center; gap: 1px; height: 44px; padding: 4px 11px; color: var(--cp-text-muted); font-size: 10px; line-height: 1.2; }
 .core-box:focus-within { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(0,120,212,.08); }
-.core-box input { width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--cp-text); font-family: inherit; font-size: 19px; font-weight: 600; line-height: 1.35; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.core-box input { width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--cp-text); font-family: inherit; font-size: 17px; font-weight: 600; line-height: 1.15; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
 /* An unset optional field must not read as a value, so the placeholder drops to
-   body size and weight rather than sitting at 19 point bold like a real count. */
+   body size and weight rather than sitting at 17 point bold like a real count. */
 .core-box input::placeholder { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--cp-text-muted); opacity: 1; }
 /* The migration control matches the region picker: a label above a 44 pixel
    bordered box, with the derived split as muted text below. */
@@ -593,7 +595,7 @@ details.acc[open] summary { margin-bottom: 9px; }
   .assumptions summary { flex-wrap: wrap; }
   .summary-note { flex-basis: 100%; margin-left: 20px; text-align: left; }
   .calculator input, .calculator select { font-size: 16px; }
-  .core-box input { font-size: 19px; }
+  .core-box input { font-size: 17px; }
   .calc-summary { padding: 12px 14px; gap: 10px; }
   .calc-summary dl { gap: 4px 16px; }
   .calc-summary dl > div { flex-direction: row; align-items: baseline; gap: 6px; }
