@@ -509,15 +509,13 @@ details.acc[open] summary { margin-bottom: 9px; }
 .calculator .grid.is-primary { grid-template-columns: repeat(4,minmax(0,1fr)); align-items: end; }
 .calculator .grid.is-scope { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.4fr); align-items: start; }
 .field-label { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 600; }
-.core-box, .migration-box { border: 1px solid var(--cp-border); border-radius: 9px; padding: 7px 11px; }
-/* The core boxes carry their label inside, so they are packed to the same 44
-   pixel height as the select and toggle on the row below. */
-.core-box { display: flex; flex-direction: column; justify-content: center; gap: 1px; height: 44px; padding: 4px 11px; color: var(--cp-text-muted); font-size: 10px; line-height: 1.2; }
-.core-box:focus-within { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(0,120,212,.08); }
-.core-box input { width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--cp-text); font-family: inherit; font-size: 17px; font-weight: 600; line-height: 1.15; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.migration-box { border: 1px solid var(--cp-border); border-radius: 9px; padding: 7px 11px; }
+/* Row one now matches row two: a label above a 44 pixel bordered control. */
+.num-box { width: 100%; min-width: 0; height: 44px; padding: 8px 11px; border: 1px solid var(--cp-border); border-radius: 9px; background: var(--cp-surface); color: var(--cp-text); font-family: inherit; font-size: 15px; font-weight: 600; letter-spacing: -.2px; font-variant-numeric: tabular-nums; }
+.num-box:focus-visible { outline: none; border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(0,120,212,.08); }
 /* An unset optional field must not read as a value, so the placeholder drops to
-   body size and weight rather than sitting at 17 point bold like a real count. */
-.core-box input::placeholder { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--cp-text-muted); opacity: 1; }
+   body weight rather than sitting at 15 point semi-bold like a real count. */
+.num-box::placeholder { font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--cp-text-muted); opacity: 1; }
 /* The migration control matches the region picker: a label above a 44 pixel
    bordered box, with the derived split as muted text below. */
 .migration-box { display: flex; align-items: center; gap: 12px; height: 44px; padding: 7px 11px; }
@@ -595,7 +593,7 @@ details.acc[open] summary { margin-bottom: 9px; }
   .assumptions summary { flex-wrap: wrap; }
   .summary-note { flex-basis: 100%; margin-left: 20px; text-align: left; }
   .calculator input, .calculator select { font-size: 16px; }
-  .core-box input { font-size: 17px; }
+  .num-box { font-size: 16px; }
   .calc-summary { padding: 12px 14px; gap: 10px; }
   .calc-summary dl { gap: 4px 16px; }
   .calc-summary dl > div { flex-direction: row; align-items: baseline; gap: 6px; }
@@ -633,22 +631,22 @@ details.acc[open] summary { margin-bottom: 9px; }
     </header>
 
     <div class="grid is-primary">
-      <label class="core-box">
-        Standard cores
-        <input name="standard" type="number" min="0" max="100000" step="1" value="0" required>
-      </label>
-      <label class="core-box">
-        Enterprise cores
-        <input name="enterprise" type="number" min="0" max="100000" step="1" value="1000" required>
-      </label>
-      <label class="core-box">
-        SQL instances
-        <input id="instanceCount" name="instanceCount" type="number" min="1" max="100000" step="1" placeholder="Auto">
-      </label>
-      <label class="core-box">
-        Databases
-        <input id="databaseCount" name="databaseCount" type="number" min="1" max="100000" step="1" placeholder="Auto">
-      </label>
+      <div>
+        <label class="field-label" for="standard">Standard cores</label>
+        <input class="num-box" id="standard" name="standard" type="number" min="0" max="100000" step="1" value="0" required>
+      </div>
+      <div>
+        <label class="field-label" for="enterprise">Enterprise cores</label>
+        <input class="num-box" id="enterprise" name="enterprise" type="number" min="0" max="100000" step="1" value="0" required>
+      </div>
+      <div>
+        <label class="field-label" for="instanceCount">SQL instances</label>
+        <input class="num-box" id="instanceCount" name="instanceCount" type="number" min="1" max="100000" step="1" placeholder="Auto">
+      </div>
+      <div>
+        <label class="field-label" for="databaseCount">Databases</label>
+        <input class="num-box" id="databaseCount" name="databaseCount" type="number" min="1" max="100000" step="1" placeholder="Auto">
+      </div>
     </div>
 
     <div class="grid settings is-scope">
