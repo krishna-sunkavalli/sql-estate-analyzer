@@ -5,6 +5,31 @@ const HOURS = 730;
 const MONTHS = 36;
 const PLANS = {payg: "PAYG", ri1: "1-year reservation", ri3: "3-year reservation",
   sp1: "1-year savings plan", sp3: "3-year savings plan"};
+// Commitment terms are chosen rather than asked for: the cheapest published
+// rate the snapshot actually carries for every size in the layout, preferring
+// three-year terms. Order is a tiebreak only; the rate decides.
+const PLAN_PREFERENCE = ["ri3", "sp3", "ri1", "sp1", "payg"];
+
+function bestVmPlan(region, sizes) {
+  let best = null;
+  for (const plan of PLAN_PREFERENCE) {
+    const rates = sizes.map(s => region.vmPlans?.[`Standard_E${s}bds_v5`]?.rates?.[plan]);
+    if (rates.some(r => !Number.isFinite(r) || r <= 0)) continue;
+    const total = rates.reduce((t, r) => t + r, 0);
+    if (!best || total < best.total) best = {plan, total};
+  }
+  return best?.plan ?? null;
+}
+
+function bestMiPlan(region) {
+  let best = null;
+  for (const plan of PLAN_PREFERENCE) {
+    const rate = region.miPlans?.[plan]?.base;
+    if (!Number.isFinite(rate) || rate <= 0) continue;
+    if (!best || rate < best.rate) best = {plan, rate};
+  }
+  return best?.plan ?? null;
+}
 const REGION_NAMES = {
   eastus: "East US", eastus2: "East US 2", westus2: "West US 2", westus3: "West US 3",
   centralus: "Central US", southcentralus: "South Central US", northeurope: "North Europe",
@@ -68,7 +93,7 @@ function positiveRate(value, name) {
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
-    vmPlan: "ri3", miPlan: "ri3", migrationPct: 50, instanceCount: null,
+    vmPlan: "auto", miPlan: "auto", migrationPct: 50, instanceCount: null,
     databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
   for (const key of ["standard", "enterprise"]) {
@@ -87,7 +112,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
   for (const key of ["vmPlan", "miPlan"]) {
-    if (!Object.hasOwn(PLANS, input[key])) throw new Error(`Invalid ${key}.`);
+    if (input[key] !== "auto" && !Object.hasOwn(PLANS, input[key])) throw new Error(`Invalid ${key}.`);
   }
   const region = prices.regions[input.region];
   if (!region) throw new Error("Choose a region with published prices.");
@@ -167,13 +192,17 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   });
   const scenarios = ["vm", "mi"].map(key => {
     const name = key === "vm" ? "SQL Server on Azure VM" : "SQL Managed Instance GP";
-    const plan = input[`${key}Plan`];
     const layout = packs(key);
     if (Object.values(layout).some(v => v === null)) {
       const worst = editions.find(e => layout[e] === null);
       return unavailable(key, name, `${input.instanceCount} instance(s) puts about ${Math.ceil(required[worst] / instancesPer[worst])} ${key === "vm" ? "vCPU" : "vCore"} on each ${worst} instance, above the ${input.unitCores}-core maximum. Raise the largest deployment size or split the workload across more instances.`);
     }
     const sizes = [...layout.standard, ...layout.enterprise];
+    const requested = input[`${key}Plan`];
+    const plan = requested === "auto"
+      ? (key === "vm" ? bestVmPlan(region, sizes) : bestMiPlan(region))
+      : requested;
+    if (!plan) return unavailable(key, name, `No published ${key === "vm" ? "VM" : "MI GP Gen5"} rate for ${input.region} in this snapshot.`);
     const deployments = sizes.length;
     const azureCores = sizes.reduce((t, s) => t + s, 0);
     const vmRateFor = size => {
@@ -345,23 +374,7 @@ if (typeof document !== "undefined") {
       const pct = Number(form.elements.migrationPct.value);
       document.getElementById("migrationValue").textContent = `${pct}%`;
       document.getElementById("assumptionSummary").textContent =
-        `${form.elements.rightSizePct.value}% right-sizing · ${form.elements.licenseBasis.selectedOptions[0].textContent}`;
-      const r = CALCULATOR_PRICES.regions[region.value];
-      const sku = `Standard_E${form.elements.unitCores.value}bds_v5`;
-      for (const key of ["vm", "mi"]) {
-        const select = form.elements[`${key}Plan`];
-        const selected = select.value || "ri3";
-        select.replaceChildren();
-        for (const [plan, label] of Object.entries(PLANS)) {
-          const supported = key === "vm" ? r.vmPlans?.[sku]?.rates?.[plan] : r.miPlans?.[plan];
-          const option = new Option(`${label}${supported ? "" : " — rate unavailable"}`, plan);
-          option.disabled = !supported;
-          select.add(option);
-        }
-        // Preserve a previously selected unsupported term so it is surfaced in
-        // the results, never silently replaced by a different price.
-        select.value = selected;
-      }
+        `${form.elements.rightSizePct.value}% right-sizing · Best available pricing`;
       results.hidden = true;
       error.textContent = "";
     };
@@ -390,14 +403,14 @@ if (typeof document !== "undefined") {
       error.textContent = "";
       if (!form.reportValidity()) return;
       const input = {};
-      for (const key of ["standard","enterprise","migrationPct","rightSizePct","unitCores",
-        "onPremPerCoreMonth","avoidablePct","storageGB","serverlessMin","serverlessMax","serverlessBillable","activePct"]) {
+      for (const key of ["standard","enterprise","migrationPct","rightSizePct",
+        "onPremPerCoreMonth","storageGB","serverlessMin","serverlessMax","serverlessBillable","activePct"]) {
         input[key] = Number(form.elements[key].value);
       }
       input.databaseCount = form.elements.databaseCount.value === "" ? null : Number(form.elements.databaseCount.value);
       input.instanceCount = form.elements.instanceCount.value === "" ? null : Number(form.elements.instanceCount.value);
       input.ahb = form.elements.ahb.checked;
-      for (const key of ["region","vmPlan","miPlan","licenseBasis"]) input[key] = form.elements[key].value;
+      input.region = form.elements.region.value;
       let report;
       try { report = calculateCoreOptions(input); }
       catch (e) { error.textContent = `Cannot calculate: ${e.message}`; return; }

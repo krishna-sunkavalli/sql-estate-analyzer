@@ -192,41 +192,15 @@
           <span class="summary-note" id="assumptionSummary">20% right-sizing &middot; Existing licenses</span>
         </summary>
         <div class="grid detail-fields">
-          <label>Purchase basis
-            <select id="licenseBasis" name="licenseBasis">
-              <option value="existing" selected>Existing licenses</option>
-              <option value="refresh">Planned license refresh</option>
-            </select>
-          </label>
           <label>Assumed right-sizing (%)
             <input class="small-input" id="rightSizePct" name="rightSizePct" type="number" min="0" max="60" step="5" value="20" required>
-          </label>
-          <label>Largest deployment (cores)
-            <select id="unitCores" name="unitCores">
-              <option value="4">4</option>
-              <option value="8">8</option>
-              <option value="16" selected>16</option>
-            </select>
           </label>
           <label>On-premises operations ($/core/month)
             <input class="small-input" id="onPremPerCoreMonth" name="onPremPerCoreMonth" type="number" min="0" max="10000" step="0.01" value="37.50" required>
           </label>
-          <label>Avoidable share of those operations (%)
-            <input class="small-input" id="avoidablePct" name="avoidablePct" type="number" min="0" max="100" step="1" value="50" required>
-          </label>
           <label>Migrated data storage (GB, total)
             <input class="small-input" id="storageGB" name="storageGB" type="number" min="0" max="10000000" step="1" value="0" required>
           </label>
-          <label>Azure VM pricing
-            <select id="vmPlan" name="vmPlan"></select>
-          </label>
-          <label>Managed Instance pricing
-            <select id="miPlan" name="miPlan"></select>
-          </label>
-          <p class="detail-note">730 hours/month; Windows Ebdsv5 or classic MI General Purpose Gen5. Right-sizing is a scenario assumption, not measured utilization, and deployment size is a cap fitted to the published size ladder, not an exact topology.
-            Only the avoidable share of on-premises operations falls away with the migrated cores. Storage left at 0 means unspecified: VM data disks are omitted and MI uses its 32 GB floor.
-            Commitments assume 100% hourly utilization, no RI/savings-plan stacking, and 1-year terms repurchased at the same rate across the 3-year projection. VM commitment discounts never discount Windows/SQL licensing or storage; Windows AHB removes the Windows uplift at its undiscounted rate.
-            Unsupported term rates are marked unavailable, never guessed or treated as free. Physical-host and unlimited-virtualization licensing need separate review.</p>
         </div>
       </details>
 

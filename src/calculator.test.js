@@ -666,3 +666,63 @@ test("a supplied database count overrides the serverless assumption and clears t
   assert.equal(given.scenarios[2].deployments, 12);
   assert.equal(given.scenarios[2].assumed.length, 0);
 });
+
+test("pricing defaults to the cheapest published term, not a fixed one", () => {
+  const r = run({standard: 64, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+    vmPlan: "auto", miPlan: "auto"});
+  // The fixture's cheapest VM and MI rates are both the three-year reservation.
+  assert.equal(r.scenarios[0].plan, "ri3");
+  assert.equal(r.scenarios[1].plan, "ri3");
+  // Auto never costs more than any term it could have chosen.
+  for (const plan of ["payg","ri1","ri3","sp1","sp3"]) {
+    const fixed = run({standard: 64, enterprise: 0, migrationPct: 100, rightSizePct: 0,
+      vmPlan: plan, miPlan: plan});
+    for (const i of [0, 1]) {
+      // A term the fixture does not publish yields an unavailable scenario with
+      // no compute at all, which is not a cheaper alternative.
+      if (fixed.scenarios[i].status !== "ready") continue;
+      assert.ok(r.scenarios[i].compute <= fixed.scenarios[i].compute + 1e-9, `${i ? "mi" : "vm"} ${plan}`);
+    }
+  }
+});
+
+test("auto skips terms the snapshot does not publish rather than failing", () => {
+  const partial = structuredClone(fixture);
+  // Drop both three-year terms; auto must fall back to the best that remains.
+  delete partial.regions.test.miPlans.ri3;
+  for (const n of [4,8,16]) {
+    delete partial.regions.test.vmPlans[`Standard_E${n}bds_v5`].rates.ri3;
+    delete partial.regions.test.vmPlans[`Standard_E${n}bds_v5`].rates.sp3;
+  }
+  const r = calculateCoreOptions({...defaults, standard: 64, migrationPct: 100,
+    vmPlan: "auto", miPlan: "auto"}, partial);
+  assert.equal(r.scenarios[0].status, "ready");
+  assert.equal(r.scenarios[1].status, "ready");
+  // Fixture ri1 and sp1 both sit at 0.12 for MI, so the three-year preference
+  // order breaks the tie in favour of the reservation.
+  assert.equal(r.scenarios[0].plan, "ri1");
+  assert.equal(r.scenarios[1].plan, "ri1");
+});
+
+test("auto requires a rate for every size in the layout, not just one", () => {
+  const partial = structuredClone(fixture);
+  // 40 cores fits as 16 + 16 + 8, so a missing 8-core ri3 rate disqualifies ri3
+  // for the whole layout even though the 16-core rate is published.
+  delete partial.regions.test.vmPlans.Standard_E8bds_v5.rates.ri3;
+  const r = calculateCoreOptions({...defaults, standard: 40, migrationPct: 100,
+    unitCores: 16, vmPlan: "auto"}, partial);
+  assert.deepEqual(r.scenarios[0].sizes, [16,16,8]);
+  assert.notEqual(r.scenarios[0].plan, "ri3");
+  assert.equal(r.scenarios[0].status, "ready");
+});
+
+test("auto reports unavailable when a region publishes no usable rate at all", () => {
+  const bare = structuredClone(fixture);
+  bare.regions.test.miPlans = {};
+  const r = calculateCoreOptions({...defaults, standard: 16, migrationPct: 100, miPlan: "auto"}, bare);
+  assert.equal(r.scenarios[1].status, "unavailable");
+  assert.match(r.scenarios[1].reason, /No published MI GP Gen5 rate/);
+  assert.equal(r.scenarios[1].monthly, null);
+  // The VM column is unaffected.
+  assert.equal(r.scenarios[0].status, "ready");
+});
