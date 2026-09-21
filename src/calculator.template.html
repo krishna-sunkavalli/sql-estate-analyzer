@@ -214,37 +214,26 @@
         <p>Choose the service and purchasing model.</p>
         <div class="opt-targets">
           <label class="opt-target">
-            <input type="radio" name="target" value="serverless">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/></svg>
-            Azure SQL Database
+            <input type="radio" name="target" value="vm" checked>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4" width="19" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>
+            SQL Server on Azure VM
           </label>
           <label class="opt-target">
-            <input type="radio" name="target" value="mi" checked>
+            <input type="radio" name="target" value="mi">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
             Azure SQL Managed Instance
           </label>
           <label class="opt-target">
-            <input type="radio" name="target" value="vm">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="4" width="19" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>
-            SQL Server on Azure VM
+            <input type="radio" name="target" value="db">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/></svg>
+            Azure SQL Database
           </label>
         </div>
 
-        <div class="opt-field" id="computeModelField" style="margin-top:16px">
-          <span class="opt-legend">Compute model <span id="computeModelFor" style="font-weight:400;color:var(--cp-text-muted)"></span></span>
-          <div class="opt-radios">
-            <label class="opt-radio"><input type="radio" name="computeModel" value="provisioned" checked> <span>Provisioned vCore <em>Recommended</em></span></label>
-            <label class="opt-radio"><input type="radio" name="computeModel" value="serverless"> <span>Serverless <em>Auto-pauses between bursts</em></span></label>
-            <label class="opt-radio is-off"><input type="radio" name="computeModel" value="dtu" disabled> <span>DTU <em>Not priced in this snapshot</em></span></label>
-          </div>
-        </div>
-
-        <div class="opt-field">
-          <label for="serviceTier">Service tier</label>
-          <select class="opt-select" id="serviceTier" name="serviceTier">
-            <option value="gp" selected>General Purpose</option>
-          </select>
-          <span class="opt-sub">Business Critical and Hyperscale are not priced in this snapshot.</span>
+        <div class="opt-field" id="qualifierField" style="margin-top:16px">
+          <label for="qualifier" id="qualifierLabel">Service tier</label>
+          <select class="opt-select" id="qualifier" name="qualifier"></select>
+          <span class="opt-sub" id="qualifierSub"></span>
         </div>
 
         <div class="opt-field" id="termField">

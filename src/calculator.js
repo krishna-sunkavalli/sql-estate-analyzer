@@ -121,6 +121,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
     vmPlan: "auto", miPlan: "auto", migrationPct: 50, instanceCount: null, serviceTier: "gp",
+    purchaseModel: "serverless",
     databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
   for (const key of ["standard", "enterprise"]) {
@@ -139,6 +140,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
   if (!PRICED_TIERS.has(input.serviceTier)) throw new Error("Choose a priced service tier.");
+  if (!["serverless", "provisioned"].includes(input.purchaseModel)) throw new Error("Choose a priced purchase model.");
   for (const key of ["vmPlan", "miPlan"]) {
     if (input[key] !== "auto" && !Object.hasOwn(PLANS, input[key])) throw new Error(`Invalid ${key}.`);
   }
@@ -344,7 +346,28 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const serverlessName = "Azure SQL Database serverless";
   const serverlessBase = {...base, key: "serverless", name: serverlessName, infrastructure, scopedCores: sum(moved), plan: "payg"};
   let serverless;
-  {
+  if (input.purchaseModel === "provisioned") {
+    // Azure SQL Database General Purpose provisioned and Managed Instance
+    // General Purpose bill against the same Gen5 compute meter: the published
+    // per-vCore rates are identical in every captured region, so the already
+    // verified Managed Instance rates are reused rather than scraped twice.
+    // The published Hybrid Benefit table also lists the two services on one
+    // row, so the same ratios apply. Only storage differs.
+    const mi = scenarios[1];
+    if (mi.status !== "ready") {
+      serverless = unavailable("dbProvisioned", "Azure SQL Database provisioned", mi.reason, mi.status);
+    } else {
+      const perDb = Math.max(32, Math.ceil(input.storageGB / mi.deployments / 32) * 32);
+      const storage = perDb * mi.deployments * positiveRate(region.storage.db_gp_per_gb_mo, "SQL Database GP storage");
+      serverless = total({...base, key: "dbProvisioned", name: "Azure SQL Database provisioned",
+        plan: mi.plan, infrastructure, compute: mi.compute / discountFactor,
+        sqlLicense: mi.sqlLicense / discountFactor, storage,
+        sa: mi.sa / discountFactor, licenseCores: mi.licenseCores,
+        allocation: mi.allocation, coveredCores: mi.coveredCores, azureCores: mi.azureCores,
+        deployments: mi.deployments, sizes: mi.sizes, scopedCores: sum(moved),
+        storageDetail: `${mi.deployments} × ${perDb} GB reserved storage`});
+    }
+  } else {
     const max = input.serverlessMax;
     if (![2, 4, 8].includes(max)) throw new Error("Serverless maximum must be 2, 4 or 8 vCores in this conservative model.");
     // Core totals cannot reveal how many databases exist. When the count is not
@@ -431,12 +454,52 @@ if (typeof document !== "undefined") {
     const TARGETS = {
       vm: {idx: 0, label: "SQL Server on Azure VM", blurb: "Lift and shift onto Azure Virtual Machines, keeping full SQL Server control.", unit: "vCPU"},
       mi: {idx: 1, label: "Azure SQL Managed Instance", blurb: "Run your SQL workloads on a managed platform and use your existing licences with Azure Hybrid Benefit.", unit: "vCore"},
-      serverless: {idx: 2, label: "Azure SQL Database", blurb: "Usage-based databases that scale down between bursts.", unit: "vCore"},
+      db: {idx: 2, label: "Azure SQL Database", blurb: "Single databases and elastic pools, sized per database.", unit: "vCore"},
+    };
+    // A virtual machine has no service tier. Managed Instance is qualified by
+    // tier, Azure SQL Database by purchase model. Options the snapshot cannot
+    // price are listed but disabled, and every option states whether Azure
+    // Hybrid Benefit reaches it, since that is the reason to prefer one.
+    const QUALIFIERS = {
+      vm: null,
+      mi: {label: "Service tier", options: [
+        {value: "gp", text: "General Purpose", priced: true, ahb: true},
+        {value: "bc", text: "Business Critical", priced: false, ahb: true},
+      ]},
+      db: {label: "Purchase model", options: [
+        {value: "provisioned", text: "Provisioned vCore", priced: true, ahb: true},
+        {value: "serverless", text: "Serverless", priced: true, ahb: false},
+        {value: "dtu", text: "DTU", priced: false, ahb: false},
+      ]},
+    };
+    const syncQualifier = () => {
+      const target = picked("target");
+      const q = QUALIFIERS[target];
+      const field = $("qualifierField"), select = $("qualifier");
+      field.hidden = !q;
+      if (!q) return;
+      $("qualifierLabel").textContent = q.label;
+      const keep = select.dataset.target === target ? select.value : null;
+      if (select.dataset.target !== target) {
+        select.dataset.target = target;
+        select.replaceChildren();
+        for (const o of q.options) {
+          const opt = new Option(o.priced ? o.text : `${o.text} — not priced here`, o.value);
+          opt.disabled = !o.priced;
+          select.add(opt);
+        }
+        select.value = q.options.find(o => o.priced).value;
+      } else if (keep) select.value = keep;
+      const chosen = q.options.find(o => o.value === select.value);
+      $("qualifierSub").textContent = chosen?.ahb
+        ? "Azure Hybrid Benefit applies to this option."
+        : "Azure Hybrid Benefit does not apply to this option.";
     };
 
     const readInput = () => {
       const target = picked("target");
       const term = picked("term");
+      const qual = $("qualifier").value;
       return {
         target,
         standard: Math.floor(Number($("standard").value) || 0),
@@ -446,7 +509,8 @@ if (typeof document !== "undefined") {
         region: region.value,
         licenseBasis: "existing",
         ahb: $("ahb").checked,
-        serviceTier: $("serviceTier").value,
+        serviceTier: target === "mi" ? qual : "gp",
+        purchaseModel: target === "db" ? qual : "serverless",
         vmPlan: term, miPlan: term,
         onPremPerCoreMonth: Number($("onPremPerCoreMonth").value),
         avoidablePct: Number($("avoidablePct").value),
@@ -507,12 +571,11 @@ if (typeof document !== "undefined") {
       `<div class="opt-line"><dt>${dt}</dt><dd>${dd}${sub ? `<em>${sub}</em>` : ""}</dd></div>`;
 
     const render = () => {
+      syncQualifier();
       const input = readInput();
       const t = TARGETS[input.target];
       $("migrationValue").textContent = `${input.migrationPct}%`;
       $("rightSizeValue").textContent = `${input.rightSizePct}%`;
-      $("computeModelField").hidden = input.target !== "serverless";
-      $("computeModelFor").textContent = "(Azure SQL Database)";
 
       let report;
       try { report = calculateCoreOptions(input); }
@@ -529,10 +592,14 @@ if (typeof document !== "undefined") {
       const inScope = moved.standard + moved.enterprise;
       $("scopeSub").textContent = `${int(inScope)} of ${int(total)} cores in scope`;
 
+      const az = scenarios[t.idx];
+
       // Commitment discounts are measured against this footprint's own
       // pay-as-you-go cost rather than quoted as a generic headline number.
+      // Serverless is billed per second with no commitment, so the selector
+      // has nothing to offer there.
       const termField = $("termField");
-      termField.hidden = input.target === "serverless";
+      termField.hidden = az.key === "serverless";
       if (!termField.hidden) {
         const compute = plan => {
           try {
@@ -548,7 +615,6 @@ if (typeof document !== "undefined") {
         }
       }
 
-      const az = scenarios[t.idx];
       if (az.status !== "ready") {
         output.innerHTML = `<div class="opt-compare"><div class="opt-col is-pending">
           <b>${esc(t.label)} cannot be priced with these inputs.</b><p>${esc(az.reason)}</p></div></div>`;
@@ -560,11 +626,15 @@ if (typeof document !== "undefined") {
       const savingPct = baseline.threeYear > 0 ? saving3 / baseline.threeYear * 100 : 0;
       const opsYear = baseline.infrastructure * 12 - az.infrastructure * 12;
       const azCores = az.key === "serverless" ? az.deployments : az.azureCores;
+      const mix = ["enterprise", "standard"].filter(e => moved[e] > 0)
+        .map(e => `${int(moved[e])} ${e === "enterprise" ? "Enterprise" : "Standard"}`).join(" + ");
 
+      // Every money line is annual, and the lines in each column sum to that
+      // column's total, so the figure at the foot can be checked on screen.
       const renewLines = [
         line("SQL cores (existing)", int(total)),
-        line("Existing licences", "Already owned"),
-        line("Software Assurance renewal", `${int(inScope)} cores`, `${money(baseline.sa * 12)} / year at list`),
+        line("Software Assurance renewal", money(baseline.sa * 12) + " / year",
+          `${mix} cores at published list`),
         line("Infrastructure &amp; operations", money(baseline.infrastructure * 12) + " / year",
           `${int(inScope)} cores &times; ${money(input.onPremPerCoreMonth * 12)} / core / year`),
       ].join("");
@@ -576,9 +646,12 @@ if (typeof document !== "undefined") {
         line("Cores kept on Software Assurance", int(az.licenseCores),
           ratioText(az.key, input.serviceTier,
             ["enterprise", "standard"].filter(e => moved[e] > 0))),
-        line("Software Assurance renewal", `${int(az.licenseCores)} cores`, `${money(az.sa * 12)} / year at list`),
-        line("Azure hosting cost", money(az.compute + az.sqlLicense + az.storage) + " / month",
-          `${esc(PLANS[az.plan])}${az.infrastructure > 0 ? `, plus ${money(az.infrastructure)} / month retained on-premises` : ""}`),
+        line("Software Assurance renewal", money(az.sa * 12) + " / year",
+          az.licenseCores > 0 ? `${int(az.licenseCores)} cores at published list` : "No cores held on Software Assurance"),
+        line("Azure hosting", money((az.compute + az.sqlLicense + az.storage) * 12) + " / year",
+          `${money(az.compute + az.sqlLicense + az.storage)} / month &middot; ${esc(PLANS[az.plan])}`),
+        line("Retained on-premises operations", money(az.infrastructure * 12) + " / year",
+          `${input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed avoidable`),
       ].join("");
 
       const ahbApplies = az.key !== "serverless";
@@ -587,7 +660,7 @@ if (typeof document !== "undefined") {
         : {cls: " is-off", text: "AHB off"};
 
       const takeaways = [
-        `Right-sizing at ${input.rightSizePct}% takes ${int(inScope)} source cores to ${int(az.key === "serverless" ? az.azureCores : az.azureCores)} ${t.unit}.`,
+        `Right-sizing at ${input.rightSizePct}% takes ${int(inScope)} source cores to ${int(az.azureCores)} ${t.unit}.`,
         !ahbApplies
           ? `Azure Hybrid Benefit does not apply to serverless, so its SQL licence is included in the hourly rate instead.`
           : input.ahb && az.licenseCores < inScope
@@ -614,7 +687,8 @@ if (typeof document !== "undefined") {
           <div class="opt-col is-azure">
             <div class="opt-col-head">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3 3.5 18h4L14 3zM13 9l-4.5 9H21z"/></svg>
-              <div><h3>Modernize to Azure</h3><p>${esc(t.blurb)}</p></div>
+              <div><h3>Modernize to Azure</h3><p>${esc(t.blurb)}${az.key === "dbProvisioned"
+                ? " At General Purpose this prices the same as Managed Instance: both bill against the Gen5 compute meter at the same storage rate." : ""}</p></div>
               <span class="opt-badge${badge.cls}">${badge.text}</span>
             </div>
             <dl class="opt-lines">${azLines}</dl>
