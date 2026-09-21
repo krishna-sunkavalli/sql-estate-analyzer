@@ -726,3 +726,92 @@ test("auto reports unavailable when a region publishes no usable rate at all", (
   // The VM column is unaffected.
   assert.equal(r.scenarios[0].status, "ready");
 });
+
+/* ---- Azure Hybrid Benefit business rules, against the published ratio table ---- */
+
+test("published AHB ratios: one licence core covers the documented vCore count", () => {
+  const at = o => run({migrationPct: 100, rightSizePct: 0, unitCores: 16,
+    vmPlan: "payg", miPlan: "payg", ahb: true, ...o});
+  // Enterprise licence to Managed Instance / SQL Database General Purpose is 1:4.
+  const entMi = at({standard: 0, enterprise: 64}).scenarios[1];
+  assert.equal(entMi.coveredCores, 64);
+  assert.equal(entMi.licenseCores, 16);
+  // Standard licence to the same target is 1:1.
+  const stdMi = at({standard: 64, enterprise: 0}).scenarios[1];
+  assert.equal(stdMi.coveredCores, 64);
+  assert.equal(stdMi.licenseCores, 64);
+  // An Enterprise VM takes an Enterprise licence one to one.
+  const entVm = at({standard: 0, enterprise: 64}).scenarios[0];
+  assert.equal(entVm.coveredCores, 64);
+  assert.equal(entVm.licenseCores, 64);
+  // A Standard VM takes a Standard licence one to one.
+  const stdVm = at({standard: 64, enterprise: 0}).scenarios[0];
+  assert.equal(stdVm.coveredCores, 64);
+  assert.equal(stdVm.licenseCores, 64);
+});
+
+test("the benefit is unavailable on the serverless compute tier", () => {
+  const r = run({...serverless, standard: 0, enterprise: 64, migrationPct: 100,
+    rightSizePct: 0, ahb: true, storageGB: 400, databaseCount: 8});
+  const sl = r.scenarios[2];
+  assert.equal(sl.status, "ready");
+  // No entitlement is drawn, so no cores are held on Software Assurance for it.
+  assert.equal(sl.licenseCores, 0);
+  assert.equal(sl.sa, 0);
+  // Turning the benefit off therefore changes nothing about serverless.
+  const off = run({...serverless, standard: 0, enterprise: 64, migrationPct: 100,
+    rightSizePct: 0, ahb: false, storageGB: 400, databaseCount: 8});
+  near(sl.threeYear, off.scenarios[2].threeYear);
+});
+
+test("leftover Enterprise entitlement covers Standard workloads at four vCores per licence", () => {
+  // One Standard core still needs a whole four-vCPU VM, which one Standard
+  // licence cannot cover. Right-sizing leaves Enterprise licences spare, and the
+  // published table lets an Enterprise licence cover four Standard vCPUs.
+  const r = run({standard: 1, enterprise: 64, migrationPct: 100, rightSizePct: 50,
+    unitCores: 16, vmPlan: "payg", miPlan: "payg", ahb: true});
+  const vm = r.scenarios[0];
+  // sizes lists Standard deployments before Enterprise ones.
+  assert.deepEqual(vm.sizes, [4, 16, 16]);
+  // Every deployment is covered, including the Standard one.
+  assert.equal(vm.coveredCores, 36);
+  // 32 Enterprise licences for the two Enterprise VMs, plus the four-licence
+  // minimum for the Standard VM, and the single Standard licence goes unused.
+  assert.equal(vm.licenseCores, 36);
+  // Without the benefit that Standard VM would pay the Azure SQL meter.
+  const off = run({standard: 1, enterprise: 64, migrationPct: 100, rightSizePct: 50,
+    unitCores: 16, vmPlan: "payg", miPlan: "payg", ahb: false});
+  assert.ok(off.scenarios[0].sqlLicense > vm.sqlLicense);
+});
+
+test("each virtual machine consumes at least four core licences", () => {
+  // Right-sizing leaves Enterprise licences spare. The four-vCPU Standard VM
+  // needs only one licence at the four-to-one ratio, but the published minimum
+  // is four per virtual machine.
+  const r = run({standard: 1, enterprise: 16, migrationPct: 100, rightSizePct: 50,
+    unitCores: 16, vmPlan: "payg", miPlan: "payg", ahb: true});
+  const vm = r.scenarios[0];
+  assert.deepEqual(vm.sizes, [4, 8]);
+  // Eight Enterprise vCPU at one to one, plus four licences for the Standard VM.
+  assert.equal(vm.licenseCores, 12);
+  assert.equal(vm.coveredCores, 12);
+});
+
+test("entitlement comes only from migrating cores, never from retained ones", () => {
+  // Half the estate stays behind, so only half the licences are available.
+  const r = run({standard: 0, enterprise: 64, migrationPct: 50, rightSizePct: 0,
+    unitCores: 16, vmPlan: "payg", miPlan: "payg", ahb: true});
+  assert.equal(r.moved.enterprise, 32);
+  // Managed Instance stretches those 32 licences across 32 vCores at one to
+  // four, so only 8 licence cores are consumed.
+  assert.equal(r.scenarios[1].licenseCores, 8);
+  // The VM column needs one licence per vCPU and has exactly enough.
+  assert.equal(r.scenarios[0].licenseCores, 32);
+});
+
+test("only priced service tiers are accepted", () => {
+  assert.throws(() => run({serviceTier: "bc"}), /priced service tier/);
+  assert.throws(() => run({serviceTier: "hyperscale"}), /priced service tier/);
+  const gp = run({serviceTier: "gp"});
+  assert.equal(gp.scenarios[1].status, "ready");
+});

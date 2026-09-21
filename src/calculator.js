@@ -50,6 +50,33 @@ const DISKS = [
 ];
 const sum = o => o.standard + o.enterprise;
 
+/* Azure Hybrid Benefit for SQL Server conversion ratios, as published by
+   Microsoft. Each value is the number of Azure vCores or vCPUs that one
+   qualifying core licence of the given edition covers.
+
+   Managed Instance and Azure SQL Database (elastic pool and single database)
+   share one set of ratios. Virtual machines are keyed by the edition of SQL
+   Server installed on the VM, because a Standard VM and an Enterprise VM
+   consume entitlement at different rates. */
+const AHB_RATIOS = {
+  mi: {
+    gp: {enterprise: 4, standard: 1},
+    bc: {enterprise: 1, standard: 0.25},
+  },
+  vm: {
+    // Ratios for covering a VM of this edition, per licence edition held.
+    standard: {enterprise: 4, standard: 1},
+    enterprise: {enterprise: 1, standard: 0.25},
+  },
+};
+// Business Critical ratios are recorded above for completeness, but only
+// General Purpose is priced in this snapshot, so it is the only tier accepted.
+const PRICED_TIERS = new Set(["gp"]);
+
+const AHB_INELIGIBLE = new Set(["serverless"]);
+// Each virtual machine consumes at least four core licences, whatever its size.
+const AHB_MIN_VM_LICENCES = 4;
+
 // Azure capacity is not sold in one uniform block size. An architect fits the
 // workload to the real size ladder, so the last deployment is sized to the
 // remainder instead of rounding a whole block up. Sizes below are the SKUs
@@ -93,7 +120,7 @@ function positiveRate(value, name) {
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
-    vmPlan: "auto", miPlan: "auto", migrationPct: 50, instanceCount: null,
+    vmPlan: "auto", miPlan: "auto", migrationPct: 50, instanceCount: null, serviceTier: "gp",
     databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
   for (const key of ["standard", "enterprise"]) {
@@ -111,6 +138,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   for (const key of ["ahb"]) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
+  if (!PRICED_TIERS.has(input.serviceTier)) throw new Error("Choose a priced service tier.");
   for (const key of ["vmPlan", "miPlan"]) {
     if (input[key] !== "auto" && !Object.hasOwn(PLANS, input[key])) throw new Error(`Invalid ${key}.`);
   }
@@ -234,33 +262,57 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     let compute = 0, sqlLicense = 0, coveredCores = 0;
     const ahbBackingCores = {standard: 0, enterprise: 0};
     const allocation = [];
-    for (const edition of ["standard", "enterprise"]) {
+    // Entitlement comes only from the cores being migrated. Rights retained
+    // on-premises are never pooled with the migrated share, and an ineligible
+    // target draws nothing at all.
+    const pool = input.ahb && !AHB_INELIGIBLE.has(key)
+      ? {standard: moved.standard, enterprise: moved.enterprise}
+      : {standard: 0, enterprise: 0};
+    const ratioFor = (licence, deploymentEdition) => (key === "vm"
+      ? AHB_RATIOS.vm[deploymentEdition] : AHB_RATIOS.mi[input.serviceTier])[licence];
+    // A deployment is covered only when the entitlement stretches across the
+    // whole of it, so partial coverage never happens. Same-edition licences are
+    // spent first; leftover Enterprise then covers Standard workloads, which the
+    // published table allows at a more generous ratio. Standard licences
+    // covering Enterprise workloads is permitted at four to one but is not
+    // modelled, which understates the benefit rather than overstating it.
+    const claim = (size, deploymentEdition) => {
+      const order = deploymentEdition === "standard" ? ["standard", "enterprise"] : ["enterprise"];
+      for (const licence of order) {
+        const ratio = ratioFor(licence, deploymentEdition);
+        if (!ratio) continue;
+        let need = size / ratio;
+        if (key === "vm") need = Math.max(need, AHB_MIN_VM_LICENCES);
+        if (pool[licence] + 1e-9 < need) continue;
+        pool[licence] -= need;
+        ahbBackingCores[licence] += need;
+        return true;
+      }
+      return false;
+    };
+    // Enterprise deployments are matched first. On a virtual machine an
+    // Enterprise licence covers an Enterprise VM one to one, so spending those
+    // licences on Standard workloads first would strand the Enterprise ones
+    // behind a four to one conversion.
+    for (const edition of ["enterprise", "standard"]) {
       const sizeList = layout[edition];
       if (!sizeList.length) continue;
-      const ratio = key === "mi" && edition === "enterprise" ? 4 : 1;
-      // This is conditional coverage, not entitlement evidence. Rights retained
-      // on-premises are never pooled with the migrated share.
-      let entitled = input.ahb ? moved[edition] * ratio : 0;
       let covered = 0;
       for (const size of sizeList) {
-        // AHB applies per deployment, so a deployment is only covered when the
-        // entitlement stretches across the whole of it.
-        const takes = entitled >= size;
-        if (takes) { entitled -= size; covered += size; }
+        const takes = claim(size, edition);
+        if (takes) covered += size;
         const rate = key === "vm" ? vmRateFor(size) : positiveRate(region.miPlans?.[plan]?.base, `MI GP ${plan} base`);
         if (key === "vm") {
           compute += positiveRate(rate, `${input.region} Standard_E${size}bds_v5 ${plan}`) * HOURS;
           if (!takes) sqlLicense += positiveRate(prices.vmLicensePerCoreHour[edition], `${edition} VM license`) * size * HOURS;
         } else {
-            const included = positiveRate(region.miPlans?.[plan]?.included, `MI GP ${plan} license-included`);
+          const included = positiveRate(region.miPlans?.[plan]?.included, `MI GP ${plan} license-included`);
           if (included < rate) throw new Error("MI license-included rate is below its base rate.");
           compute += rate * size * HOURS;
           if (!takes) sqlLicense += (included - rate) * size * HOURS;
         }
       }
       coveredCores += covered;
-      // Source licence cores consumed by the benefit, back through the ratio.
-      ahbBackingCores[edition] = covered / ratio;
       allocation.push(`${edition}: ${sizeList.length} ${instancesPer ? "instance" : "deployment"}(s) of ${sizeList.length > 6 ? `${sizeList[0]} ${key === "vm" ? "vCPU" : "vCore"} each` : sizeList.join(" + ")} for ${required[edition]} required; ${covered} ${key === "vm" ? "vCPU" : "vCore"} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
     }
     let storage = 0, storageDetail = "No Azure deployments";
@@ -394,6 +446,7 @@ if (typeof document !== "undefined") {
         region: region.value,
         licenseBasis: "existing",
         ahb: $("ahb").checked,
+        serviceTier: $("serviceTier").value,
         vmPlan: term, miPlan: term,
         onPremPerCoreMonth: Number($("onPremPerCoreMonth").value),
         avoidablePct: Number($("avoidablePct").value),
@@ -436,6 +489,18 @@ if (typeof document !== "undefined") {
           ${lines.map((l, i) => `<text x="${bar.x + barW / 2}" y="${H - padB + 18 + i * 13}" text-anchor="middle" font-size="10.5" fill="var(--cp-text-muted)">${esc(l)}</text>`).join("")}`;
       }).join("");
       return `<svg class="opt-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Three-year cost comparison">${ticks}${drawn}</svg>`;
+    };
+
+    // The conversion ratio shown on the card is read from the published rules
+    // table rather than written out, so the caption cannot drift from the maths.
+    const ratioText = (key, tier, editions) => {
+      if (AHB_INELIGIBLE.has(key)) return "Not available on the serverless compute tier";
+      const unit = key === "vm" ? "vCPU" : "vCore";
+      return editions.map(ed => {
+        const n = key === "vm" ? AHB_RATIOS.vm[ed][ed] : AHB_RATIOS.mi[tier][ed];
+        const label = ed === "enterprise" ? "Enterprise" : "Standard";
+        return `1 ${label} licence : ${n} ${unit}${n === 1 ? "" : "s"}`;
+      }).join(" \u00b7 ");
     };
 
     const line = (dt, dd, sub) =>
@@ -509,8 +574,8 @@ if (typeof document !== "undefined") {
           ? `${int(az.deployments)} database(s)` : `${int(az.azureCores)} ${t.unit}`,
           `${input.rightSizePct}% optimization from ${int(inScope)} cores`),
         line("Cores kept on Software Assurance", int(az.licenseCores),
-          az.key === "mi" && moved.enterprise ? "4:1 ratio for Enterprise on General Purpose"
-            : az.key === "serverless" ? "Hybrid Benefit does not apply to serverless" : "1:1 ratio"),
+          ratioText(az.key, input.serviceTier,
+            ["enterprise", "standard"].filter(e => moved[e] > 0))),
         line("Software Assurance renewal", `${int(az.licenseCores)} cores`, `${money(az.sa * 12)} / year at list`),
         line("Azure hosting cost", money(az.compute + az.sqlLicense + az.storage) + " / month",
           `${esc(PLANS[az.plan])}${az.infrastructure > 0 ? `, plus ${money(az.infrastructure)} / month retained on-premises` : ""}`),
