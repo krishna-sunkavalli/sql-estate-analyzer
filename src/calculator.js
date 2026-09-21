@@ -358,176 +358,280 @@ if (typeof module !== "undefined" && module.exports) module.exports = {calculate
 
 if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("calculatorForm");
-    const results = document.getElementById("calculatorResults");
-    const error = document.getElementById("calcError");
+    const $ = id => document.getElementById(id);
+    const form = $("optForm");
+    const output = $("optOutput");
+    const error = $("optError");
     const money = n => new Intl.NumberFormat("en-US", {style: "currency", currency: "USD", maximumFractionDigits: 0}).format(n);
-    const escape = text => String(text).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"}[c]));
-    const region = form.elements.region;
+    const esc = t => String(t).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    const int = n => Math.round(n).toLocaleString("en-US");
+    const picked = name => form.querySelector(`input[name="${name}"]:checked`)?.value;
+
+    const region = $("region");
     for (const name of Object.keys(CALCULATOR_PRICES.regions)) region.add(new Option(REGION_NAMES[name] ?? name, name));
     region.value = "eastus";
-    document.getElementById("btnTheme").onclick = () => {
+
+    $("btnTheme").onclick = () => {
       const root = document.documentElement;
       root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
     };
-    const sync = () => {
-      const pct = Number(form.elements.migrationPct.value);
-      document.getElementById("migrationValue").textContent = `${pct}%`;
-      document.getElementById("assumptionSummary").textContent =
-        `${form.elements.rightSizePct.value}% right-sizing · Best available pricing`;
-      results.hidden = true;
-      error.textContent = "";
+
+    const TARGETS = {
+      vm: {idx: 0, label: "SQL Server on Azure VM", blurb: "Lift and shift onto Azure Virtual Machines, keeping full SQL Server control.", unit: "vCPU"},
+      mi: {idx: 1, label: "Azure SQL Managed Instance", blurb: "Run your SQL workloads on a managed platform and use your existing licences with Azure Hybrid Benefit.", unit: "vCore"},
+      serverless: {idx: 2, label: "Azure SQL Database", blurb: "Usage-based databases that scale down between bursts.", unit: "vCore"},
     };
-    form.addEventListener("input", sync);
-    form.addEventListener("change", sync);
-    sync();
-    // Collapsing the form on submit keeps the inputs available as context while
-    // giving the answer the whole viewport. Editing restores them in place.
-    const summary = document.getElementById("calcSummary");
-    const collapse = on => {
-      form.hidden = on;
-      summary.hidden = !on;
+
+    const readInput = () => {
+      const target = picked("target");
+      const term = picked("term");
+      return {
+        target,
+        standard: Math.floor(Number($("standard").value) || 0),
+        enterprise: Math.floor(Number($("enterprise").value) || 0),
+        migrationPct: Number($("migrationPct").value),
+        rightSizePct: Number($("rightSizePct").value),
+        region: region.value,
+        licenseBasis: "existing",
+        ahb: $("ahb").checked,
+        vmPlan: term, miPlan: term,
+        onPremPerCoreMonth: Number($("onPremPerCoreMonth").value),
+        avoidablePct: Number($("avoidablePct").value),
+        storageGB: Number($("storageGB").value),
+        instanceCount: $("instanceCount").value === "" ? null : Number($("instanceCount").value),
+        databaseCount: $("databaseCount").value === "" ? null : Number($("databaseCount").value),
+        activePct: Number($("activePct").value),
+      };
     };
-    document.getElementById("btnEdit").addEventListener("click", () => {
-      collapse(false);
-      results.hidden = true;
-      // The derived labels are only refreshed on input, so restoring the form
-      // without this leaves the readouts showing the previous footprint.
-      sync();
-      form.scrollIntoView({block: "start", behavior: "smooth"});
-      form.elements.standard.focus();
-    });
-    form.addEventListener("submit", event => {
-      event.preventDefault();
-      results.hidden = true;
-      error.textContent = "";
-      if (!form.reportValidity()) return;
-      const input = {};
-      for (const key of ["standard","enterprise","migrationPct","rightSizePct",
-        "onPremPerCoreMonth","storageGB","serverlessMin","serverlessMax","serverlessBillable","activePct"]) {
-        input[key] = Number(form.elements[key].value);
-      }
-      input.databaseCount = form.elements.databaseCount.value === "" ? null : Number(form.elements.databaseCount.value);
-      input.instanceCount = form.elements.instanceCount.value === "" ? null : Number(form.elements.instanceCount.value);
-      input.ahb = form.elements.ahb.checked;
-      input.region = form.elements.region.value;
+
+    // Rounded axis maximum so the gridlines land on readable figures.
+    const niceMax = v => {
+      if (v <= 0) return 1;
+      const mag = 10 ** Math.floor(Math.log10(v));
+      return Math.ceil(v / (mag / 2)) * (mag / 2);
+    };
+    const shortMoney = n => n >= 1e6 ? `$${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)}M`
+      : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : `$${Math.round(n)}`;
+
+    const chart = (a, b, labelA, labelB) => {
+      const W = 360, H = 232, padL = 52, padB = 54, padT = 26;
+      const top = niceMax(Math.max(a, b, 1));
+      const plotH = H - padB - padT, plotW = W - padL - 12;
+      const y = v => padT + plotH - (v / top) * plotH;
+      const barW = 78, gap = (plotW - barW * 2) / 3;
+      const bars = [
+        {v: a, x: padL + gap, fill: "var(--cp-text-muted)", label: labelA},
+        {v: b, x: padL + gap * 2 + barW, fill: "var(--cp-accent)", label: labelB},
+      ];
+      const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => {
+        const v = top * f;
+        return `<line x1="${padL}" x2="${W - 12}" y1="${y(v)}" y2="${y(v)}" stroke="var(--cp-border)" stroke-width="1"/>
+          <text x="${padL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--cp-text-muted)">${shortMoney(v)}</text>`;
+      }).join("");
+      const drawn = bars.map(bar => {
+        const h = Math.max(1, plotH - (y(bar.v) - padT));
+        const lines = bar.label.split("|");
+        return `<rect x="${bar.x}" y="${y(bar.v)}" width="${barW}" height="${h}" fill="${bar.fill}" rx="3"/>
+          <text x="${bar.x + barW / 2}" y="${y(bar.v) - 8}" text-anchor="middle" font-size="11" font-weight="600" fill="var(--cp-text)">${money(bar.v)}</text>
+          ${lines.map((l, i) => `<text x="${bar.x + barW / 2}" y="${H - padB + 18 + i * 13}" text-anchor="middle" font-size="10.5" fill="var(--cp-text-muted)">${esc(l)}</text>`).join("")}`;
+      }).join("");
+      return `<svg class="opt-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Three-year cost comparison">${ticks}${drawn}</svg>`;
+    };
+
+    const line = (dt, dd, sub) =>
+      `<div class="opt-line"><dt>${dt}</dt><dd>${dd}${sub ? `<em>${sub}</em>` : ""}</dd></div>`;
+
+    const render = () => {
+      const input = readInput();
+      const t = TARGETS[input.target];
+      $("migrationValue").textContent = `${input.migrationPct}%`;
+      $("rightSizeValue").textContent = `${input.rightSizePct}%`;
+      $("computeModelField").hidden = input.target !== "serverless";
+      $("computeModelFor").textContent = "(Azure SQL Database)";
+
       let report;
       try { report = calculateCoreOptions(input); }
-      catch (e) { error.textContent = `Cannot calculate: ${e.message}`; return; }
-      const {source, moved, retained, baseline, scenarios} = report;
-      const all = [baseline, ...scenarios];
-      const regionalPrices = CALCULATOR_PRICES.regions[input.region];
-      const hourly = value => Number.isFinite(value) ? value.toFixed(6) : "unavailable";
-      const vmRate = regionalPrices.vmPlans?.[`Standard_E${input.unitCores}bds_v5`]?.rates?.[input.vmPlan];
-      const miRates = regionalPrices.miPlans?.[input.miPlan];
-      const rows = [
-        ["On-premises infrastructure / operations", "infrastructure"],
-        ["SQL Server Software Assurance (retained + AHB-backing cores)", "sa"],
-        [`Azure compute (VM ${input.ahb ? "excludes Windows via AHB" : "includes Windows"}; serverless includes SQL)`, "compute"],
-        ["Azure SQL licensing (VM / MI)", "sqlLicense"], ["Azure storage", "storage"],
-      ];
-      const inScope = sum(moved);
-      // Highlight the lowest modeled three-year cost. Directional estimates are
-      // excluded: an option running on assumed inputs is not comparable on the
-      // same evidence, and would otherwise win precisely because it was guessed.
-      const ready = all.filter(s => s.status === "ready");
-      const comparable = ready.filter(s => !s.assumed?.length);
-      const bestKey = comparable.length > 1
-        ? comparable.reduce((a, b) => a.threeYear <= b.threeYear ? a : b).key : null;
-      const anyDirectional = ready.some(s => s.assumed?.length);
-      const editionLabel = moved.standard && moved.enterprise ? "Mixed-edition"
-        : moved.enterprise ? "Enterprise" : "Standard";
-      results.innerHTML = `
-        <div class="card">
-          <h2>Four ways to host the ${inScope.toLocaleString()} cores you are moving</h2>
-          <p>${inScope.toLocaleString()} of ${sum(source).toLocaleString()} cores are in scope: ${moved.standard} Standard + ${moved.enterprise} Enterprise.
-          Every column below costs <b>this same workload</b>, hosted four different ways. On-premises needs all ${inScope.toLocaleString()} cores; the Azure options may need fewer after right-sizing.</p>
-          ${report.retainedContext.cores > 0 ? `<div class="note">The other ${report.retainedContext.cores.toLocaleString()} cores (${retained.standard} Standard + ${retained.enterprise} Enterprise) stay on-premises whichever option you choose, and cost about ${money(report.retainedContext.threeYear)} over three years.
-          That figure is context only and is deliberately outside the comparison: an identical amount in every column cannot change the decision, only shrink the visible difference. Add it to any column for a full-estate view.</div>` : ""}
-          <p class="calc-muted">${escape(REGION_NAMES[input.region] ?? input.region)} · 730 hours/month · ${input.rightSizePct}% assumed VM / MI right-sizing · deployments sized up to ${input.unitCores} cores and fitted to the published size ladder.
-          </p>
-          <p><b>${input.licenseBasis === "existing"
-            ? "Licenses are assumed already purchased, so only Software Assurance continues; no new purchase is charged to any column."
-            : "License-refresh scenario: a one-time SQL license purchase is modeled over 3 years, not as an annual renewal."}</b>
-          ${input.licenseBasis === "refresh" ? "Staying on-premises buys licenses for these cores; the Azure options do not." : ""}
-          Three-year TCO = ${input.licenseBasis === "refresh" ? "one-time purchase + " : ""}36 × recurring monthly cost.</p>
-          <p class="calc-muted">All figures are published list prices. Negotiated or agreement-specific discounts are not applied and will change these totals.</p>
-          <div class="note warn">Only ${input.avoidablePct}% of these cores' on-premises operations is assumed avoidable; the fixed share remains in every Azure option.
-          ${input.onPremPerCoreMonth === 0 ? "On-premises operations are omitted: not a full TCO or savings claim." : ""}
-          ${input.storageGB === 0 ? "Migrated storage is unspecified: VM data disks omitted; MI uses 32 GB per instance; serverless needs a storage input." : ""}
-          Software Assurance is charged at published list: on all in-scope cores if they stay, or only on the cores whose rights back AHB if they move, because AHB requires active eligible SA or a qualifying subscription. Migrated cores without AHB pay the Azure SQL meter instead, never both. Actual SA pricing is agreement-specific.
-          These partial-cost comparisons are not full TCO or guaranteed savings.
-          Core counts and this estimate do not prove license entitlements or feature readiness.</div>
-          <div class="calc-results">${all.map(s => {
-            const label = CARD_LABELS[s.key];
-            const eyebrow = s.key === "mi" && input.ahb && moved.enterprise > 0 ? "4:1 Enterprise AHB" : label.eyebrow;
-            const subtitle = s.key === "stay" ? `${editionLabel} footprint staying put` : label.subtitle;
-            const head = `<p class="calc-eyebrow">${eyebrow}</p><h3>${label.title}</h3><p class="calc-sub">${subtitle}</p>`;            if (s.status !== "ready") {
-              return `<article class="calc-option">${head}
-                <p class="calc-pending"><b>${s.status === "input-needed" ? "Input needed" : "Unavailable"}</b></p>
-                <p class="calc-pending">${escape(s.reason)}</p>
-                <p class="calc-muted">No total or savings reported; not $0. The retained footprint and ongoing costs still apply.</p></article>`;
-            }
-            const savings = s.key === "stay" ? `<dd class="is-base">Baseline</dd>`
-              : `<dd class="${s.deltaThreeYear < 0 ? "is-saving" : s.deltaThreeYear > 0 ? "is-higher" : ""}">${money(Math.abs(s.deltaThreeYear))}${s.deltaPct === null ? "" : ` · ${Math.abs(s.deltaPct).toFixed(0)}%`}${s.deltaThreeYear > 0 ? " more" : ""}</dd>`;
-            return `<article class="calc-option${s.key === bestKey ? " is-best" : ""}">${head}
-              <div class="calc-price">${money(s.monthly)}<span>per month${s.plan && s.plan !== "payg" ? ", amortized commitment" : ""}</span></div>
-              <dl class="calc-specs">
-                <div><dt>3-year TCO</dt><dd>${money(s.threeYear)}</dd></div>
-                <div><dt>Savings</dt>${savings}</div>
-              </dl>
-              ${s.assumed?.length ? `<p class="calc-assumed">Directional: ${escape(s.assumed.join("; "))}.</p>` : ""}</article>`;
-          }).join("")}</div>
-          ${bestKey ? `<p class="calc-muted">Highlighted: lowest modeled 3-year cost${anyDirectional ? " among the options with complete inputs" : ""}. That is an arithmetic result for the assumptions above, not a recommendation; compatibility, readiness and operational fit are not assessed here.${anyDirectional ? " Any column marked directional is running on assumed inputs and is excluded from that comparison until real figures are entered." : ""}</p>` : ""}
-          <details class="acc"><summary>Monthly cost breakdown, rates and scope</summary>
-            <div class="tbl-wrap"><table class="calc-table"><thead><tr><th>Monthly component</th>${all.map(s => `<th>${CARD_LABELS[s.key].title}</th>`).join("")}</tr></thead>
-            <tbody>${rows.map(([label,key]) => `<tr><th scope="row">${label}</th>${all.map(s => `<td>${s.status === "ready" ? money(s[key]) : "Not calculated"}</td>`).join("")}</tr>`).join("")}
-            <tr><th scope="row">One-time SQL license purchase (not monthly)</th>${all.map(s => `<td>${s.status === "ready" ? money(s.upfront) : "Not calculated"}</td>`).join("")}</tr></tbody></table></div>
-            <p>Refresh purchase = ceil(Standard cores / 2) × $3,945 + ceil(Enterprise cores / 2) × $15,123.
-            These are published SQL Server 2022 two-core pack list prices, not annual SA rates or a current-contract quote.
-            Refresh is a hypothetical planned replacement purchase, not a recharge of historical licenses. Existing-license mode excludes it.
-            Only the on-premises column buys licenses for these cores; moving them avoids that purchase. With AHB, existing eligible rights must be independently available; no new rights or SA are assumed free.</p>
-            ${scenarios.filter(s => s.status === "ready").map(s => `<p><b>${s.name}</b>: ${escape(s.allocation.join("; ") || "No migration")}. ${escape(s.storageDetail)}.</p>`).join("")}
-            <p>Standard and Enterprise workloads are sized separately: floor migrated cores, ceil right-sized demand, then fit that demand to the published Azure size ladder largest-first, so only the final deployment carries rounding.
-            These 4/8/16-core groups are illustrative consolidation, not an exact topology. Memory, IOPS, HA/DR replicas and compatibility are not inferred.</p>
-            <p>VM: Windows Ebdsv5, one P10 OS disk per VM. MI: classic General Purpose standard-series Gen5, not Business Critical or next-gen GP.
-            Storage is spread evenly; actual placement and service limits require review.</p>
-            <p>AHB is conditional on independently verified, reassignable eligible SA/subscription licenses. The checkbox is an assumption, not verification.
-            Only the migrated share is available: Standard 1:1 and Enterprise 4:1 for MI GP; same-edition 1:1 for VM.
-            Only fully covered reference deployments receive AHB. Entitlement ratios never right-size capacity, and retained on-premises rights are not reused.</p>
-            <p>One pricing plan per scenario: reservations and savings plans never stack on the same usage. VM commitment discounts apply only to infrastructure;
-            they do not discount Windows/SQL licensing or storage. MI uses published plan-specific included/base rates.
-            Commitments assume 100% utilization every hour. Monthly figures amortize the full commitment; 3-year projections assume 1-year terms are purchased again at unchanged rates, not automatic renewal. Actual prices and unused commitments may differ.</p>
-            <p>Selected published hourly rates (USD): VM ${escape(PLANS[input.vmPlan])} ${hourly(vmRate)}/VM including Windows;
-            MI ${escape(PLANS[input.miPlan])} ${hourly(miRates?.included)}/vCore license-included or ${hourly(miRates?.base)}/vCore AHB base;
-            serverless PAYG ${hourly(regionalPrices.serverless?.paygPerCoreHour)}/billable vCore.
-            MI RI1 base is derived from included RI1 minus the published PAYG SQL license component; reservations exclude software charges.</p>
-          </details>
-          <div class="note info"><b>Serverless is optional and illustrative, not a readiness recommendation.</b>
-            The explicitly entered database count and storage apply to the selected migrating footprint, not the whole estate; recheck both whenever migration scope changes.
-            Each database is assumed to fit the same chosen compute range and equal storage share. This is an unverified full-footprint equivalence assumption; source cores do not size serverless.
-            Only eligible General Purpose databases can auto-pause. Active-use % means all billable online time, including idle auto-pause delay, not just query activity.
-            Assumed billable vCores include max(CPU, memory/3 GB, configured CPU/memory minimums); this is declared, not measured.
-            Compute = databases × assumed billable vCores × 730 × active-use % × PAYG rate; storage continues while paused.
-            No AHB or RI. Database savings plans may be available, but are not modeled here without hourly commitment/usage matching; this is explicitly a PAYG comparison. No universal savings claim.</div>
-          <p class="calc-muted">Excluded: ongoing SA/subscription fees, application tier, ESU, migration effort, networking, extra backup storage, DR, security services, taxes and free allowances.
-          No negotiated price is verified by this calculator. <a href="modernization-options/">Review the decision guide</a> and use Azure Migrate before committing.</p>
+      catch (e) {
+        error.textContent = e.message;
+        error.hidden = false;
+        output.innerHTML = "";
+        $("scopeSub").textContent = "";
+        return;
+      }
+      error.hidden = true;
+      const {source, moved, required, baseline, scenarios} = report;
+      const total = source.standard + source.enterprise;
+      const inScope = moved.standard + moved.enterprise;
+      $("scopeSub").textContent = `${int(inScope)} of ${int(total)} cores in scope`;
+
+      // Commitment discounts are measured against this footprint's own
+      // pay-as-you-go cost rather than quoted as a generic headline number.
+      const termField = $("termField");
+      termField.hidden = input.target === "serverless";
+      if (!termField.hidden) {
+        const compute = plan => {
+          try {
+            const s = calculateCoreOptions({...input, vmPlan: plan, miPlan: plan}).scenarios[t.idx];
+            return s.status === "ready" ? s.compute + s.sqlLicense : null;
+          } catch { return null; }
+        };
+        const payg = compute("payg");
+        for (const [plan, el] of [["ri1", $("term1Off")], ["ri3", $("term3Off")]]) {
+          const c = compute(plan);
+          el.textContent = payg && c !== null && c < payg
+            ? `${Math.round((1 - c / payg) * 100)}% off` : "\u00a0";
+        }
+      }
+
+      const az = scenarios[t.idx];
+      if (az.status !== "ready") {
+        output.innerHTML = `<div class="opt-compare"><div class="opt-col is-pending">
+          <b>${esc(t.label)} cannot be priced with these inputs.</b><p>${esc(az.reason)}</p></div></div>`;
+        return;
+      }
+
+      const onPremYear = baseline.monthly * 12, azureYear = az.monthly * 12;
+      const saving3 = baseline.threeYear - az.threeYear;
+      const savingPct = baseline.threeYear > 0 ? saving3 / baseline.threeYear * 100 : 0;
+      const opsYear = baseline.infrastructure * 12 - az.infrastructure * 12;
+      const azCores = az.key === "serverless" ? az.deployments : az.azureCores;
+
+      const renewLines = [
+        line("SQL cores (existing)", int(total)),
+        line("Existing licences", "Already owned"),
+        line("Software Assurance renewal", `${int(inScope)} cores`, `${money(baseline.sa * 12)} / year at list`),
+        line("Infrastructure &amp; operations", money(baseline.infrastructure * 12) + " / year",
+          `${int(inScope)} cores &times; ${money(input.onPremPerCoreMonth * 12)} / core / year`),
+      ].join("");
+
+      const azLines = [
+        line("Right-sized Azure compute", az.key === "serverless"
+          ? `${int(az.deployments)} database(s)` : `${int(az.azureCores)} ${t.unit}`,
+          `${input.rightSizePct}% optimization from ${int(inScope)} cores`),
+        line("Cores kept on Software Assurance", int(az.licenseCores),
+          az.key === "mi" && moved.enterprise ? "4:1 ratio for Enterprise on General Purpose"
+            : az.key === "serverless" ? "Hybrid Benefit does not apply to serverless" : "1:1 ratio"),
+        line("Software Assurance renewal", `${int(az.licenseCores)} cores`, `${money(az.sa * 12)} / year at list`),
+        line("Azure hosting cost", money(az.compute + az.sqlLicense + az.storage) + " / month",
+          `${esc(PLANS[az.plan])}${az.infrastructure > 0 ? `, plus ${money(az.infrastructure)} / month retained on-premises` : ""}`),
+      ].join("");
+
+      const ahbApplies = az.key !== "serverless";
+      const badge = !ahbApplies ? {cls: " is-off", text: "AHB n/a for serverless"}
+        : input.ahb ? {cls: "", text: "AHB applied &#10003;"}
+        : {cls: " is-off", text: "AHB off"};
+
+      const takeaways = [
+        `Right-sizing at ${input.rightSizePct}% takes ${int(inScope)} source cores to ${int(az.key === "serverless" ? az.azureCores : az.azureCores)} ${t.unit}.`,
+        !ahbApplies
+          ? `Azure Hybrid Benefit does not apply to serverless, so its SQL licence is included in the hourly rate instead.`
+          : input.ahb && az.licenseCores < inScope
+          ? `Azure Hybrid Benefit keeps Software Assurance on ${int(az.licenseCores)} cores instead of ${int(inScope)}.`
+          : input.ahb ? `Azure Hybrid Benefit is applied, but this footprint still needs Software Assurance on ${int(az.licenseCores)} cores.`
+          : `Azure Hybrid Benefit is switched off, so the Azure SQL licence meter is paid instead.`,
+        opsYear > 0 ? `Migrating avoids about ${money(opsYear)} a year of on-premises infrastructure and operations.`
+          : `On-premises operations are unchanged at this migration share.`,
+        saving3 > 0 ? `Estimated ${money(saving3)} lower over three years, about ${savingPct.toFixed(0)}% against renewing.`
+          : `This configuration costs ${money(-saving3)} more over three years than renewing.`,
+      ].map(x => `<li>${x}</li>`).join("");
+
+      output.innerHTML = `
+        <div class="opt-compare">
+          <div class="opt-col">
+            <div class="opt-col-head">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cp-text-muted)"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+              <div><h3 style="color:var(--cp-text)">Renew on-prem <span>(Current path)</span></h3>
+              <p>Keep the SQL Server estate on-premises and renew Software Assurance.</p></div>
+            </div>
+            <dl class="opt-lines">${renewLines}</dl>
+            <div class="opt-total"><span>Estimated annual cost</span><b>${money(onPremYear)}</b></div>
+          </div>
+          <div class="opt-col is-azure">
+            <div class="opt-col-head">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3 3.5 18h4L14 3zM13 9l-4.5 9H21z"/></svg>
+              <div><h3>Modernize to Azure</h3><p>${esc(t.blurb)}</p></div>
+              <span class="opt-badge${badge.cls}">${badge.text}</span>
+            </div>
+            <dl class="opt-lines">${azLines}</dl>
+            <div class="opt-total"><span>Estimated annual cost</span><b>${money(azureYear)}</b></div>
+          </div>
+        </div>
+
+        <div class="opt-lower">
+          <div class="opt-chart-wrap">
+            <div>
+              <h3>3-year cost comparison</h3>
+              <p>Total estimated cost over three years. Software Assurance is charged at published list; your agreement will differ.</p>
+              ${chart(baseline.threeYear, az.threeYear,
+                `Renew on-prem|${int(inScope)} cores`,
+                `Modernize to Azure|${int(azCores)} ${az.key === "serverless" ? "database(s)" : t.unit}`)}
+            </div>
+            <div class="opt-save">
+              <h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h3M8 16h3M15 12v5"/></svg> Estimated 3-year ${saving3 >= 0 ? "savings" : "increase"}</h4>
+              <b>${money(Math.abs(saving3))}</b>
+              <span class="vs">${saving3 >= 0 ? "lower" : "higher"} than renewing on-premises &middot; ${Math.abs(savingPct).toFixed(0)}%</span>
+              <p>Based on the inputs and assumptions below. Actual cost varies with your agreement, workload profile and region.</p>
+            </div>
+          </div>
+          <div class="opt-takeaways">
+            <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg> Key takeaways</h3>
+            <ol>${takeaways}</ol>
+          </div>
         </div>`;
-      const setSum = (id, text) => { document.getElementById(id).textContent = text; };
-      const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
-      setSum("sumFootprint", [
-        source.standard ? plural(source.standard, "Standard core") : "",
-        source.enterprise ? plural(source.enterprise, "Enterprise core") : "",
-      ].filter(Boolean).join(" + "));
-      setSum("sumMoving", `${inScope.toLocaleString()} of ${sum(source).toLocaleString()} (${input.migrationPct}%)`);
-      setSum("sumTopology", [
-        input.instanceCount ? plural(input.instanceCount, "instance") : "instances assumed",
-        input.databaseCount ? plural(input.databaseCount, "database") : "databases assumed",
-      ].join(" · "));
-      setSum("sumRegion", REGION_NAMES[input.region] ?? input.region);
-      setSum("sumAhb", input.ahb ? "Applied" : "Not applied");      collapse(true);
-      results.hidden = false;
-      results.focus();
+    };
+
+    const exportCsv = () => {
+      const input = readInput();
+      let report;
+      try { report = calculateCoreOptions(input); } catch { return; }
+      const t = TARGETS[input.target];
+      const az = report.scenarios[t.idx];
+      if (az.status !== "ready") return;
+      const rows = [
+        ["SQL Renewal Optimizer"],
+        ["Region", REGION_NAMES[input.region] ?? input.region],
+        ["Standard cores", input.standard],
+        ["Enterprise cores", input.enterprise],
+        ["Share moving to Azure", `${input.migrationPct}%`],
+        ["Right-sizing", `${input.rightSizePct}%`],
+        ["Target service", t.label],
+        ["Commitment term", PLANS[az.plan]],
+        ["Azure Hybrid Benefit", input.ahb ? "Applied" : "Not applied"],
+        [],
+        ["", "Renew on-prem", "Modernize to Azure"],
+        ["Monthly", Math.round(report.baseline.monthly), Math.round(az.monthly)],
+        ["Annual", Math.round(report.baseline.monthly * 12), Math.round(az.monthly * 12)],
+        ["3-year total", Math.round(report.baseline.threeYear), Math.round(az.threeYear)],
+        ["3-year saving", "", Math.round(report.baseline.threeYear - az.threeYear)],
+        [],
+        ["Directional estimate at published list prices. Run an Azure Migrate assessment for an accurate one."],
+      ];
+      const csv = rows.map(r => r.map(c => {
+        const s = String(c ?? "");
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      }).join(",")).join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
+      const a = Object.assign(document.createElement("a"),
+        {href: url, download: "sql-renewal-optimizer.csv"});
+      document.body.append(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    for (const root of [form, $("optAssumptions")]) {
+      root.addEventListener("input", render);
+      root.addEventListener("change", render);
+    }
+    form.addEventListener("submit", e => e.preventDefault());
+    $("btnExport").addEventListener("click", exportCsv);
+    $("btnReset").addEventListener("click", () => {
+      form.reset();
+      $("optAssumptions").querySelectorAll("input, select").forEach(el => {
+        if (el.type === "checkbox") el.checked = el.defaultChecked;
+        else el.value = el.defaultValue;
+      });
+      region.value = "eastus";
+      render();
     });
+    render();
   });
 }

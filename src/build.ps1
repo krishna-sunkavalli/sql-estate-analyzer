@@ -22,7 +22,7 @@ $js = Get-Content (Join-Path $build 'calculator.js') -Raw -Encoding UTF8
 $calculator = Get-Content (Join-Path $build 'calculator.template.html') -Raw -Encoding UTF8
 $sharedHead = [regex]::Match($template, '(?s)<head>(.*?)</head>').Groups[1].Value
 if (-not $sharedHead) { throw 'Shared theme head not found.' }
-$sharedHead = [regex]::Replace($sharedHead, '<title>.*?</title>', '<title>SQL modernization cost calculator</title>')
+$sharedHead = [regex]::Replace($sharedHead, '<title>.*?</title>', '<title>SQL Renewal Optimizer</title>')
 $sharedHead = [regex]::Replace($sharedHead, '<meta name="description"[^>]*>', '<meta name="description" content="Compare SQL Standard and Enterprise core costs on-premises and on Azure using explicit planning assumptions.">')
 $calculator = $calculator.Replace('<!--SHARED_HEAD-->', $sharedHead)
 
