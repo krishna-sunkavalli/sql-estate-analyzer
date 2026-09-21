@@ -4754,6 +4754,42 @@ const AHB_MIN_VM_LICENCES = 4;
 const VM_SIZES = [16, 8, 4];
 const MI_SIZES = [80, 64, 40, 32, 24, 16, 8, 4];
 
+// Managed Instance has two deployment topologies. A single instance is its own
+// billable unit and cannot be smaller than four vCores. An instance pool is the
+// billable unit instead: pool vCores are purchased once and instances are placed
+// inside, and only a pool can host a two-vCore instance. Both bill the same
+// published per-vCore rate, so the cheaper topology is simply the one needing
+// fewer vCores. Pools halve compute for estates of one- and two-core servers,
+// and cost slightly more when instances already sit on the ladder, because a
+// pool must round up to a purchasable size.
+const MI_POOL_INSTANCE_SIZES = [2, 4, 8, 16, 24, 32, 40, 64, 80];
+const MI_POOL_SIZES = [8, 16, 24, 32, 40, 64, 80];
+const MI_POOL_MAX_INSTANCES = 40;
+// Published per-instance reserved storage limits inside a pool.
+const MI_POOL_STORAGE_CAP = {2: 640, 4: 2048, 8: 8192};
+
+function packMiPool(required, instances, maxSize) {
+  const sizes = MI_POOL_INSTANCE_SIZES.filter(s => s <= maxSize);
+  const pools = MI_POOL_SIZES.filter(s => s <= maxSize);
+  if (!sizes.length || !pools.length || !instances) return null;
+  const size = sizes.find(s => s >= Math.ceil(required / instances));
+  if (!size) return null;
+  const largest = pools[pools.length - 1];
+  const perPool = Math.min(MI_POOL_MAX_INSTANCES, Math.floor(largest / size));
+  if (!perPool) return null;
+  const out = [];
+  let left = instances;
+  while (left > 0) {
+    const take = Math.min(left, perPool);
+    const pool = pools.find(p => p >= take * size);
+    if (!pool) return null;
+    out.push(pool);
+    left -= take;
+  }
+  out.instanceSize = size;
+  return out;
+}
+
 function packDeployments(required, maxSize, ladder) {
   const usable = ladder.filter(s => s <= maxSize).sort((a, b) => b - a);
   if (!usable.length) throw new Error("No Azure deployment size fits the selected maximum.");
@@ -4847,12 +4883,28 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       instancesPer.enterprise = input.instanceCount - first;
     }
   }
-  const packs = key => Object.fromEntries(Object.entries(required).map(([e, n]) => {
-    if (!n) return [e, []];
+  const packs = (key, allowPool) => {
     const ladder = key === "vm" ? VM_SIZES : MI_SIZES;
-    if (instancesPer) return [e, sizePerInstance(n, instancesPer[e], input.unitCores, ladder)];
-    return [e, packDeployments(n, input.unitCores, ladder)];
-  }));
+    const single = Object.fromEntries(Object.entries(required).map(([e, n]) => {
+      if (!n) return [e, []];
+      if (instancesPer) return [e, sizePerInstance(n, instancesPer[e], input.unitCores, ladder)];
+      return [e, packDeployments(n, input.unitCores, ladder)];
+    }));
+    single.topology = "single";
+    // Pooling is only meaningful when the instance topology is known, and only
+    // Managed Instance offers it. Azure SQL Database has elastic pools, which
+    // are a different construct that does not change the vCore count, so the
+    // Database target is costed without this.
+    if (key !== "mi" || !instancesPer || !allowPool) return single;
+    const pooled = Object.fromEntries(Object.entries(required).map(([e, n]) =>
+      [e, n ? packMiPool(n, instancesPer[e], input.unitCores) : []]));
+    if (editions.some(e => pooled[e] === null)) return single;
+    pooled.topology = "pool";
+    pooled.instanceSize = Math.min(...editions.map(e => pooled[e].instanceSize ?? Infinity));
+    const cores = o => editions.reduce((t, e) => t + o[e].reduce((a, b) => a + b, 0), 0);
+    if (editions.some(e => single[e] === null)) return pooled;
+    return cores(pooled) < cores(single) ? pooled : single;
+  };
   const discountFactor = 1 - input.discountPct / 100;
   const licensePurchase = counts => input.licenseBasis === "existing" ? 0 :
     Object.entries(counts).reduce((total, [edition, cores]) => total + (cores ? Math.ceil(cores / 2) *
@@ -4890,9 +4942,9 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const unavailable = (key, name, reason, status = "unavailable") => ({
     ...base, key, name, status, reason, infrastructure, scopedCores: sum(moved), monthly: null, threeYear: null,
   });
-  const scenarios = ["vm", "mi"].map(key => {
+  const buildScenario = (key, {allowPool = false} = {}) => {
     const name = key === "vm" ? "SQL Server on Azure VM" : "SQL Managed Instance GP";
-    const layout = packs(key);
+    const layout = packs(key, allowPool);
     if (Object.values(layout).some(v => v === null)) {
       const worst = editions.find(e => layout[e] === null);
       return unavailable(key, name, `${input.instanceCount} instance(s) puts about ${Math.ceil(required[worst] / instancesPer[worst])} ${key === "vm" ? "vCPU" : "vCore"} on each ${worst} instance, above the ${input.unitCores}-core maximum. Raise the largest deployment size or split the workload across more instances.`);
@@ -4985,7 +5037,9 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
         }
       }
       coveredCores += covered;
-      allocation.push(`${edition}: ${sizeList.length} ${instancesPer ? "instance" : "deployment"}(s) of ${sizeList.length > 6 ? `${sizeList[0]} ${key === "vm" ? "vCPU" : "vCore"} each` : sizeList.join(" + ")} for ${required[edition]} required; ${covered} ${key === "vm" ? "vCPU" : "vCore"} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
+      allocation.push(`${edition}: ${layout.topology === "pool"
+        ? `${instancesPer[edition]} instance(s) of ${layout.instanceSize} vCore in ${sizeList.length} pool(s) of ${sizeList.length > 6 ? `${sizeList[0]} vCore each` : sizeList.join(" + ")}`
+        : `${sizeList.length} ${instancesPer ? "instance" : "deployment"}(s) of ${sizeList.length > 6 ? `${sizeList[0]} ${key === "vm" ? "vCPU" : "vCore"} each` : sizeList.join(" + ")}`} for ${required[edition]} required; ${covered} ${key === "vm" ? "vCPU" : "vCore"} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
     }
     let storage = 0, storageDetail = "No Azure deployments";
     if (deployments && key === "vm") {
@@ -5002,17 +5056,24 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
         storageDetail += "; equal data allocation rounded to Premium SSD sizes";
       } else storageDetail += "; data disks unspecified / omitted";
     } else if (deployments) {
-      const perUnit = Math.max(32, Math.ceil(input.storageGB / deployments / 32) * 32);
-      const limit = Math.min(...sizes) === 4 ? 2048 : 8192;
+      // Storage follows the instance in both topologies, so it is billed per
+      // instance rather than per billable compute unit.
+      const units = layout.topology === "pool" ? input.instanceCount : deployments;
+      const perUnit = Math.max(32, Math.ceil(input.storageGB / units / 32) * 32);
+      const limit = layout.topology === "pool"
+        ? (MI_POOL_STORAGE_CAP[layout.instanceSize] ?? 16384)
+        : (Math.min(...sizes) === 4 ? 2048 : 8192);
       if (perUnit > limit) return unavailable(key, name, `MI storage needs ${perUnit} GB per instance, above this model's ${limit} GB limit. Increase deployment size or review placement.`);
-      storage = perUnit * deployments * positiveRate(region.storage.mi_gp_per_gb_mo, "MI GP storage");
-      storageDetail = `${deployments} × ${perUnit} GB reserved storage (32 GB increments)`;
+      storage = perUnit * units * positiveRate(region.storage.mi_gp_per_gb_mo, "MI GP storage");
+      storageDetail = `${units} × ${perUnit} GB reserved storage (32 GB increments)`;
     }
     return total({...base, key, name, plan, infrastructure, compute, sqlLicense, storage, storageDetail,
       sa: saMonthly(ahbBackingCores),
       licenseCores: sum(ahbBackingCores),
+      topology: layout.topology, instanceSize: layout.instanceSize,
       allocation, coveredCores, azureCores, deployments, sizes, scopedCores: sum(moved)});
-  });
+  };
+  const scenarios = [buildScenario("vm"), buildScenario("mi", {allowPool: true})];
   const serverlessName = "Azure SQL Database serverless";
   const serverlessBase = {...base, key: "serverless", name: serverlessName, infrastructure, scopedCores: sum(moved), plan: "payg"};
   let serverless;
@@ -5022,8 +5083,10 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     // per-vCore rates are identical in every captured region, so the already
     // verified Managed Instance rates are reused rather than scraped twice.
     // The published Hybrid Benefit table also lists the two services on one
-    // row, so the same ratios apply. Only storage differs.
-    const mi = scenarios[1];
+    // row, so the same ratios apply. Only storage differs. Instance pools are a
+    // Managed Instance construct, so the Database column is always costed on
+    // the single-instance topology even when pooling wins for Managed Instance.
+    const mi = buildScenario("mi");
     if (mi.status !== "ready") {
       serverless = unavailable("dbProvisioned", "Azure SQL Database provisioned", mi.reason, mi.status);
     } else {
@@ -5033,6 +5096,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
         plan: mi.plan, infrastructure, compute: mi.compute / discountFactor,
         sqlLicense: mi.sqlLicense / discountFactor, storage,
         sa: mi.sa / discountFactor, licenseCores: mi.licenseCores,
+        topology: mi.topology, instanceSize: mi.instanceSize,
         allocation: mi.allocation, coveredCores: mi.coveredCores, azureCores: mi.azureCores,
         deployments: mi.deployments, sizes: mi.sizes, scopedCores: sum(moved),
         storageDetail: `${mi.deployments} × ${perDb} GB reserved storage`});
@@ -5154,7 +5218,13 @@ if (typeof document !== "undefined") {
         select.dataset.target = target;
         select.replaceChildren();
         for (const o of q.options) {
-          const opt = new Option(o.priced ? o.text : `${o.text} — not priced here`, o.value);
+          // Two different reasons an option can stand out, so both are stated
+          // rather than left to the reader: disabled means this snapshot has no
+          // published price, while a priced option can still be outside Azure
+          // Hybrid Benefit. Greying out the second kind would remove working
+          // functionality to convey a footnote.
+          const note = !o.priced ? " — not priced here" : o.ahb ? "" : " — no Azure Hybrid Benefit";
+          const opt = new Option(`${o.text}${note}`, o.value);
           opt.disabled = !o.priced;
           select.add(opt);
         }
@@ -5309,10 +5379,19 @@ if (typeof document !== "undefined") {
           `${int(inScope)} cores &times; ${money(input.onPremPerCoreMonth * 12)} / core / year`),
       ].join("");
 
+      // Managed Instance is billed by the pool when pooling is cheaper, so the
+      // caption names the topology rather than leaving the vCore count
+      // unexplained against the instance count the user entered.
+      const topologyNote = az.topology === "pool"
+        ? `${int(input.instanceCount)} instances of ${az.instanceSize} vCore in ${int(az.deployments)} instance pool(s)`
+        : az.topology === "single" && input.instanceCount
+        ? `${int(az.deployments)} deployment(s), four-${t.unit} minimum each`
+        : null;
+
       const azLines = [
         line("Right-sized Azure compute", az.key === "serverless"
           ? `${int(az.deployments)} database(s)` : `${int(az.azureCores)} ${t.unit}`,
-          `${input.rightSizePct}% optimization from ${int(inScope)} cores`),
+          topologyNote ?? `${input.rightSizePct}% optimization from ${int(inScope)} cores`),
         line("Cores kept on Software Assurance", int(az.licenseCores),
           ratioText(az.key, input.serviceTier,
             ["enterprise", "standard"].filter(e => moved[e] > 0))),
@@ -5331,6 +5410,7 @@ if (typeof document !== "undefined") {
 
       const takeaways = [
         `Right-sizing at ${input.rightSizePct}% takes ${int(inScope)} source cores to ${int(az.azureCores)} ${t.unit}.`,
+        ...(az.topology === "pool" ? [`Instance pools are cheaper here: a two-vCore instance only exists inside a pool, and the pool is the billable unit, so these ${int(input.instanceCount)} servers avoid the four-vCore single-instance minimum.`] : []),
         !ahbApplies
           ? `Azure Hybrid Benefit does not apply to serverless, so its SQL licence is included in the hourly rate instead.`
           : input.ahb && az.licenseCores < inScope

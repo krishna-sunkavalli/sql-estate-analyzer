@@ -610,13 +610,54 @@ test("a known instance count replaces consolidation and respects the four-core f
   const twenty = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16, instanceCount: 20});
   assert.equal(twenty.scenarios[0].deployments, 20);
   assert.equal(twenty.scenarios[0].azureCores, 80);
-  // Eighty single-core instances cannot go below the four-core floor, so the
-  // same workload now needs 320 vCores. This is the case consolidation hides.
+  // Eighty single-core instances cannot go below the four-core floor, so on a
+  // virtual machine the same workload now needs 320 vCPUs. This is the case
+  // consolidation hides.
   const eighty = run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16, instanceCount: 80});
   assert.equal(eighty.scenarios[0].deployments, 80);
   assert.equal(eighty.scenarios[0].azureCores, 320);
   assert.ok(eighty.scenarios[0].monthly > packed.scenarios[0].monthly * 3);
-  assert.ok(eighty.scenarios[1].monthly > packed.scenarios[1].monthly * 3);
+  // Managed Instance escapes the same floor by pooling, so it is not penalised
+  // the same way. See the instance pool tests below.
+  assert.equal(eighty.scenarios[1].topology, "pool");
+  assert.ok(eighty.scenarios[1].azureCores < eighty.scenarios[0].azureCores);
+});
+
+test("instance pools beat single instances only when instances are small", () => {
+  const at = n => run({standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20,
+    unitCores: 16, instanceCount: n}).scenarios[1];
+  // One core per server fits the two-vCore size, which exists only in a pool,
+  // so the pool halves the billed vCores against the four-vCore floor.
+  const small = at(80);
+  assert.equal(small.topology, "pool");
+  assert.equal(small.instanceSize, 2);
+  assert.equal(small.azureCores, 160);
+  assert.equal(small.deployments, 10);
+  // Four cores per server already sits on the single-instance ladder, so
+  // rounding each pool up to a purchasable size would cost more. The cheaper
+  // topology must win, not the pool by default.
+  const mid = at(25);
+  assert.equal(mid.topology, "single");
+  assert.equal(mid.azureCores, 100);
+  // Both topologies bill the same published rate, so fewer vCores is cheaper.
+  assert.ok(small.compute / small.azureCores - mid.compute / mid.azureCores < 1e-6);
+});
+
+test("pooling needs a known instance count and never applies to VM or Database", () => {
+  const base = {standard: 100, enterprise: 0, migrationPct: 100, rightSizePct: 20, unitCores: 16};
+  // Without an instance count the topology is unknown, so consolidation stands.
+  assert.equal(run(base).scenarios[1].topology, "single");
+  const pooled = run({...base, instanceCount: 80});
+  assert.equal(pooled.scenarios[1].topology, "pool");
+  // A virtual machine has no equivalent construct.
+  assert.equal(pooled.scenarios[0].topology, "single");
+  // Azure SQL Database has elastic pools, which are a different construct that
+  // does not remove the four-vCore floor, so the Database column must stay on
+  // the single-instance topology even where pooling wins for Managed Instance.
+  const db = run({...base, instanceCount: 80, purchaseModel: "provisioned"}).scenarios[2];
+  assert.equal(db.topology, "single");
+  assert.equal(db.azureCores, 320);
+  assert.ok(db.azureCores > pooled.scenarios[1].azureCores);
 });
 
 test("instances are shared between editions in proportion to their demand", () => {
