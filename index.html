@@ -5037,9 +5037,23 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
         }
       }
       coveredCores += covered;
+      // Long lists are summarised by grouping equal sizes rather than naming
+      // the first one, because the fitted layout usually ends on a smaller
+      // remainder and "16 each" would misstate it.
+      const describe = list => {
+        if (list.length <= 6) return list.join(" + ");
+        const groups = [];
+        for (const s of list) {
+          const last = groups[groups.length - 1];
+          if (last && last.size === s) last.n += 1; else groups.push({size: s, n: 1});
+        }
+        groups.sort((a, b) => b.size - a.size);
+        return groups.map(g => `${g.n} \u00d7 ${g.size}`).join(" + ");
+      };
+      const unit = key === "vm" ? "vCPU" : "vCore";
       allocation.push(`${edition}: ${layout.topology === "pool"
-        ? `${instancesPer[edition]} instance(s) of ${layout.instanceSize} vCore in ${sizeList.length} pool(s) of ${sizeList.length > 6 ? `${sizeList[0]} vCore each` : sizeList.join(" + ")}`
-        : `${sizeList.length} ${instancesPer ? "instance" : "deployment"}(s) of ${sizeList.length > 6 ? `${sizeList[0]} ${key === "vm" ? "vCPU" : "vCore"} each` : sizeList.join(" + ")}`} for ${required[edition]} required; ${covered} ${key === "vm" ? "vCPU" : "vCore"} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
+        ? `${instancesPer[edition]} instance(s) of ${layout.instanceSize} vCore in ${sizeList.length} pool(s) of ${describe(sizeList)} vCore`
+        : `${sizeList.length} ${instancesPer ? "instance" : "deployment"}(s) of ${describe(sizeList)} ${unit}`} for ${required[edition]} required; ${covered} ${unit} assumed SQL AHB${key === "vm" && input.ahb ? "; Windows Server AHB assumed" : ""}`);
     }
     let storage = 0, storageDetail = "No Azure deployments";
     if (deployments && key === "vm") {
