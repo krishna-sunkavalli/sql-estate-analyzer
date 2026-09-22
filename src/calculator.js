@@ -154,7 +154,7 @@ function positiveRate(value, name) {
 }
 
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
-  const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 50,
+  const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 100,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
     vmPlan: "auto", miPlan: "auto", migrationPct: 50, instanceCount: null, serviceTier: "gp",
     purchaseModel: "serverless",
@@ -719,7 +719,7 @@ if (typeof document !== "undefined") {
         line("SQL cores (existing)", int(total)),
         line("Software Assurance renewal", money(baseline.sa * 12) + " / year",
           `${mix} cores at published list`),
-        line("Infrastructure &amp; operations", money(baseline.infrastructure * 12) + " / year",
+        line("Hardware &amp; facilities", money(baseline.infrastructure * 12) + " / year",
           `${int(inScope)} cores &times; ${money(input.onPremPerCoreMonth * 12)} / core / year`),
       ].join("");
 
@@ -745,12 +745,14 @@ if (typeof document !== "undefined") {
             : "No cores held on Software Assurance"),
         line("Azure hosting", money((az.compute + az.sqlLicense + az.storage) * 12) + " / year",
           `${money(az.compute + az.sqlLicense + az.storage)} / month &middot; ${esc(PLANS[az.plan])}`),
-        // This is not an on-premises cost sitting inside the Azure column: it is
-        // the operational spend that survives the migration. It has to appear
-        // here, because the renewal column carries the whole of it and removing
-        // it from this side alone would silently inflate the saving.
-        line("Operations after migrating", money(az.infrastructure * 12) + " / year",
-          `${input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed to go away`),
+        // Server, storage, power, cooling, rack and facilities for the migrated
+        // cores. Migrating decommissions that hardware, so the default is that
+        // all of it goes. The dial exists for estates that keep boxes running
+        // through a dual-run period or cannot shrink a fixed facility cost.
+        line("Hardware still running", money(az.infrastructure * 12) + " / year",
+          input.avoidablePct >= 100
+            ? `All ${money(baseline.infrastructure * 12)} retired with the migrated servers`
+            : `${100 - input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed to stay`),
       ].join("");
 
       const ahbApplies = az.key !== "serverless";
@@ -767,8 +769,8 @@ if (typeof document !== "undefined") {
           ? `Azure Hybrid Benefit keeps Software Assurance on ${int(az.licenseCores)} cores instead of ${int(inScope)}.`
           : input.ahb ? `Azure Hybrid Benefit is applied, but this footprint still needs Software Assurance on ${int(az.licenseCores)} cores.`
           : `Azure Hybrid Benefit is switched off, so the Azure SQL licence meter is paid instead.`,
-        opsYear > 0 ? `Migrating avoids about ${money(opsYear)} a year of on-premises infrastructure and operations.`
-          : `On-premises operations are unchanged at this migration share.`,
+        opsYear > 0 ? `Decommissioning the migrated servers removes about ${money(opsYear)} a year of hardware and facilities cost.`
+          : `On-premises hardware is unchanged at this migration share.`,
         saving3 > 0 ? `Estimated ${money(saving3)} lower over three years, about ${savingPct.toFixed(0)}% against renewing.`
           : `This configuration costs ${money(-saving3)} more over three years than renewing.`,
       ].map(x => `<li>${x}</li>`).join("");

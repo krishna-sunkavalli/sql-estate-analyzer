@@ -54,7 +54,9 @@ test("the shipped default owns its licenses and pays only Software Assurance", (
   near(r.baseline.sa, 50*796.08/24 + 20*3052.80/24);
   near(r.baseline.threeYear,36*(70*37.5+r.baseline.sa));
   assert.equal(r.input.rightSizePct,20);
-  assert.equal(r.input.avoidablePct,50);
+  // Hardware and facilities for the migrated cores retire with the servers, so
+  // the default is that all of it goes.
+  assert.equal(r.input.avoidablePct,100);
   assert.equal(r.input.discountPct,0);
   // The remainder is reported as context, never inside the comparison, and it
   // carries no purchase either.
@@ -98,14 +100,14 @@ test("a migration that rounds down to zero cores is rejected, not silently price
 });
 test("every column prices the same in-scope cores; the remainder sits outside", () => {
   const r=run({...serverless,standard:100,enterprise:40,migrationPct:25,
-    onPremPerCoreMonth:10,licenseBasis:"refresh"});
+    onPremPerCoreMonth:10,licenseBasis:"refresh",avoidablePct:50});
   assert.deepEqual(r.moved,{standard:25,enterprise:10});
   assert.deepEqual(r.retained,{standard:75,enterprise:30});
   assert.equal(r.baseline.scopedCores,35);
   near(r.baseline.infrastructure,35*10);
   for(const s of r.scenarios) {
     assert.equal(s.scopedCores,35);
-    // Azure keeps only the unavoidable share of the in-scope operations cost.
+    // Azure keeps only the share of in-scope hardware that is not retired.
     near(s.infrastructure,35*10*0.5);
     near(s.upfront,0);
   }
@@ -113,7 +115,21 @@ test("every column prices the same in-scope cores; the remainder sits outside", 
   near(r.retainedContext.infrastructure,105*10);
   near(r.retainedContext.upfront,Math.ceil(75/2)*3945+15*15123);
 });
-test("0/50/100 percent avoidable costs at full migration preserve the fixed share", () => {
+test("hardware retired by migrating defaults to all of it, and the dial still works", () => {
+  // The per-core rate is hardware and facilities for the migrated cores, so the
+  // servers retire with the migration and nothing is carried into Azure. The
+  // dial exists for dual-run periods and fixed facility costs that cannot shrink.
+  const d = run({...serverless, onPremPerCoreMonth: 37.5});
+  assert.equal(d.input.avoidablePct, 100);
+  for (const s of d.scenarios) near(s.infrastructure, 0);
+  // The renewal column always carries the whole of it, whatever the dial says.
+  near(d.baseline.infrastructure, 16 * 37.5);
+  const half = run({...serverless, onPremPerCoreMonth: 37.5, avoidablePct: 50});
+  near(half.baseline.infrastructure, 16 * 37.5);
+  for (const s of half.scenarios) near(s.infrastructure, 16 * 37.5 * 0.5);
+});
+
+test("the retired share sweeps correctly across its whole range", () => {
   for(const avoidablePct of [0,50,100]) {
     const r=run({...serverless,avoidablePct,onPremPerCoreMonth:37.5});
     for(const s of r.scenarios) near(s.infrastructure,16*37.5*(1-avoidablePct/100));
@@ -299,7 +315,7 @@ test("the assumed database count scales with the maximum vCores per database", (
 });
 test("serverless 0/25/100 online percent bills online compute and all-month storage", () => {
   for(const activePct of [0,25,100]) {
-    const s=run({...serverless,activePct,onPremPerCoreMonth:10}).scenarios[2];
+    const s=run({...serverless,activePct,onPremPerCoreMonth:10,avoidablePct:50}).scenarios[2];
     near(s.compute,2*2*730*activePct/100*0.5);
     near(s.storage,100*0.12);
     near(s.infrastructure,80);
@@ -482,13 +498,14 @@ test("a missing published SA price fails rather than treating Software Assurance
 
 test("all four columns price the same in-scope workload, and Azure right-sizes below it", () => {
   const r = run({...serverless, standard: 100, enterprise: 0, migrationPct: 50,
-    rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, licenseBasis: "refresh"});
+    rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, licenseBasis: "refresh",
+    avoidablePct: 50});
   // Same scope in every column: the 50 cores selected for migration.
   for (const s of [r.baseline, ...r.scenarios]) assert.equal(s.scopedCores, 50);
   // Right-sizing means Azure provisions less capacity than the source footprint.
   assert.equal(r.required.standard, 40);
   assert.ok(r.required.standard < 50);
-  // Only the on-premises column pays for all 50 cores of operations.
+  // Only the on-premises column pays for all 50 cores of hardware.
   near(r.baseline.infrastructure, 50 * 37.5);
   for (const s of r.scenarios) near(s.infrastructure, 50 * 37.5 * 0.5);
   // The untouched 50 cores are excluded from every column, reported separately.
