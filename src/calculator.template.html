@@ -83,8 +83,11 @@
 .opt-col-head p { margin: 3px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--cp-text-muted); }
 .opt-badge { margin-left: auto; flex: none; padding: 4px 10px; border-radius: 999px; background: var(--cp-success-soft, #dff6dd); color: var(--cp-success); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .opt-badge.is-off { background: var(--cp-bg-elevated); color: var(--cp-text-muted); }
-.opt-lines { flex: 1; margin: 0; padding: 0 18px; }
-.opt-line { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 11px 0; border-top: 1px solid var(--cp-border); font-size: 12.5px; }
+/* The two columns are equal height so their totals line up for comparison, but
+   they rarely have the same number of cost lines. The rows share the spare
+   height between them instead of leaving it pooled under the last one. */
+.opt-lines { flex: 1; margin: 0; padding: 0 18px; display: flex; flex-direction: column; }
+.opt-line { flex: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 11px 0; border-top: 1px solid var(--cp-border); font-size: 12.5px; }
 .opt-line dt { color: var(--cp-text-muted); }
 .opt-line dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 .opt-line dd em { display: block; font-style: normal; font-weight: 400; font-size: 11px; color: var(--cp-text-muted); margin-top: 2px; }
@@ -100,14 +103,18 @@
 .opt-chart-wrap h3, .opt-takeaways h3 { margin: 0 0 3px; font-size: 14px; font-weight: 650; }
 .opt-chart-wrap > div > p { margin: 0 0 12px; font-size: 11.5px; color: var(--cp-text-muted); }
 .opt-chart { width: 100%; height: auto; }
-.opt-save { align-self: start; padding: 16px; border-radius: 10px; background: var(--cp-accent-soft); }
+/* A callout beside a taller chart. Centring splits the spare height above and
+   below it rather than stranding all of it underneath. */
+.opt-save { align-self: center; padding: 16px; border-radius: 10px; background: var(--cp-accent-soft); }
 .opt-save h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 12.5px; font-weight: 650; color: var(--cp-accent); }
 .opt-save b { display: block; font-size: 24px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
 .opt-save .vs { display: block; margin-top: 2px; font-size: 12px; color: var(--cp-text-muted); }
 .opt-save p { margin: 10px 0 0; font-size: 11px; line-height: 1.55; color: var(--cp-text-muted); }
-.opt-takeaways { border: 1px solid var(--cp-border); border-radius: 12px; padding: 18px; background: var(--cp-accent-soft); }
+/* This panel sits beside the taller chart panel, so the list spreads to fill
+   the height instead of leaving the slack below the last point. */
+.opt-takeaways { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; padding: 18px; background: var(--cp-accent-soft); }
 .opt-takeaways h3 { display: flex; align-items: center; gap: 8px; color: var(--cp-accent); margin-bottom: 12px; }
-.opt-takeaways ol { margin: 0; padding: 0; list-style: none; counter-reset: t; }
+.opt-takeaways ol { flex: 1; display: flex; flex-direction: column; justify-content: space-between; margin: 0; padding: 0; list-style: none; counter-reset: t; }
 .opt-takeaways li { display: flex; gap: 11px; padding: 7px 0; font-size: 12px; line-height: 1.5; counter-increment: t; }
 .opt-takeaways li::before { content: counter(t); flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--cp-accent); color: #fff; font-size: 11px; font-weight: 700; }
 
