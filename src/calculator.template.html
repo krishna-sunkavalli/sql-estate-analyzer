@@ -74,17 +74,21 @@
 .opt-reset { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 9px 15px; border: 1px solid var(--cp-border); border-radius: 9px; background: var(--cp-surface); color: var(--cp-text); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .opt-reset:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
 .opt-compare { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; }
-.opt-col { border: 1px solid var(--cp-border); border-radius: 12px; overflow: hidden; background: var(--cp-surface); }
+/* Both columns are read side by side, so they are built to line up: the two
+   heads are the same height whatever the blurb, the line lists absorb the
+   difference in row count, and the totals meet at the same baseline. */
+.opt-col { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; overflow: hidden; background: var(--cp-surface); }
 .opt-col.is-azure { border-color: var(--cp-accent); }
-.opt-col-head { display: flex; align-items: flex-start; gap: 13px; padding: 16px 18px; }
+.opt-col-head { display: flex; align-items: flex-start; gap: 13px; min-height: 76px; padding: 16px 18px; }
 .opt-col.is-azure .opt-col-head { background: var(--cp-accent-soft); }
 .opt-col-head svg { flex: none; color: var(--cp-accent); margin-top: 2px; }
 .opt-col-head h3 { margin: 0; font-size: 15px; font-weight: 650; color: var(--cp-accent); }
 .opt-col-head h3 span { color: var(--cp-text-muted); font-weight: 400; }
+/* A single line, so a long service name and a short one keep the same head. */
 .opt-col-head p { margin: 3px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--cp-text-muted); }
 .opt-badge { margin-left: auto; flex: none; padding: 4px 10px; border-radius: 999px; background: var(--cp-success-soft, #dff6dd); color: var(--cp-success); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .opt-badge.is-off { background: var(--cp-bg-elevated); color: var(--cp-text-muted); }
-.opt-lines { margin: 0; padding: 0 18px; }
+.opt-lines { flex: 1; margin: 0; padding: 0 18px; }
 .opt-line { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 11px 0; border-top: 1px solid var(--cp-border); font-size: 12.5px; }
 .opt-line dt { color: var(--cp-text-muted); }
 .opt-line dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }

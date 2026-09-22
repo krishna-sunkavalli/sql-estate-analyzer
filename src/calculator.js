@@ -530,9 +530,9 @@ if (typeof document !== "undefined") {
     };
 
     const TARGETS = {
-      vm: {idx: 0, label: "SQL Server on Azure VM", blurb: "Lift and shift onto Azure Virtual Machines, keeping full SQL Server control.", unit: "vCPU"},
-      mi: {idx: 1, label: "Azure SQL Managed Instance", blurb: "Run your SQL workloads on a managed platform and use your existing licences with Azure Hybrid Benefit.", unit: "vCore"},
-      db: {idx: 2, label: "Azure SQL Database", blurb: "Single databases and elastic pools, sized per database.", unit: "vCore"},
+      vm: {idx: 0, label: "SQL Server on Azure VM", blurb: "Lift and shift, full SQL Server control.", unit: "vCPU"},
+      mi: {idx: 1, label: "Azure SQL Managed Instance", blurb: "Fully managed, near-full SQL Server compatibility.", unit: "vCore"},
+      db: {idx: 2, label: "Azure SQL Database", blurb: "Single databases and elastic pools.", unit: "vCore"},
     };
     // A virtual machine has no service tier. Managed Instance is qualified by
     // tier, Azure SQL Database by purchase model. Options the snapshot cannot
@@ -763,6 +763,10 @@ if (typeof document !== "undefined") {
 
       const takeaways = [
         `Right-sizing at ${input.rightSizePct}% takes ${int(inScope)} source cores to ${int(az.azureCores)} ${t.unit}.`,
+        // Moved out of the card heading, which is now a single line, but the
+        // parity is worth stating: the two services are not priced differently
+        // at this tier, so the choice is about management model, not cost.
+        ...(az.key === "dbProvisioned" ? ["At General Purpose this prices the same as Managed Instance: both bill against the Gen5 compute meter at the same storage rate."] : []),
         ...(az.topology === "pool" ? [`Instance pools are cheaper here: a two-vCore instance only exists inside a pool, and the pool is the billable unit, so these ${int(input.instanceCount)} servers avoid the four-vCore single-instance minimum.`] : []),
         !ahbApplies
           ? `Azure Hybrid Benefit does not apply to serverless, so its SQL licence is included in the hourly rate instead.`
@@ -782,7 +786,7 @@ if (typeof document !== "undefined") {
             <div class="opt-col-head">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cp-text-muted)"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
               <div><h3 style="color:var(--cp-text)">Renew on-prem <span>(Current path)</span></h3>
-              <p>Keep the SQL Server estate on-premises and renew Software Assurance.</p></div>
+              <p>Keep the estate on-premises and renew Software Assurance.</p></div>
             </div>
             <dl class="opt-lines">${renewLines}</dl>
             <div class="opt-total"><span>Estimated annual cost</span><b>${money(onPremYear)}</b></div>
@@ -790,8 +794,7 @@ if (typeof document !== "undefined") {
           <div class="opt-col is-azure">
             <div class="opt-col-head">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3 3.5 18h4L14 3zM13 9l-4.5 9H21z"/></svg>
-              <div><h3>Modernize to Azure</h3><p>${esc(t.blurb)}${az.key === "dbProvisioned"
-                ? " At General Purpose this prices the same as Managed Instance: both bill against the Gen5 compute meter at the same storage rate." : ""}</p></div>
+              <div><h3>Modernize to Azure</h3><p>${esc(t.blurb)}</p></div>
               <span class="opt-badge${badge.cls}">${badge.text}</span>
             </div>
             <dl class="opt-lines">${azLines}</dl>
