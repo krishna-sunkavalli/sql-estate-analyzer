@@ -740,11 +740,17 @@ if (typeof document !== "undefined") {
           ratioText(az.key, input.serviceTier,
             ["enterprise", "standard"].filter(e => moved[e] > 0))),
         line("Software Assurance renewal", money(az.sa * 12) + " / year",
-          az.licenseCores > 0 ? `${int(az.licenseCores)} cores at published list` : "No cores held on Software Assurance"),
+          az.licenseCores > 0
+            ? `${int(az.licenseCores)} cores at published list, required to keep Azure Hybrid Benefit`
+            : "No cores held on Software Assurance"),
         line("Azure hosting", money((az.compute + az.sqlLicense + az.storage) * 12) + " / year",
           `${money(az.compute + az.sqlLicense + az.storage)} / month &middot; ${esc(PLANS[az.plan])}`),
-        line("Retained on-premises operations", money(az.infrastructure * 12) + " / year",
-          `${input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed avoidable`),
+        // This is not an on-premises cost sitting inside the Azure column: it is
+        // the operational spend that survives the migration. It has to appear
+        // here, because the renewal column carries the whole of it and removing
+        // it from this side alone would silently inflate the saving.
+        line("Operations after migrating", money(az.infrastructure * 12) + " / year",
+          `${input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed to go away`),
       ].join("");
 
       const ahbApplies = az.key !== "serverless";
