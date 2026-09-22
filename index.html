@@ -676,14 +676,6 @@ details.acc[open] summary { margin-bottom: 9px; }
           </div>
         </div>
         <div class="opt-field">
-          <label for="migrationPct">Share moving to Azure</label>
-          <div class="opt-slider-row">
-            <input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="1" value="100">
-            <output class="opt-pct" id="migrationValue" for="migrationPct">100%</output>
-          </div>
-          <span class="opt-sub" id="scopeSub">&nbsp;</span>
-        </div>
-        <div class="opt-field">
           <label for="rightSizePct">Right-sizing opportunity</label>
           <div class="opt-slider-row">
             <input id="rightSizePct" name="rightSizePct" type="range" min="0" max="60" step="5" value="20">
@@ -767,7 +759,7 @@ details.acc[open] summary { margin-bottom: 9px; }
             <label>Share retired by migrating (%)
               <input class="opt-num" id="avoidablePct" type="number" min="0" max="100" step="1" value="100" required>
             </label>
-            <label>Migrated data storage (GB, total)
+            <label>Data storage (GB, total)
               <input class="opt-num" id="storageGB" type="number" min="0" max="10000000" step="1" value="0" required>
             </label>
             <label>SQL instances
@@ -4826,7 +4818,7 @@ function positiveRate(value, name) {
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 100,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
-    vmPlan: "auto", miPlan: "auto", migrationPct: 50, instanceCount: null, serviceTier: "gp",
+    vmPlan: "auto", miPlan: "auto", migrationPct: 100, instanceCount: null, serviceTier: "gp",
     purchaseModel: "serverless",
     databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
@@ -5258,7 +5250,9 @@ if (typeof document !== "undefined") {
         target,
         standard: Math.floor(Number($("standard").value) || 0),
         enterprise: Math.floor(Number($("enterprise").value) || 0),
-        migrationPct: Number($("migrationPct").value),
+        // The whole estate is costed on both sides, so the two columns price
+        // exactly the same cores and stay directly comparable.
+        migrationPct: 100,
         rightSizePct: Number($("rightSizePct").value),
         region: region.value,
         licenseBasis: "existing",
@@ -5328,7 +5322,6 @@ if (typeof document !== "undefined") {
       syncQualifier();
       const input = readInput();
       const t = TARGETS[input.target];
-      $("migrationValue").textContent = `${input.migrationPct}%`;
       $("rightSizeValue").textContent = `${input.rightSizePct}%`;
 
       let report;
@@ -5337,14 +5330,12 @@ if (typeof document !== "undefined") {
         error.textContent = e.message;
         error.hidden = false;
         output.innerHTML = "";
-        $("scopeSub").textContent = "";
         return;
       }
       error.hidden = true;
       const {source, moved, required, baseline, scenarios} = report;
       const total = source.standard + source.enterprise;
       const inScope = moved.standard + moved.enterprise;
-      $("scopeSub").textContent = `${int(inScope)} of ${int(total)} cores in scope`;
 
       const az = scenarios[t.idx];
 
@@ -5503,7 +5494,6 @@ if (typeof document !== "undefined") {
         ["Region", REGION_NAMES[input.region] ?? input.region],
         ["Standard cores", input.standard],
         ["Enterprise cores", input.enterprise],
-        ["Share moving to Azure", `${input.migrationPct}%`],
         ["Right-sizing", `${input.rightSizePct}%`],
         ["Target service", t.label],
         ["Commitment term", PLANS[az.plan]],

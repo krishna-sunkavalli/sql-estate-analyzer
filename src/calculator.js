@@ -156,7 +156,7 @@ function positiveRate(value, name) {
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 100,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
-    vmPlan: "auto", miPlan: "auto", migrationPct: 50, instanceCount: null, serviceTier: "gp",
+    vmPlan: "auto", miPlan: "auto", migrationPct: 100, instanceCount: null, serviceTier: "gp",
     purchaseModel: "serverless",
     databaseCount: null, serverlessMin: 1, serverlessMax: 8,
     serverlessBillable: 2, activePct: 25, ...raw};
@@ -588,7 +588,9 @@ if (typeof document !== "undefined") {
         target,
         standard: Math.floor(Number($("standard").value) || 0),
         enterprise: Math.floor(Number($("enterprise").value) || 0),
-        migrationPct: Number($("migrationPct").value),
+        // The whole estate is costed on both sides, so the two columns price
+        // exactly the same cores and stay directly comparable.
+        migrationPct: 100,
         rightSizePct: Number($("rightSizePct").value),
         region: region.value,
         licenseBasis: "existing",
@@ -658,7 +660,6 @@ if (typeof document !== "undefined") {
       syncQualifier();
       const input = readInput();
       const t = TARGETS[input.target];
-      $("migrationValue").textContent = `${input.migrationPct}%`;
       $("rightSizeValue").textContent = `${input.rightSizePct}%`;
 
       let report;
@@ -667,14 +668,12 @@ if (typeof document !== "undefined") {
         error.textContent = e.message;
         error.hidden = false;
         output.innerHTML = "";
-        $("scopeSub").textContent = "";
         return;
       }
       error.hidden = true;
       const {source, moved, required, baseline, scenarios} = report;
       const total = source.standard + source.enterprise;
       const inScope = moved.standard + moved.enterprise;
-      $("scopeSub").textContent = `${int(inScope)} of ${int(total)} cores in scope`;
 
       const az = scenarios[t.idx];
 
@@ -833,7 +832,6 @@ if (typeof document !== "undefined") {
         ["Region", REGION_NAMES[input.region] ?? input.region],
         ["Standard cores", input.standard],
         ["Enterprise cores", input.enterprise],
-        ["Share moving to Azure", `${input.migrationPct}%`],
         ["Right-sizing", `${input.rightSizePct}%`],
         ["Target service", t.label],
         ["Commitment term", PLANS[az.plan]],

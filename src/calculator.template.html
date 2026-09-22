@@ -188,14 +188,6 @@
           </div>
         </div>
         <div class="opt-field">
-          <label for="migrationPct">Share moving to Azure</label>
-          <div class="opt-slider-row">
-            <input id="migrationPct" name="migrationPct" type="range" min="0" max="100" step="1" value="100">
-            <output class="opt-pct" id="migrationValue" for="migrationPct">100%</output>
-          </div>
-          <span class="opt-sub" id="scopeSub">&nbsp;</span>
-        </div>
-        <div class="opt-field">
           <label for="rightSizePct">Right-sizing opportunity</label>
           <div class="opt-slider-row">
             <input id="rightSizePct" name="rightSizePct" type="range" min="0" max="60" step="5" value="20">
@@ -279,7 +271,7 @@
             <label>Share retired by migrating (%)
               <input class="opt-num" id="avoidablePct" type="number" min="0" max="100" step="1" value="100" required>
             </label>
-            <label>Migrated data storage (GB, total)
+            <label>Data storage (GB, total)
               <input class="opt-num" id="storageGB" type="number" min="0" max="10000000" step="1" value="0" required>
             </label>
             <label>SQL instances
