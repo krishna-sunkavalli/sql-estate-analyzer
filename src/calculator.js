@@ -709,10 +709,17 @@ if (typeof document !== "undefined") {
 
       // Every money line is annual, and the lines in each column sum to that
       // column's total, so the figure at the foot can be checked on screen.
+      // The two columns are a line-by-line comparison, so they carry the same
+      // four lines in the same order: the footprint, the cores still under
+      // Software Assurance, what that costs, and what the infrastructure costs.
+      // Equal line counts are also what keeps the dividers aligned across the
+      // two cards, since each column shares its height between its own rows.
       const renewLines = [
-        line("SQL cores (existing)", int(total)),
+        line("SQL cores (existing)", int(total), mix ? `${mix} cores` : ""),
+        line("Cores on Software Assurance", int(baseline.licenseCores),
+          "Every core carries its own licence"),
         line("Software Assurance renewal", money(baseline.sa * 12) + " / year",
-          `${mix} cores at published list`),
+          "At published list"),
         line("Hardware &amp; facilities", money(baseline.infrastructure * 12) + " / year",
           `${int(inScope)} cores &times; ${money(input.onPremPerCoreMonth * 12)} / core / year`),
       ].join("");
@@ -726,6 +733,7 @@ if (typeof document !== "undefined") {
         ? `${int(az.deployments)} deployment(s), four-${t.unit} minimum each`
         : null;
 
+      const azHosting = az.compute + az.sqlLicense + az.storage;
       const azLines = [
         line("Right-sized Azure compute", az.key === "serverless"
           ? `${int(az.deployments)} database(s)` : `${int(az.azureCores)} ${t.unit}`,
@@ -735,20 +743,19 @@ if (typeof document !== "undefined") {
             ["enterprise", "standard"].filter(e => moved[e] > 0))),
         line("Software Assurance renewal", money(az.sa * 12) + " / year",
           az.licenseCores > 0
-            ? `${int(az.licenseCores)} cores at published list, required to keep Azure Hybrid Benefit`
+            ? `At published list, required to keep Azure Hybrid Benefit`
             : "No cores held on Software Assurance"),
-        line("Azure hosting", money((az.compute + az.sqlLicense + az.storage) * 12) + " / year",
-          `${money(az.compute + az.sqlLicense + az.storage)} / month &middot; ${esc(PLANS[az.plan])}`),
         // Server, storage, power, cooling, rack and facilities for the migrated
         // cores. Migrating decommissions that hardware, so by default none of it
-        // survives and the line is omitted rather than printed as a zero. It
-        // reappears only for estates that keep boxes running through a dual-run
-        // period or cannot shrink a fixed facility cost, where the column would
-        // otherwise not add up to its own total.
+        // survives and this is purely the Azure bill. For estates that keep boxes
+        // running through a dual-run period, the residue joins this line instead
+        // of becoming a fifth one, so the two columns keep the same four lines
+        // and their dividers stay aligned.
         az.infrastructure > 0
-          ? line("Hardware still running", money(az.infrastructure * 12) + " / year",
-            `${100 - input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed to stay`)
-          : "",
+          ? line("Hosting &amp; retained hardware", money((azHosting + az.infrastructure) * 12) + " / year",
+            `${money(azHosting * 12)} hosting + ${money(az.infrastructure * 12)} hardware still running`)
+          : line("Azure hosting", money(azHosting * 12) + " / year",
+            `${money(azHosting)} / month &middot; ${esc(PLANS[az.plan])}`),
       ].join("");
 
       const ahbApplies = az.key !== "serverless";
@@ -820,6 +827,8 @@ if (typeof document !== "undefined") {
         </div>`;
     };
 
+    // The assumptions panel spans both columns, so it sits outside the form and
+    // needs its own listener.
     for (const root of [form, $("optAssumptions")]) {
       root.addEventListener("input", render);
       root.addEventListener("change", render);

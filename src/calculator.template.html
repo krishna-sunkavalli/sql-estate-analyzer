@@ -119,7 +119,10 @@
 .opt-takeaways li::before { content: counter(t); flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--cp-accent); color: #fff; font-size: 11px; font-weight: 700; }
 
 /* Assumptions */
-.opt-assume { margin-top: 18px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); overflow: hidden; }
+/* A page-level panel rather than a column one: it spans the input rail and the
+   results together, so its inputs lay out in a single row instead of a long
+   stack, and it squares off the bottom of the page. */
+.opt-assume { grid-column: 1 / -1; margin-top: 18px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); overflow: hidden; }
 .opt-assume summary { display: flex; align-items: center; gap: 13px; padding: 16px 18px; list-style: none; cursor: pointer; font-size: 14px; font-weight: 650; }
 .opt-assume summary::-webkit-details-marker { display: none; }
 .opt-assume summary svg { flex: none; color: var(--cp-accent); }
@@ -253,6 +256,7 @@
       </div>
       <p id="optError" class="opt-error" role="alert" hidden></p>
       <div id="optOutput"></div>
+    </div>
 
       <details class="opt-assume" id="optAssumptions">
         <summary>
@@ -290,7 +294,6 @@
             These are directional numbers to help you start evaluating SQL options in Azure. Run an <a href="https://learn.microsoft.com/en-us/azure/migrate/migrate-services-overview">Azure Migrate assessment</a> for an accurate estimate.</p>
         </div>
       </details>
-    </div>
   </div>
 
   <footer class="opt-foot">
