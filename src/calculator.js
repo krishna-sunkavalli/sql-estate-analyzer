@@ -524,11 +524,6 @@ if (typeof document !== "undefined") {
     for (const name of Object.keys(CALCULATOR_PRICES.regions)) region.add(new Option(REGION_NAMES[name] ?? name, name));
     region.value = "eastus";
 
-    $("btnTheme").onclick = () => {
-      const root = document.documentElement;
-      root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
-    };
-
     const TARGETS = {
       vm: {idx: 0, label: "SQL Server on Azure VM", blurb: "Lift and shift, full SQL Server control.", unit: "vCPU"},
       mi: {idx: 1, label: "Azure SQL Managed Instance", blurb: "Fully managed, near-full SQL Server compatibility.", unit: "vCore"},
@@ -825,57 +820,11 @@ if (typeof document !== "undefined") {
         </div>`;
     };
 
-    const exportCsv = () => {
-      const input = readInput();
-      let report;
-      try { report = calculateCoreOptions(input); } catch { return; }
-      const t = TARGETS[input.target];
-      const az = report.scenarios[t.idx];
-      if (az.status !== "ready") return;
-      const rows = [
-        ["SQL Renewal Optimizer"],
-        ["Region", REGION_NAMES[input.region] ?? input.region],
-        ["Standard cores", input.standard],
-        ["Enterprise cores", input.enterprise],
-        ["Right-sizing", `${input.rightSizePct}%`],
-        ["Target service", t.label],
-        ["Commitment term", PLANS[az.plan]],
-        ["Azure Hybrid Benefit", input.ahb ? "Applied" : "Not applied"],
-        [],
-        ["", "Renew on-prem", "Modernize to Azure"],
-        ["Monthly", Math.round(report.baseline.monthly), Math.round(az.monthly)],
-        ["Annual", Math.round(report.baseline.monthly * 12), Math.round(az.monthly * 12)],
-        ["3-year total", Math.round(report.baseline.threeYear), Math.round(az.threeYear)],
-        ["3-year saving", "", Math.round(report.baseline.threeYear - az.threeYear)],
-        [],
-        ["Directional estimate at published list prices. Run an Azure Migrate assessment for an accurate one."],
-      ];
-      const csv = rows.map(r => r.map(c => {
-        const s = String(c ?? "");
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      }).join(",")).join("\r\n");
-      const url = URL.createObjectURL(new Blob([csv], {type: "text/csv;charset=utf-8"}));
-      const a = Object.assign(document.createElement("a"),
-        {href: url, download: "sql-renewal-optimizer.csv"});
-      document.body.append(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    };
-
     for (const root of [form, $("optAssumptions")]) {
       root.addEventListener("input", render);
       root.addEventListener("change", render);
     }
     form.addEventListener("submit", e => e.preventDefault());
-    $("btnExport").addEventListener("click", exportCsv);
-    $("btnReset").addEventListener("click", () => {
-      form.reset();
-      $("optAssumptions").querySelectorAll("input, select").forEach(el => {
-        if (el.type === "checkbox") el.checked = el.defaultChecked;
-        else el.value = el.defaultValue;
-      });
-      region.value = "eastus";
-      render();
-    });
     render();
   });
 }
