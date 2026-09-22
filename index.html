@@ -5407,13 +5407,15 @@ if (typeof document !== "undefined") {
         line("Azure hosting", money((az.compute + az.sqlLicense + az.storage) * 12) + " / year",
           `${money(az.compute + az.sqlLicense + az.storage)} / month &middot; ${esc(PLANS[az.plan])}`),
         // Server, storage, power, cooling, rack and facilities for the migrated
-        // cores. Migrating decommissions that hardware, so the default is that
-        // all of it goes. The dial exists for estates that keep boxes running
-        // through a dual-run period or cannot shrink a fixed facility cost.
-        line("Hardware still running", money(az.infrastructure * 12) + " / year",
-          input.avoidablePct >= 100
-            ? `All ${money(baseline.infrastructure * 12)} retired with the migrated servers`
-            : `${100 - input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed to stay`),
+        // cores. Migrating decommissions that hardware, so by default none of it
+        // survives and the line is omitted rather than printed as a zero. It
+        // reappears only for estates that keep boxes running through a dual-run
+        // period or cannot shrink a fixed facility cost, where the column would
+        // otherwise not add up to its own total.
+        az.infrastructure > 0
+          ? line("Hardware still running", money(az.infrastructure * 12) + " / year",
+            `${100 - input.avoidablePct}% of ${money(baseline.infrastructure * 12)} assumed to stay`)
+          : "",
       ].join("");
 
       const ahbApplies = az.key !== "serverless";
