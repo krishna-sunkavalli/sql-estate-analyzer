@@ -533,18 +533,29 @@ if (typeof document !== "undefined") {
     // tier, Azure SQL Database by purchase model. Options the snapshot cannot
     // price are listed but disabled, and every option states whether Azure
     // Hybrid Benefit reaches it, since that is the reason to prefer one.
+    // Azure SQL Database has two levels here, and flattening them into one list
+    // made Serverless and DTU look like peers. They are not: DTU is a separate
+    // purchasing model, while Provisioned and Serverless are the two compute
+    // tiers inside the vCore model. Groups keep that structure visible.
     const QUALIFIERS = {
       vm: null,
-      mi: {label: "Service tier", options: [
-        {value: "gp", text: "General Purpose", priced: true, ahb: true},
-        {value: "bc", text: "Business Critical", priced: false, ahb: true},
+      mi: {label: "Service tier", groups: [
+        {label: "vCore purchasing model", options: [
+          {value: "gp", text: "General Purpose", priced: true, ahb: true},
+          {value: "bc", text: "Business Critical", priced: false, ahb: true},
+        ]},
       ]},
-      db: {label: "Purchase model", options: [
-        {value: "provisioned", text: "Provisioned vCore", priced: true, ahb: true},
-        {value: "serverless", text: "Serverless", priced: true, ahb: false},
-        {value: "dtu", text: "DTU", priced: false, ahb: false},
+      db: {label: "Purchase model", groups: [
+        {label: "vCore \u2014 compute tier", options: [
+          {value: "provisioned", text: "Provisioned", priced: true, ahb: true},
+          {value: "serverless", text: "Serverless", priced: true, ahb: false},
+        ]},
+        {label: "DTU \u2014 bundled compute, storage and I/O", options: [
+          {value: "dtu", text: "Basic, Standard or Premium", priced: false, ahb: false},
+        ]},
       ]},
     };
+    const optionsOf = q => q.groups.flatMap(g => g.options);
     const syncQualifier = () => {
       const target = picked("target");
       const q = QUALIFIERS[target];
@@ -556,23 +567,32 @@ if (typeof document !== "undefined") {
       if (select.dataset.target !== target) {
         select.dataset.target = target;
         select.replaceChildren();
-        for (const o of q.options) {
-          // Two different reasons an option can stand out, so both are stated
-          // rather than left to the reader: disabled means this snapshot has no
-          // published price, while a priced option can still be outside Azure
-          // Hybrid Benefit. Greying out the second kind would remove working
-          // functionality to convey a footnote.
-          const note = !o.priced ? " — not priced here" : o.ahb ? "" : " — no Azure Hybrid Benefit";
-          const opt = new Option(`${o.text}${note}`, o.value);
-          opt.disabled = !o.priced;
-          select.add(opt);
+        for (const g of q.groups) {
+          const group = document.createElement("optgroup");
+          group.label = g.label;
+          for (const o of g.options) {
+            // Two different reasons an option can stand out, so both are stated
+            // rather than left to the reader: disabled means this snapshot has
+            // no published price, while a priced option can still be outside
+            // Azure Hybrid Benefit. Greying out the second kind would remove
+            // working functionality to convey a footnote.
+            const note = !o.priced ? " — not priced here" : o.ahb ? "" : " — no Azure Hybrid Benefit";
+            const opt = new Option(`${o.text}${note}`, o.value);
+            opt.disabled = !o.priced;
+            group.append(opt);
+          }
+          select.add(group);
         }
-        select.value = q.options.find(o => o.priced).value;
+        select.value = optionsOf(q).find(o => o.priced).value;
       } else if (keep) select.value = keep;
-      const chosen = q.options.find(o => o.value === select.value);
+      const chosen = optionsOf(q).find(o => o.value === select.value);
+      // Serverless is excluded from the benefit; the DTU model has no access to
+      // it at all. Saying only "does not apply" would conflate the two.
       $("qualifierSub").textContent = chosen?.ahb
         ? "Azure Hybrid Benefit applies to this option."
-        : "Azure Hybrid Benefit does not apply to this option.";
+        : chosen?.value === "serverless"
+        ? "Azure Hybrid Benefit does not apply to the serverless compute tier; its SQL licence is included in the rate."
+        : "Azure Hybrid Benefit is only offered on the vCore purchasing model.";
     };
 
     const readInput = () => {
