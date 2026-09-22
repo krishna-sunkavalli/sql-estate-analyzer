@@ -786,7 +786,7 @@ if (typeof document !== "undefined") {
             <div class="opt-col-head">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--cp-text-muted)"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
               <div><h3 style="color:var(--cp-text)">Renew on-prem <span>(Current path)</span></h3>
-              <p>Keep the estate on-premises and renew Software Assurance.</p></div>
+              <p>Stay on-premises, renew Software Assurance.</p></div>
             </div>
             <dl class="opt-lines">${renewLines}</dl>
             <div class="opt-total"><span>Estimated annual cost</span><b>${money(onPremYear)}</b></div>
