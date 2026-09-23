@@ -798,7 +798,9 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
                 <div><dt>vCores</dt><dd>2, 4, 8, 16, 24, 32, 40, 64, 80 on standard-series and
                   premium-series; memory optimized starts at 4</dd></div>
                 <div><dt>Memory</dt><dd>Standard-series 5.1 GB per vCore to 408 GB &middot; premium-series
-                  7 GB to 560 GB &middot; memory optimized 13.6 GB to 870.4 GB</dd></div>
+                  7 GB to 560 GB &middot; memory optimized 13.6 GB to 870.4 GB. The ratio stops at those
+                  maximums rather than continuing: memory optimized holds 13.6 only to 64 vCores, so an
+                  80-vCore instance gets 870.4 GB and not 1,088</dd></div>
                 <div><dt>Storage</dt><dd>2 TB at 4 vCores, 8 TB at 8 vCores, 16 TB above that</dd></div>
                 <div><dt>Instance pools</dt><dd>Pools are General Purpose only, 8 to 80 vCores, up to 40
                   instances, and are the only way to run a 2-vCore instance</dd></div>
@@ -828,6 +830,11 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
               <dl class="dopt-rows">
                 <div><dt>vCores</dt><dd>4, 8, 16, 24, 32, 40, 64, 80 on standard-series. Premium-series
                   and memory optimized add 6, 10, 12, 20, 48, 56, 96 and 128</dd></div>
+                <div><dt>Memory</dt><dd>Standard-series 5.1 GB per vCore to 408 GB &middot; premium-series
+                  7 GB to 560 GB &middot; memory optimized 13.6 GB to 870.4 GB. The ratio holds only to
+                  80 vCores on premium-series and 64 on memory optimized, so the largest sizes receive
+                  those maximums rather than the ratio: 128 vCores on memory optimized is 870.4 GB, not
+                  1,741</dd></div>
                 <div><dt>I/O</dt><dd>3 IOPS per GB reserved, a floor of 300 IOPS, and a per-vCore ceiling
                   reaching 80,000. Throughput is a thirtieth of IOPS with a 75 MB/s floor. IOPS beyond the
                   included allowance are billable</dd></div>
@@ -860,6 +867,11 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
                 <div><dt>vCores</dt><dd>4, 8, 16, 24, 32, 40, 64, 80 on standard-series. Premium-series
                   and memory optimized add 6, 10, 12, 20, 48, 56, 96 and 128. There is no 2-vCore
                   option</dd></div>
+                <div><dt>Memory</dt><dd>Standard-series 5.1 GB per vCore to 408 GB &middot; premium-series
+                  7 GB to 560 GB &middot; memory optimized 13.6 GB to 870.4 GB, on each replica. The ratio
+                  holds only to 80 vCores on premium-series and 64 on memory optimized, so the largest
+                  sizes receive those maximums rather than the ratio: 128 vCores on memory optimized is
+                  870.4 GB, not 1,741</dd></div>
                 <div><dt>Storage</dt><dd>Standard-series: 1 TB to 16 vCores, 2 TB at 24, 4 TB from 32.
                   Premium-series climbs to 5.5 TB at 24 to 56 vCores, and 5.5 TB or 16 TB above that
                   depending on the region</dd></div>
