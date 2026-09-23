@@ -661,8 +661,8 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
               <div><dt>Deployment</dt><dd>Marketplace SQL image, or install onto your own VM</dd></div>
               <div><dt>Compute</dt><dd>Memory optimized for most production work. Ebdsv5 is the documented
                 starting point; Mbdsv3 and M-series for the largest workloads</dd></div>
-              <div><dt>Storage</dt><dd>Storage optimized L-series for I/O-heavy staging
-                <i>Its local NVMe is ephemeral — data there is lost when the VM is deallocated</i></dd></div>
+              <div><dt>Storage</dt><dd>Storage optimized L-series for I/O-heavy staging on ephemeral
+                local NVMe</dd></div>
               <div><dt>Licensing</dt><dd>Constrained vCore sizes cut the billable SQL core count while
                 keeping memory and I/O</dd></div>
             </dl>
@@ -676,6 +676,9 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
                 <div><dt>Constrained</dt><dd>Two models: preset reductions on selected families, and
                   configurable constrained cores across a broader set. Both keep the parent VM's memory
                   and I/O, and you still pay parent compute and Windows licensing</dd></div>
+                <div><dt>Local NVMe</dt><dd>The L-series NVMe is ephemeral: data held there is lost
+                  when the VM is deallocated, so it suits tempdb and staging rather than data
+                  files</dd></div>
                 <div><dt>Reference</dt><dd><a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/performance-guidelines-best-practices-vm-size?view=azuresql">VM size guidance</a>
                   &middot; <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/vm-vcore-customization-for-sql?view=azuresql">vCore customization</a></dd></div>
               </dl>
@@ -690,11 +693,9 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
               <div><dt>Disk types</dt><dd>Premium SSD v2 or Premium SSD for production; Ultra Disk where
                 the log needs submillisecond latency</dd></div>
               <div><dt>Layout</dt><dd>Separate volumes for data, log and tempdb</dd></div>
-              <div><dt>tempdb</dt><dd>On the ephemeral temp disk for most workloads
-                <i>Failover cluster instances place tempdb on shared storage instead</i></dd></div>
-              <div><dt>Caching</dt><dd>Read-only on data, none on log
-                <i>Applies to Premium SSD — Premium SSD v2 and Ultra Disk do not support host caching,
-                and nor do disks of 4 TiB and larger</i></dd></div>
+              <div><dt>tempdb</dt><dd>On the ephemeral temp disk for most workloads; on shared storage
+                for cluster instances</dd></div>
+              <div><dt>Caching</dt><dd>Read-only on data, none on log, on Premium SSD</dd></div>
             </dl>
             <details class="dopt-more">
               <summary>Configuration details and limits</summary>
@@ -705,6 +706,9 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
                 <div><dt>Ceiling</dt><dd>The VM series caps uncached IOPS and throughput independently, so
                   the effective limit is the lower of the two. Above roughly 160,000 IOPS the guidance is
                   Premium SSD v2 or Ultra Disk</dd></div>
+                <div><dt>Host caching</dt><dd>Read-only on data and none on log applies to Premium SSD.
+                  Premium SSD v2 and Ultra Disk do not support host caching at all, and nor do disks of
+                  4 TiB and larger</dd></div>
                 <div><dt>Restrictions</dt><dd>Ultra Disk is locally redundant only, is unavailable in some
                   regions and VM sizes, and cannot be used with availability sets<span class="dopt-flag region">Regional</span>
                   <i>Deploying a SQL VM on Premium SSD v2 through the portal is in preview and limited to
@@ -907,8 +911,7 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
               database should be allowed to pause.</p>
             <dl class="dopt-rows">
               <div><dt>Deployment</dt><dd>Single database or elastic pool; provisioned or serverless</dd></div>
-              <div><dt>Compute</dt><dd>2 to 128 vCores
-                <i>Serverless autoscales to 80 vCores and is standard-series only</i></dd></div>
+              <div><dt>Compute</dt><dd>2 to 128 vCores provisioned, or serverless to 80</dd></div>
               <div><dt>Memory</dt><dd>5.1 GB per vCore</dd></div>
               <div><dt>Storage</dt><dd>1 GB to 4 TB on premium remote storage</dd></div>
               <div><dt>Availability</dt><dd>One replica, no read scale-out</dd></div>
@@ -917,7 +920,8 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
             <details class="dopt-more">
               <summary>Configuration details and limits</summary>
               <dl class="dopt-rows">
-                <div><dt>Serverless</dt><dd>The only tier with auto-pause. Minimum 0.5 vCores, auto-pause
+                <div><dt>Serverless</dt><dd>The only tier with auto-pause, and standard-series only.
+                  Minimum 0.5 vCores, auto-pause
                   delay from 15 minutes to 7 days with a 60-minute default, or disabled. Billed per second
                   against per-hour billing for provisioned</dd></div>
                 <div><dt>Storage size</dt><dd>Selectable in 1 GB increments up to the maximum</dd></div>
@@ -934,8 +938,7 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
             <p class="dopt-when">Consider when the database needs local SSD latency, a read scale-out
               replica, or in-memory OLTP.</p>
             <dl class="dopt-rows">
-              <div><dt>Deployment</dt><dd>Single database or elastic pool; provisioned only
-                <i>Serverless is not offered on this tier</i></dd></div>
+              <div><dt>Deployment</dt><dd>Single database or elastic pool; provisioned only</dd></div>
               <div><dt>Compute</dt><dd>2 to 128 vCores</dd></div>
               <div><dt>Memory</dt><dd>5.1 GB per vCore</dd></div>
               <div><dt>Storage</dt><dd>1 GB to 4 TB on local SSD</dd></div>
@@ -961,21 +964,23 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
             <p class="dopt-when">Consider for very large or fast-growing databases, and where read
               replicas need to scale independently of the primary.</p>
             <dl class="dopt-rows">
-              <div><dt>Deployment</dt><dd>Single database or elastic pool; provisioned or serverless
-                <i>Serverless here has no auto-pause</i></dd></div>
-              <div><dt>Compute</dt><dd>2 to 192 vCores
-                <i>The 160 and 192 vCore options are in preview</i><span class="dopt-flag">Preview</span></dd></div>
+              <div><dt>Deployment</dt><dd>Single database or elastic pool; provisioned, or serverless
+                without auto-pause</dd></div>
+              <div><dt>Compute</dt><dd>2 to 192 vCores, the largest two sizes in preview</dd></div>
               <div><dt>Memory</dt><dd>5.1 or 10.2 GB per vCore by hardware</dd></div>
               <div><dt>Storage</dt><dd>10 GB to 128 TB, decoupled with a local SSD cache, growing as
                 needed</dd></div>
               <div><dt>Availability</dt><dd>0 to 4 high-availability replicas, plus up to 30 named
                 replicas</dd></div>
               <div><dt>Hardware</dt><dd>Standard-series, premium-series, or premium-series memory
-                optimized<span class="dopt-flag region">Regional</span></dd></div>
+                optimized</dd></div>
             </dl>
             <details class="dopt-more">
               <summary>Configuration details and limits</summary>
               <dl class="dopt-rows">
+                <div><dt>Compute</dt><dd>The 160 and 192 vCore options are in preview<span class="dopt-flag">Preview</span></dd></div>
+                <div><dt>Hardware</dt><dd>Premium-series and premium-series memory optimized are not
+                  offered in every region<span class="dopt-flag region">Regional</span></dd></div>
                 <div><dt>Storage</dt><dd>Allocated automatically and not configured as a maximum size the
                   way it is on the other tiers</dd></div>
                 <div><dt>Replicas</dt><dd>High-availability replicas match the primary's compute size.
