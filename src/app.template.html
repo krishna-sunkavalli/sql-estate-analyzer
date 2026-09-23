@@ -355,31 +355,6 @@ details.acc[open] summary { margin-bottom: 9px; }
    Static explainer, no estate data. Reachable before anything is uploaded,
    because the first thing most customers need is not a number — it is to know
    that Managed Instance and serverless are not competing choices at all. */
-.guide-comparison .comparison-intro { color: var(--cp-text-muted); font-size: 12.5px; margin: -4px 0 12px; }
-.guide-comparison .tbl-wrap:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 3px; }
-.guide-comparison table { table-layout: fixed; min-width: 680px; }
-.guide-comparison th, .guide-comparison td { width: 25%; white-space: normal; overflow-wrap: anywhere; vertical-align: top; padding: 9px 12px; line-height: 1.5; }
-.guide-comparison thead th { font-size: 13px; font-weight: 600; text-transform: none; letter-spacing: normal; color: var(--cp-text); }
-.guide-comparison thead th:not(:first-child) { background: var(--cp-accent-soft); }
-.guide-comparison a { color: var(--cp-link); text-underline-offset: 3px; }
-.guide-comparison thead a { text-decoration: none; }
-.guide-comparison thead a:hover { text-decoration: underline; }
-.guide-comparison a:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
-.comparison-subtitle { display: block; color: var(--cp-text-muted); font-size: 11px; font-weight: 400; margin-top: 3px; }
-.guide-comparison tbody th { position: sticky; top: auto; left: 0; z-index: 1; font-size: 12.5px; font-weight: 600; text-transform: none; letter-spacing: normal; color: var(--cp-text); background: var(--cp-surface-soft); user-select: text; }
-.guide-comparison thead th:first-child { left: 0; z-index: 3; }
-.guide-comparison td { color: var(--cp-text-muted); }
-.guide-comparison tr > :not(:last-child) { border-right: 1px solid var(--cp-border); }
-.guide-comparison tbody tr:nth-child(even) td { background: var(--cp-surface-soft); }
-.guide-comparison tbody tr:hover td { background: var(--cp-accent-soft); }
-.guide-comparison tbody tr:last-child th { border-bottom: none; }
-.guide-comparison .comparison-sources { margin-bottom: 0; padding: 8px 12px; border-radius: 8px; }
-.guide-comparison .comparison-sources summary { font-size: 12.5px; }
-.guide-comparison .comparison-sources p { font-size: 12.5px; line-height: 1.75; margin: 8px 0 0; }
-.comparison-scroll-hint { display: none; color: var(--cp-text-muted); font-size: 11.5px; margin: 0 0 8px; }
-@media (max-width: 760px) {
-  .comparison-scroll-hint { display: block; }
-}
 .modernization-map { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; padding: 12px; font-size: 12px; border-top: 3px solid var(--cp-accent); }
 .map-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
 .map-eyebrow { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--cp-text-muted); }
@@ -428,7 +403,7 @@ details.acc[open] summary { margin-bottom: 9px; }
 .map-checkpoint { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; color: var(--cp-text-muted); font-size: 11.5px; }
 .map-checkpoint b { display: block; font-weight: 600; font-size: 12px; }
 .map-checkpoint span { display: block; color: var(--cp-text-muted); font-size: 11.5px; margin-top: 4px; }
-#technical-guidance, #os-requirements, #instance-requirements, #compute-requirements { scroll-margin-top: 20px; }
+#deployment-options { scroll-margin-top: 20px; }
 @media (max-width: 760px) {
   .modernization-map { padding: 12px; }
   .map-heading, .map-database-heading, .map-checkpoint { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -517,32 +492,6 @@ details.dopt-extra[open] > summary { margin-bottom: 9px; }
   .dopt-rows dt, .dopt-extra-grid dt { font-size: 11px; }
 }
 
-.q { border-left: 3px solid var(--cp-accent); padding: 0 0 0 18px; margin: 0 0 4px; }
-.q-head { display: flex; align-items: baseline; gap: 10px; }
-.q-n {
-  width: 22px; height: 22px; border-radius: 50%; flex: none;
-  background: var(--cp-accent); color: #fff;
-  font-size: 11.5px; font-weight: 700; display: grid; place-items: center;
-  margin-left: -30px;
-}
-.q h4 { margin: 0; font-size: 15px; font-weight: 640; }
-.q .sub { font-size: 12.5px; color: var(--cp-text-muted); margin: 5px 0 10px; line-height: 1.5; }
-.q ul { margin: 0 0 11px; padding-left: 17px; font-size: 12.5px; color: var(--cp-text-muted); line-height: 1.75; }
-.q ul li { margin-bottom: 3px; }
-.q ul b, .q details.acc b { color: var(--cp-text); font-weight: 600; }
-.q details.acc p { font-size: 12.5px; color: var(--cp-text-muted); line-height: 1.75; }
-.q code {
-  font-size: 11.5px; background: var(--cp-surface-soft);
-  border: 1px solid var(--cp-border); border-radius: 4px;
-  padding: 1px 5px; white-space: nowrap; color: var(--cp-text);
-}
-.q-out {
-  display: inline-flex; align-items: center; gap: 9px;
-  background: var(--cp-accent-soft); border: 1px solid var(--cp-accent);
-  border-radius: 8px; padding: 8px 14px; font-size: 13px; margin-bottom: 16px;
-}
-.q-out b { color: var(--cp-accent); }
-.q-else { font-size: 12.5px; color: var(--cp-text-soft); margin: 0 0 18px; }
 .opt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 13px; }
 .opt {
   border: 1px solid var(--cp-border); border-radius: 10px; padding: 15px 17px;

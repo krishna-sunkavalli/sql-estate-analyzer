@@ -18,7 +18,7 @@
     <div class="map-destination">
       <div class="map-destination-heading">
         <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="4" width="22" height="10" rx="2"/><rect x="5" y="18" width="22" height="10" rx="2"/><path d="M10 9h1m5 0h6M10 23h1m5 0h6"/></svg>
-        <div><h3><a href="#os-requirements">SQL Server on Azure VM &darr;</a></h3></div>
+        <div><h3><a href="#deployment-options">SQL Server on Azure VM &darr;</a></h3></div>
       </div>
       <div class="map-tradeoff">You manage OS, SQL patching and HA.</div>
     </div>
@@ -37,7 +37,7 @@
     <div class="map-destination">
       <div class="map-destination-heading">
         <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="3" width="28" height="26" rx="3"/><ellipse cx="16" cy="11" rx="8" ry="3"/><path d="M8 11v10c0 4 16 4 16 0V11M8 16c0 4 16 4 16 0"/></svg>
-        <div><h3><a href="#instance-requirements">Azure SQL Managed Instance &darr;</a></h3></div>
+        <div><h3><a href="#deployment-options">Azure SQL Managed Instance &darr;</a></h3></div>
       </div>
       <div class="map-tradeoff">Managed OS and engine; validate feature restrictions.</div>
     </div>
@@ -55,14 +55,14 @@
     <div class="map-compute-options">
       <div class="map-compute-card">
         <div class="map-compute-title">
-          <h4><a href="#compute-requirements">Steady &rarr; Provisioned</a></h4>
+          <h4><a href="#deployment-options">Steady &rarr; Provisioned</a></h4>
         </div>
         <p>Always-on apps / predictable response times.</p>
         <div class="map-compute-note">Many databases? Compare <b>elastic pools</b>.</div>
       </div>
       <div class="map-compute-card">
         <div class="map-compute-title">
-          <h4><a href="#compute-requirements">Intermittent &rarr; Serverless</a></h4>
+          <h4><a href="#deployment-options">Intermittent &rarr; Serverless</a></h4>
         </div>
         <p>Variable demand / resume delays acceptable.</p>
         <div class="map-compute-note">Minimum charges; auto-pause on eligible <b>GP</b> only.</div>
@@ -72,52 +72,9 @@
 
   <div class="map-checkpoint">
     <div>Validate features, tier/size, HA/DR and cost before committing.</div>
-    <a href="#technical-guidance">Technical checks &darr;</a>
+    <a href="#deployment-options">Explore the options &darr;</a>
   </div>
 </section>
-
-<div class="card guide-comparison">
-  <h3 id="comparison-heading">Compare the operational trade-offs</h3>
-  <p class="comparison-intro">Compare what you control, what Azure manages, and what may need to change.</p>
-  <p class="comparison-scroll-hint">Swipe to compare. The capability column stays in view.</p>
-  <div class="tbl-wrap" role="region" aria-labelledby="comparison-heading" tabindex="0">
-    <table aria-labelledby="comparison-heading">
-      <thead><tr>
-        <th class="nosort" scope="col">Responsibility / capability</th>
-        <th class="nosort" scope="col"><a href="#os-requirements">SQL on Azure VM</a><span class="comparison-subtitle">IaaS · host control</span></th>
-        <th class="nosort" scope="col"><a href="#instance-requirements">Managed Instance</a><span class="comparison-subtitle">PaaS · instance scope</span></th>
-        <th class="nosort" scope="col"><a href="#compute-requirements">Azure SQL Database</a><span class="comparison-subtitle">PaaS · database scope</span></th>
-      </tr></thead>
-      <tbody>
-        <tr><th class="nosort" scope="row">OS access and locally installed agents</th><td>Customer-controlled</td><td>No host OS access</td><td>No host OS access</td></tr>
-        <tr><th class="nosort" scope="row">OS and engine patching</th><td>Customer-managed; automation available</td><td>Service-managed</td><td>Service-managed</td></tr>
-        <tr><th class="nosort" scope="row">Instance-level SQL compatibility</th><td>Broadest control</td><td>Broad, with restrictions</td><td>Database-scoped; redesign may be needed</td></tr>
-        <tr><th class="nosort" scope="row">Backups and SQL-level HA</th><td>Customer-configured; Azure tooling available</td><td>Service-managed; select redundancy/DR</td><td>Service-managed; select redundancy/DR</td></tr>
-        <tr><th class="nosort" scope="row">Scaling</th><td>Plan for VM/SQL changes</td><td>Managed; interruption possible</td><td>Managed; interruption possible</td></tr>
-        <tr><th class="nosort" scope="row">Automatic workload-driven pause/resume</th><td>No</td><td>No; GP has separate stop/start</td><td>Eligible General Purpose serverless</td></tr>
-        <tr><th class="nosort" scope="row">Azure Hybrid Benefit</th><td>Eligible licenses/configurations</td><td>Eligible licenses/configurations</td><td>Eligible provisioned vCore; not serverless, DTU or new Hyperscale</td></tr>
-        <tr><th class="nosort" scope="row">Migration approach</th><td>Often lift-and-shift</td><td>Often fewer instance-feature changes</td><td>May need application redesign</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="note">
-    <b>Enterprise edition does not automatically mean Business Critical.</b> Choose the tier
-    from required features, memory, latency, throughput, availability and recovery objectives.
-    Compare full configurations and operating responsibilities; no target is universally cheapest.
-    These are planning guidelines, not a compatibility certification or a price quote.
-  </div>
-  <details class="acc comparison-sources">
-    <summary>Microsoft Learn references</summary>
-    <p>
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Decision tree</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/service-tiers-managed-instance-vcore?view=azuresql">MI service tiers</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/scale-resources?view=azuresql">Scaling interruptions</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/instance-stop-start-how-to?view=azuresql">MI stop/start</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/backup-restore?view=azuresql">VM backups</a>
-    · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/business-continuity-high-availability-disaster-recovery-hadr-overview?view=azuresql">VM HA/DR</a>
-    </p>
-  </details>
-</div>
 
 <div class="card" id="deployment-options">
   <h3>Explore deployment options</h3>
@@ -543,137 +500,8 @@
   <p class="dopt-verified"><span>Last verified against Microsoft Learn on 22 September 2026.</span>
     <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-iaas-vs-paas-what-is-overview?view=azuresql">Azure SQL overview</a>
     &middot; <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Decision tree</a></p>
-</div>
-
-<div class="card" id="technical-guidance">
-  <h3>Three questions decide it</h3>
-  <p class="sub">Use these to shortlist a destination, not certify compatibility. Confirm exact feature
-    support, database size, performance and HA/DR requirements before choosing a configuration.</p>
-
-  <div class="q" id="os-requirements">
-    <div class="q-head"><span class="q-n">1</span><h4>Does the workload need the operating system?</h4></div>
-    <div class="sub">Choose a VM when dependencies on the SQL host must remain unchanged.
-      If you can move those dependencies to other services, PaaS may still fit.</div>
-    <ul>
-      <li><b>Host access or local execution</b> — RDP, an installed backup/monitoring agent,
-          a local executable, <code>xp_cmdshell</code> or <code>sp_OACreate</code>
-          that the application must continue to use on the SQL host.</li>
-      <li><b>Local or UNC files</b> — <code>FILESTREAM</code>, <code>FileTable</code>,
-          or an unchanged <code>BULK INSERT</code> / backup workflow against a file share.
-          Azure Storage-based import and backup alternatives may remove the host dependency.</li>
-      <li><b>A specific engine version or unsupported configuration</b> — vendor certification
-          pins an engine version, or the workload requires host configuration unavailable in PaaS.
-          An old source version alone is not a VM requirement: SQL Server 2008/2012/2014
-          compatibility levels are 100/110/120, respectively.</li>
-      <li><b>A third-party linked-server provider</b> — an Oracle <code>OPENQUERY</code>
-          dependency that must stay unchanged needs a VM or redesign; MI does not support
-          arbitrary third-party RDBMS providers.</li>
-    </ul>
-    <div class="q-out">Must keep these unchanged → <b>Consider SQL Server on Azure VM</b></div>
-    <div class="q-else">No, or willing to redesign them → keep going.</div>
-    <details class="acc">
-      <summary>These are not automatic VM requirements</summary>
-      <p>MI supports <b>Resource Governor</b>, <b>managed DTC</b> and the <b>sysadmin</b>
-         SQL role within its managed-service boundaries. SQL administration is not OS access.</p>
-      <p>MI can host supported <b>SSRS catalog databases</b>; the report-server application runs
-         separately. <b>External tables</b> have supported scenarios in MI and SQL Database
-         (some SQL Database capabilities are in preview): check the connector, not just the PolyBase label.</p>
-      <p>MI <b>Machine Learning Services</b> support depends on update policy: Python/R is available
-         only under the SQL Server 2022 update policy, not SQL Server 2025 or Always-up-to-date.
-         Check lifecycle restrictions before relying on it.</p>
-      <p><a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/transact-sql-tsql-differences-sql-server?view=azuresql">MI compatibility differences</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/distributed-transaction-coordinator-dtc?view=azuresql">DTC</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/features-comparison?view=azuresql">Feature comparison, including SSRS</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/data-virtualization-overview?view=azuresql">MI external tables</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/data-virtualization-overview?view=azuresql">SQL Database data virtualization</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/machine-learning-services-overview?view=azuresql">Machine Learning Services</a></p>
-    </details>
-  </div>
-
-  <div class="q" id="instance-requirements">
-    <div class="q-head"><span class="q-n">2</span><h4>Does it need instance-level SQL features?</h4></div>
-    <div class="sub">MI is a strong candidate for supported instance dependencies that you do not
-      want to rewrite. Near-full compatibility does not mean every feature behaves identically.</div>
-    <ul>
-      <li><b>SQL Server Agent jobs</b> — supported T-SQL, replication and SSIS job steps.
-          MI does not support Agent alerts, proxies or command-shell steps.
-          SQL Database Elastic Jobs is an alternative for suitable workloads, not a drop-in replacement.</li>
-      <li><b>Native cross-database queries</b> — <code>SELECT … FROM OtherDb.dbo.Table</code>,
-          three-part names and cross-database synonyms. SQL Database alternatives can require redesign.</li>
-      <li><b>Supported linked servers</b> — SQL-family targets using supported providers and
-          authentication. Validate the specific endpoint; an Oracle linked server is not covered.</li>
-      <li><b>Service Broker or CLR</b> — user queues/services and <code>CREATE ASSEMBLY</code>.
-          Validate networking, assembly restrictions and any external activation process separately.</li>
-      <li><b>Transactional replication publishing/distribution</b> — MI supports documented
-          topologies. Check participants and restrictions rather than assuming all replication modes fit.</li>
-      <li><b>Instance-wide semantics or portability</b> — an application requires cross-database
-          global-temp sharing or a supported route back to SQL Server. Verify exact security,
-          version and reverse-migration requirements.</li>
-    </ul>
-    <div class="q-out">Needs supported instance features → <b>Consider Azure SQL Managed Instance</b></div>
-    <div class="q-else">No, or willing to rework them → evaluate Azure SQL Database, then question 3.</div>
-    <details class="acc">
-      <summary>Features that do not require MI by themselves</summary>
-      <p><b>CDC</b> is supported in SQL Database vCore tiers and DTU S3 or above.
-         SQL Database also supports <b>SQL logins</b> mapped to users in multiple databases and
-         <code>##GlobalTemp</code> shared across sessions <i>within the same database</i>.
-         These are not automatic MI gates.</p>
-      <p><b>SSISDB</b> can be hosted by SQL Database or MI. In the Azure-SSIS managed execution
-         path, packages run on separately provisioned Azure-SSIS Integration Runtime, not inside
-         the database service. MI adds Agent scheduling integration.</p>
-      <p><b>Log Replay Service</b> provides log-based migration to MI; it is not traditional
-         ongoing log-shipping HA/DR. Map recovery requirements to supported target capabilities.</p>
-      <p><a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/transact-sql-tsql-differences-sql-server?view=azuresql">MI feature restrictions</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/change-data-capture-overview?view=azuresql">CDC</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/logins-create-manage?view=azuresql">SQL Database logins</a>
-         · <a href="https://learn.microsoft.com/en-us/sql/t-sql/statements/create-table-transact-sql?view=azuresqldb-current#database-scoped-global-temporary-tables-in-azure-sql-database">Global temporary tables</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/data-factory/create-azure-ssis-integration-runtime">Azure-SSIS IR</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/log-replay-service-overview?view=azuresql">Log Replay Service</a></p>
-    </details>
-  </div>
-
-  <div class="q" id="compute-requirements">
-    <div class="q-head"><span class="q-n">3</span><h4>Is the load steady, or does it come and go?</h4></div>
-    <div class="sub">Once SQL Database meets the application's requirements, choose its compute
-      model. Activity patterns and latency tolerance matter as much as database size.</div>
-    <ul>
-      <li><b>Steady use or predictable response times</b> — an always-on order-processing service,
-          sustained reporting or a job that cannot tolerate resume delays: consider provisioned compute.</li>
-      <li><b>Intermittent use with idle periods</b> — a departmental app or test database whose
-          clients tolerate resume delays and implement retries: consider serverless.</li>
-      <li><b>Many databases with varying demand</b> — compare elastic pools as well as individual
-          databases; shared provisioned capacity may be more economical.</li>
-      <li><b>Price the workload, not connected hours alone</b> — use CPU and memory demand,
-          configured minimums, idle duration, pause eligibility and regional prices. There is
-          no universal one-third-CPU, seven-hour or sixteen-hour break-even.</li>
-    </ul>
-    <div class="q-out">Steady / latency-sensitive → <b>Consider provisioned SQL Database</b></div>
-    <div class="q-out">Intermittent / resume-tolerant → <b>Consider SQL Database serverless</b></div>
-    <details class="acc">
-      <summary>Serverless billing and availability details</summary>
-      <p>While online, billable compute each second is based on the greatest of CPU consumed,
-         memory normalized to vCores, and configured CPU/memory minimums. Storage is charged even
-         while paused. Remaining online does not turn serverless into provisioned billing.</p>
-      <p><b>Auto-pause is General Purpose only</b>, when enabled and eligible. It requires zero
-         sessions and zero user CPU throughout the configured delay. Polling connections and
-         features such as geo-replication/failover groups or long-term retention can prevent it.
-         Hyperscale serverless autoscales but does not auto-pause.</p>
-      <p><b>AHB does not apply to serverless.</b> Eligible provisioned vCore configurations can
-         benefit, but DTU and new Hyperscale databases are excluded. Verify current eligibility
-         and any transitional rights when comparing prices.</p>
-      <p><b>Existing availability groups do not automatically rule out serverless or require
-         Business Critical.</b> Map RTO/RPO, zone redundancy and read-scale needs to the target.
-         Memory-optimized tables are not supported in General Purpose/Hyperscale serverless;
-         Hyperscale does support some other In-Memory OLTP object types.</p>
-      <p><a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-overview?view=azuresql">Serverless scenarios</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-billing?view=azuresql">Billing</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-auto-pause-resume?view=azuresql">Auto-pause requirements</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-hybrid-benefit?view=azuresql">AHB</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/service-tier-hyperscale?view=azuresql">Hyperscale limits and pricing</a>
-         · <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/high-availability-sla-local-zone-redundancy?view=azuresql">SQL Database availability</a></p>
-    </details>
-  </div>
   <div style="margin-top:13px">
     <button class="primary" id="btnGuideBack">Scan my estate</button>
   </div>
+
 </div>
