@@ -354,11 +354,13 @@
               <dl class="dopt-rows">
                 <div><dt>Serverless</dt><dd>The only tier with auto-pause, and standard-series only.
                   Minimum 0.5 vCores, auto-pause
-                  delay from 15 minutes to 7 days with a 60-minute default, or disabled. Billed per second
+                  delay from 15 minutes to 7 days with a 60-minute default, or disabled. Memory
+                  autoscales with compute, to 24 GB per vCore and 240 GB. Billed per second
                   against per-hour billing for provisioned</dd></div>
                 <div><dt>Storage size</dt><dd>Selectable in 1 GB increments up to the maximum</dd></div>
-                <div><dt>Hardware</dt><dd>DC-series is provisioned only and does not support zone
-                  redundancy. Fsv2-series can no longer be created and retires on 1 October 2026<span class="dopt-flag region">Regional</span></dd></div>
+                <div><dt>Hardware</dt><dd>The 5.1 GB per vCore above is standard-series, which provisions
+                  to 625 GB. DC-series carries 4.5 GB per vCore, is provisioned only and does not support zone
+                  redundancy. Fsv2-series carries 1.9 GB per vCore, can no longer be created and retires on 1 October 2026<span class="dopt-flag region">Regional</span></dd></div>
                 <div><dt>Reference</dt><dd><a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/resource-limits-vcore-single-databases?view=azuresql">Resource limits</a>
                   &middot; <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-overview?view=azuresql">Serverless</a></dd></div>
               </dl>
