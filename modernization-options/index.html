@@ -450,19 +450,6 @@ details.acc[open] summary { margin-bottom: 9px; }
 
 .dopt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .dopt-card { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); overflow: hidden; }
-/* These cards are read across, not down, so the four bands have to line up
-   between them: identity, when to consider it, the figures, and the
-   disclosure. Subgrid gives each card the row track of the panel, so a
-   two-line title in one card pushes the others' rows down with it rather
-   than leaving that column out of step. Without subgrid the flex rules
-   above still stack the same bands in the same order, just unaligned. */
-@supports (grid-template-rows: subgrid) {
-  /* The 14px gap is between columns only. Once rows are tracked it would also
-     open a gap between each band and slice the card into four floating
-     pieces, so the row gap is closed. */
-  .dopt-grid { grid-template-rows: auto auto 1fr auto; column-gap: 14px; row-gap: 0; }
-  .dopt-card { display: grid; grid-row: span 4; grid-template-rows: subgrid; }
-}
 /* Identity sits on its own tinted band so the eye separates which option this
    is from what it costs you, and the three bands line up across the row. The
    band is sized by the tallest title in the row, so shorter ones centre in it
@@ -474,6 +461,25 @@ details.acc[open] summary { margin-bottom: 9px; }
    leaving it pooled in one void above the disclosure. */
 .dopt-card > .dopt-rows { flex: 1; display: flex; flex-direction: column; }
 .dopt-card > .dopt-rows > div { flex: 1; }
+/* These cards are read across, not down, so the bands have to line up between
+   them and so do the rows inside: Compute against Compute, Storage against
+   Storage. Each row gets its own track of the panel grid through nested
+   subgrid, sized by the tallest of the three, which also removes the need to
+   share slack — every card is the sum of the same tracks and so the same
+   height, with nothing left over to pool into a void.
+
+   Eight row tracks are reserved against the six any panel currently uses.
+   Unused tracks hold nothing and collapse to zero, and the disclosure is
+   placed on the last track so it still sits at the foot. This block follows
+   the flex rules above because it has to override their display, and those
+   rules remain the fallback where subgrid is unavailable. */
+@supports (grid-template-rows: subgrid) {
+  .dopt-grid { grid-template-rows: auto auto repeat(8, auto) auto; column-gap: 14px; row-gap: 0; }
+  .dopt-card { display: grid; grid-row: span 11; grid-template-rows: subgrid; }
+  .dopt-card > .dopt-rows { grid-row: span 8; display: grid; grid-template-rows: subgrid; }
+  .dopt-card > .dopt-rows > div { flex: none; }
+  .dopt-card > details.dopt-more { grid-row: -2 / -1; }
+}
 .dopt-rows { margin: 0; font-size: 13px; }
 .dopt-rows > div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px; padding: 9px 16px; border-top: 1px solid var(--cp-border); }
 .dopt-rows dt { color: var(--cp-text-muted); line-height: 1.5; }
