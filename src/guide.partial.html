@@ -42,31 +42,23 @@
       <div class="map-tradeoff">Managed OS and engine; validate feature restrictions.</div>
     </div>
   </div>
-  <div class="map-next"><span>No / can work at database scope</span><i aria-hidden="true"></i></div>
+  <div class="map-next"><span>No / willing to redesign</span><i aria-hidden="true"></i></div>
 
-  <div class="map-database">
-    <div class="map-database-heading">
-      <div class="map-destination-heading">
-        <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="7" rx="11" ry="4"/><path d="M5 7v18c0 6 22 6 22 0V7M5 16c0 6 22 6 22 0"/></svg>
-        <div><h3>Azure SQL Database</h3></div>
+  <div class="map-branch">
+    <div class="map-decision">
+      <span class="map-step" aria-hidden="true">03</span>
+      <div class="map-decision-body">
+        <h3>Can the application work at database scope?</h3>
+        <div class="map-signals"><span>Database-scoped access</span><span>No instance-level features</span></div>
       </div>
     </div>
-    <div class="map-compute-question"><span class="map-step" aria-hidden="true">03</span><h3>Choose compute for the workload</h3></div>
-    <div class="map-compute-options">
-      <div class="map-compute-card">
-        <div class="map-compute-title">
-          <h4><a href="#deployment-options">Steady &rarr; Provisioned</a></h4>
-        </div>
-        <p>Always-on apps / predictable response times.</p>
-        <div class="map-compute-note">Many databases? Compare <b>elastic pools</b>.</div>
+    <div class="map-yes"><span>Yes</span><i aria-hidden="true"></i></div>
+    <div class="map-destination">
+      <div class="map-destination-heading">
+        <svg class="map-icon" viewBox="0 0 32 32" aria-hidden="true"><ellipse cx="16" cy="7" rx="11" ry="4"/><path d="M5 7v18c0 6 22 6 22 0V7M5 16c0 6 22 6 22 0"/></svg>
+        <div><h3><a href="#deployment-options">Azure SQL Database &darr;</a></h3></div>
       </div>
-      <div class="map-compute-card">
-        <div class="map-compute-title">
-          <h4><a href="#deployment-options">Intermittent &rarr; Serverless</a></h4>
-        </div>
-        <p>Variable demand / resume delays acceptable.</p>
-        <div class="map-compute-note">Minimum charges; auto-pause on eligible <b>GP</b> only.</div>
-      </div>
+      <div class="map-tradeoff">Managed databases; compare tiers, pooling and compute.</div>
     </div>
   </div>
 

@@ -379,45 +379,28 @@ details.acc[open] summary { margin-bottom: 9px; }
 .map-yes i::after { content: ""; position: absolute; right: 0; top: -5px; width: 7px; height: 7px; border-right: 2px solid var(--cp-accent); border-top: 2px solid var(--cp-accent); transform: rotate(45deg); }
 .map-destination { padding: 8px 10px; border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 8px; background: var(--cp-accent-soft); }
 .map-destination-heading { display: flex; align-items: center; gap: 8px; }
-.map-destination h3, .map-database-heading h3 { font-size: 15px; letter-spacing: -.015em; line-height: 1.3; margin-top: 0; }
+.map-destination h3 { font-size: 15px; letter-spacing: -.015em; line-height: 1.3; margin-top: 0; }
 .map-icon { width: 23px; height: 23px; flex: none; fill: none; stroke: var(--cp-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .map-tradeoff { margin: 4px 0 0; color: var(--cp-text-muted); font-size: 12px; }
 .map-next { width: calc((100% - 60px) / 2); display: flex; align-items: center; flex-direction: row; justify-content: center; padding: 4px 8px; gap: 8px; color: var(--cp-text-muted); font-size: 11px; text-align: center; }
 .map-next i { height: 10px; border-left: 2px solid var(--cp-accent); position: relative; }
 .map-next i::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 7px; height: 7px; border-right: 2px solid var(--cp-accent); border-bottom: 2px solid var(--cp-accent); transform: rotate(45deg); }
-.map-database { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; border: 1px solid var(--cp-accent); border-radius: 8px; padding: 10px; background: var(--cp-accent-soft); }
-.map-database-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-.map-badge { border: 1px solid var(--cp-border); padding: 5px 9px; border-radius: 4px; font-size: 11px; background: var(--cp-surface); color: var(--cp-text-muted); }
-.map-compute-question { display: flex; justify-content: flex-start; align-items: center; gap: 8px; margin-top: 0; }
-.map-compute-question h3 { font-size: 13px; }
-.map-compute-fork { display: grid; grid-template-columns: 1fr 1fr; position: relative; margin: 14px 0 6px; padding-top: 10px; text-align: center; color: var(--cp-accent); font-size: 11px; font-weight: 600; }
-.map-compute-fork::before { content: ""; position: absolute; top: 0; left: 25%; right: 25%; height: 9px; border: 1px solid var(--cp-accent); border-bottom: 0; }
-.map-compute-fork::after { content: ""; position: absolute; height: 12px; border-left: 1px solid var(--cp-accent); top: -12px; left: 50%; }
-.map-compute-options { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.map-compute-card { border: 1px solid var(--cp-border); border-radius: 6px; padding: 8px 10px; background: var(--cp-surface); }
-.map-compute-title { display: flex; align-items: center; gap: 10px; }
-.map-compute-title h4 { font-size: 13px; }
-.map-compute-title .map-icon { width: 22px; height: 22px; }
-.map-compute-note { margin-top: 4px; color: var(--cp-text-muted); font-size: 11.5px; }
-.map-compute-link { display: block; margin-top: 8px; text-align: center; }
 .map-checkpoint { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; color: var(--cp-text-muted); font-size: 11.5px; }
 .map-checkpoint b { display: block; font-weight: 600; font-size: 12px; }
 .map-checkpoint span { display: block; color: var(--cp-text-muted); font-size: 11.5px; margin-top: 4px; }
 #deployment-options { scroll-margin-top: 20px; }
 @media (max-width: 760px) {
   .modernization-map { padding: 12px; }
-  .map-heading, .map-database-heading, .map-checkpoint { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .map-heading, .map-checkpoint { flex-direction: column; align-items: flex-start; gap: 10px; }
   .map-heading h2 { font-size: 19px; }
   .map-columns { display: none; }
-  .map-branch, .map-compute-options, .map-database { grid-template-columns: 1fr; }
+  .map-branch { grid-template-columns: 1fr; }
   .map-decision, .map-destination { padding: 8px 10px; }
   .map-yes { flex-direction: row; padding: 12px; }
   .map-yes i { width: 0; height: 22px; border-top: 0; border-left: 2px solid var(--cp-accent); }
   .map-yes i::after { right: auto; left: -5px; top: auto; bottom: 0; transform: rotate(135deg); }
   .map-next { width: 100%; padding: 8px; border-left: 2px dashed var(--cp-border-strong); margin: 4px 0; }
   .map-next span { background: var(--cp-surface); padding: 0 8px; }
-  .map-compute-fork { display: none; }
-  .map-compute-question { margin: 2px 0; justify-content: flex-start; }
 }
 /* ---------- deployment options explorer ----------
    The guide page carries no application JavaScript, so the offering switch is a
