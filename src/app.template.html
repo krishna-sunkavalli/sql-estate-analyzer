@@ -371,10 +371,10 @@ details.acc[open] summary { margin-bottom: 9px; }
 .map-source { flex-shrink: 0; margin-top: 0; }
 .map-columns, .map-branch { display: grid; grid-template-columns: minmax(0, 1fr) 60px minmax(0, 1fr); }
 .map-columns { margin-bottom: 6px; color: var(--cp-text-soft); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-.map-decision { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 10px; align-items: start; padding: 9px 11px; background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 8px; }
-/* The badge is taller than one line of the heading beside it, so it is nudged
-   up by half the difference to sit on that line's optical centre. */
-.map-step { width: 22px; height: 22px; margin-top: -2px; display: grid; place-items: center; font-size: 11px; font-weight: 700; border: 1px solid var(--cp-accent); color: var(--cp-accent); background: var(--cp-surface); border-radius: 6px; }
+.map-decision { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 12px; align-items: center; padding: 9px 11px; background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 8px; }
+/* Centred against the whole block rather than pinned to the first line of the
+   heading, so the badge column reads as a column down the three rows. */
+.map-step { width: 30px; height: 30px; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; border: 1px solid var(--cp-accent); color: var(--cp-accent); background: var(--cp-surface); border-radius: 8px; }
 .map-decision-body { min-width: 0; }
 .map-decision h3 { font-size: 13px; line-height: 1.35; margin-top: 0; }
 .map-signals { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
@@ -385,11 +385,14 @@ details.acc[open] summary { margin-bottom: 9px; }
 /* Destinations are a two-column grid rather than a heading row with text
    beneath it, so the description lines up with the title instead of starting
    back under the icon. */
-.map-destination { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 10px; align-items: center; padding: 9px 11px; border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 8px; background: var(--cp-accent-soft); }
-.map-destination h3 { grid-column: 2; font-size: 14.5px; letter-spacing: -.015em; line-height: 1.3; margin-top: 0; }
+.map-destination { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; align-items: center; padding: 9px 11px; border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 8px; background: var(--cp-accent-soft); }
 /* Official Azure product icons, used unmodified: no fill or stroke override,
    and scaled proportionally from their own 18-unit viewBox. */
-.map-logo { grid-column: 1; width: 22px; height: 22px; display: block; }
+.map-destination h3 { grid-column: 2; font-size: 14.5px; letter-spacing: -.015em; line-height: 1.3; margin-top: 0; }
+/* Spans both text rows so it centres on the card rather than the title alone.
+   Written as an explicit span: with no grid-template-rows declared, a -1 end
+   line resolves against the empty explicit grid and does not span at all. */
+.map-logo { grid-column: 1; grid-row: 1 / span 2; align-self: center; width: 32px; height: 32px; display: block; }
 .map-tradeoff { grid-column: 2; margin: 3px 0 0; color: var(--cp-text-muted); font-size: 12px; line-height: 1.45; }
 .map-next { width: calc((100% - 60px) / 2); display: flex; align-items: center; flex-direction: row; justify-content: center; padding: 4px 8px; gap: 8px; color: var(--cp-text-muted); font-size: 11px; text-align: center; }
 .map-next i { height: 10px; border-left: 2px solid var(--cp-accent); position: relative; }
