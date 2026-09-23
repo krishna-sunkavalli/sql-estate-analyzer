@@ -249,8 +249,8 @@
             <dl class="dopt-rows">
               <div><dt>Deployment</dt><dd>Single instance only</dd></div>
               <div><dt>Compute</dt><dd>4 to 80 vCores on standard-series, 4 to 128 on premium-series</dd></div>
-              <div><dt>Memory</dt><dd>Same ratios, and memory can be set independently of vCores on
-                premium-series</dd></div>
+              <div><dt>Memory</dt><dd>5.1, 7 or 13.6 GB per vCore, and settable independently of vCores
+                on premium-series</dd></div>
               <div><dt>Storage</dt><dd>Up to 32 TB on Elastic SAN, with 3 IOPS included per GB</dd></div>
               <div><dt>Databases</dt><dd>Up to 500</dd></div>
               <div><dt>Availability</dt><dd>Standby nodes, no readable secondary</dd></div>
@@ -358,9 +358,11 @@
                   autoscales with compute, to 24 GB per vCore and 240 GB. Billed per second
                   against per-hour billing for provisioned</dd></div>
                 <div><dt>Storage size</dt><dd>Selectable in 1 GB increments up to the maximum</dd></div>
-                <div><dt>Hardware</dt><dd>The 5.1 GB per vCore above is standard-series, which provisions
-                  to 625 GB. DC-series carries 4.5 GB per vCore, is provisioned only and does not support zone
-                  redundancy. Fsv2-series carries 1.9 GB per vCore, can no longer be created and retires on 1 October 2026<span class="dopt-flag region">Regional</span></dd></div>
+                <div><dt>Hardware</dt><dd>The 2 to 128 vCores and 5.1 GB per vCore above are
+                  standard-series, which provisions to 625 GB. DC-series carries 4.5 GB per vCore and
+                  provisions to 8 vCores, is provisioned only and does not support zone
+                  redundancy. Fsv2-series carries 1.9 GB per vCore and provisions to 72, can no longer be
+                  created and retires on 1 October 2026<span class="dopt-flag region">Regional</span></dd></div>
                 <div><dt>Reference</dt><dd><a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/resource-limits-vcore-single-databases?view=azuresql">Resource limits</a>
                   &middot; <a href="https://learn.microsoft.com/en-us/azure/azure-sql/database/serverless-tier-overview?view=azuresql">Serverless</a></dd></div>
               </dl>
@@ -383,8 +385,9 @@
               <summary>Configuration details and limits</summary>
               <dl class="dopt-rows">
                 <div><dt>In-memory OLTP</dt><dd>Available on this tier, sized by compute</dd></div>
-                <div><dt>Hardware</dt><dd>DC-series carries 4.5 GB per vCore rather than 5.1, is required
-                  for Always Encrypted with secure enclaves, and does not support zone
+                <div><dt>Hardware</dt><dd>The 2 to 128 vCores and 5.1 GB per vCore above are
+                  standard-series. DC-series carries 4.5 GB per vCore and provisions to 8 vCores, is
+                  required for Always Encrypted with secure enclaves, and does not support zone
                   redundancy<span class="dopt-flag region">Regional</span></dd></div>
                 <div><dt>Licensing</dt><dd>Azure Hybrid Benefit applies here, at a less generous ratio than
                   General Purpose — one Enterprise core per vCore</dd></div>
@@ -413,8 +416,10 @@
               <summary>Configuration details and limits</summary>
               <dl class="dopt-rows">
                 <div><dt>Compute</dt><dd>The 160 and 192 vCore options are in preview<span class="dopt-flag">Preview</span></dd></div>
-                <div><dt>Hardware</dt><dd>Premium-series and premium-series memory optimized are not
-                  offered in every region<span class="dopt-flag region">Regional</span></dd></div>
+                <div><dt>Hardware</dt><dd>The 10.2 GB per vCore above is premium-series memory optimized,
+                  which carries double the memory of standard-series; premium-series itself is 5.1 like
+                  standard-series but allows more vCores. Neither premium option is offered in every
+                  region<span class="dopt-flag region">Regional</span></dd></div>
                 <div><dt>Storage</dt><dd>Allocated automatically and not configured as a maximum size the
                   way it is on the other tiers</dd></div>
                 <div><dt>Replicas</dt><dd>High-availability replicas match the primary's compute size.
