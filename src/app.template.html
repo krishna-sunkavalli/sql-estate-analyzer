@@ -423,13 +423,17 @@ details.acc[open] summary { margin-bottom: 9px; }
    only moved out of sight, with the focus ring drawn on the label instead.
    Expanding sections are <details>, matching the accordions elsewhere. */
 .dopt-radio { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-.dopt-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
-.dopt-tab { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border: 1px solid var(--cp-border); border-radius: 10px; background: var(--cp-surface); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--cp-text); line-height: 1.35; }
-.dopt-tab span { font-weight: 400; font-size: 11px; color: var(--cp-text-muted); }
-.dopt-tab:hover { border-color: var(--cp-accent); }
+.dopt-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 16px; }
+.dopt-tab { display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 11px; align-items: center; padding: 12px 14px; border: 1px solid var(--cp-border); border-radius: 10px; background: var(--cp-surface); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--cp-text); line-height: 1.3; transition: border-color .12s, background .12s, box-shadow .12s; }
+.dopt-tab .dopt-tab-logo { grid-column: 1; grid-row: 1 / span 2; align-self: center; width: 26px; height: 26px; display: block; }
+.dopt-tab b { grid-column: 2; font-weight: 650; }
+.dopt-tab span { grid-column: 2; font-weight: 400; font-size: 11px; color: var(--cp-text-muted); margin-top: 1px; }
+.dopt-tab:hover { border-color: var(--cp-border-strong); background: var(--cp-bg-elevated); }
+/* The selected offering is marked three ways rather than by colour alone:
+   a heavier border, a tinted ground, and a rule along the foot. */
 .dopt-vm:checked ~ .dopt-tabs .dopt-tab-vm,
 .dopt-mi:checked ~ .dopt-tabs .dopt-tab-mi,
-.dopt-db:checked ~ .dopt-tabs .dopt-tab-db { border-color: var(--cp-accent); background: var(--cp-accent-soft); box-shadow: inset 0 -2px 0 var(--cp-accent); }
+.dopt-db:checked ~ .dopt-tabs .dopt-tab-db { border-color: var(--cp-accent); background: var(--cp-accent-soft); box-shadow: inset 0 -3px 0 var(--cp-accent); }
 .dopt-vm:focus-visible ~ .dopt-tabs .dopt-tab-vm,
 .dopt-mi:focus-visible ~ .dopt-tabs .dopt-tab-mi,
 .dopt-db:focus-visible ~ .dopt-tabs .dopt-tab-db { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
@@ -437,43 +441,69 @@ details.acc[open] summary { margin-bottom: 9px; }
 .dopt-vm:checked ~ .dopt-panels > .dopt-panel-vm,
 .dopt-mi:checked ~ .dopt-panels > .dopt-panel-mi,
 .dopt-db:checked ~ .dopt-panels > .dopt-panel-db { display: block; }
-.dopt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-/* Equal-height cards with the disclosure pinned to the foot, so the three
-   controls line up instead of floating wherever the content happens to end. */
-.dopt-card { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 14px; }
-.dopt-card > .dopt-rows { flex: 1; }
-.dopt-card > h4 { margin: 0; font-size: 13.5px; font-weight: 650; color: var(--cp-text); }
-.dopt-card > h4 em { display: block; font-style: normal; font-size: 11px; font-weight: 400; color: var(--cp-text-muted); margin-top: 2px; }
-.dopt-when { margin: 7px 0 10px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+
+.dopt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.dopt-card { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); overflow: hidden; }
+/* These cards are read across, not down, so the four bands have to line up
+   between them: identity, when to consider it, the figures, and the
+   disclosure. Subgrid gives each card the row track of the panel, so a
+   two-line title in one card pushes the others' rows down with it rather
+   than leaving that column out of step. Without subgrid the flex rules
+   above still stack the same bands in the same order, just unaligned. */
+@supports (grid-template-rows: subgrid) {
+  /* The 14px gap is between columns only. Once rows are tracked it would also
+     open a gap between each band and slice the card into four floating
+     pieces, so the row gap is closed. */
+  .dopt-grid { grid-template-rows: auto auto 1fr auto; column-gap: 14px; row-gap: 0; }
+  .dopt-card { display: grid; grid-row: span 4; grid-template-rows: subgrid; }
+}
+/* Identity sits on its own tinted band so the eye separates which option this
+   is from what it costs you, and the three bands line up across the row. The
+   band is sized by the tallest title in the row, so shorter ones centre in it
+   rather than hanging from the top. */
+.dopt-card > h4 { display: grid; align-content: center; margin: 0; padding: 12px 15px 11px; background: var(--cp-surface-soft); border-bottom: 1px solid var(--cp-border); font-size: 14px; font-weight: 650; letter-spacing: -.01em; color: var(--cp-text); }
+.dopt-card > h4 em { display: block; font-style: normal; font-size: 11px; font-weight: 400; color: var(--cp-text-muted); margin-top: 3px; }
+.dopt-when { margin: 0; padding: 11px 15px 12px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+/* Cards in a row are the same height so their feet align, but the content
+   rarely is. The rows share that spare height between them instead of
+   leaving it pooled in one void above the disclosure. */
+.dopt-card > .dopt-rows { flex: 1; display: flex; flex-direction: column; }
+.dopt-card > .dopt-rows > div { flex: 1; }
 .dopt-rows { margin: 0; font-size: 12px; }
-.dopt-rows > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-top: 1px solid var(--cp-border); }
-.dopt-rows dt { color: var(--cp-text-muted); }
+.dopt-rows > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; padding: 8px 15px; border-top: 1px solid var(--cp-border); }
+.dopt-rows dt { color: var(--cp-text-muted); line-height: 1.5; }
 .dopt-rows dd { margin: 0; color: var(--cp-text); line-height: 1.5; overflow-wrap: anywhere; }
 /* An eligibility condition belongs beside the option it qualifies, not in a
    footnote the reader meets after they have already decided. */
-.dopt-rows dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 2px; }
-.dopt-flag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--cp-warning); color: var(--cp-warning); margin-left: 4px; vertical-align: 1px; }
-.dopt-flag.region { border-color: var(--cp-border-strong); color: var(--cp-text-muted); }
-details.dopt-more { margin: 10px 0 0; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; padding: 8px 0 0; background: none; }
-details.dopt-more > summary { cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--cp-link); }
-details.dopt-more > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; border-radius: 3px; }
-details.dopt-more[open] > summary { margin-bottom: 7px; }
+.dopt-rows dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 3px; line-height: 1.45; }
+.dopt-flag { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1.5px 7px; border-radius: 999px; border: 1px solid currentColor; color: var(--cp-warning); margin-left: 5px; vertical-align: 1px; white-space: nowrap; }
+.dopt-flag.region { color: var(--cp-text-soft); }
+/* The disclosure reads as the foot of the card rather than one more row, so
+   it is full width against a tinted ground with no rule above the label. */
+details.dopt-more { margin: 0; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; padding: 0; background: var(--cp-surface-soft); }
+details.dopt-more > summary { cursor: pointer; padding: 10px 15px; font-size: 11.5px; font-weight: 650; color: var(--cp-link); }
+details.dopt-more > summary:hover { background: var(--cp-accent-soft); }
+details.dopt-more > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: -2px; }
+details.dopt-more[open] > summary { margin-bottom: 0; border-bottom: 1px solid var(--cp-border); }
+details.dopt-more .dopt-rows { background: var(--cp-surface); }
 details.dopt-more .dopt-rows > div:first-child { border-top: 0; }
-.dopt-foot { margin-top: 12px; }
-details.dopt-extra { margin: 0; }
-details.dopt-extra > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.dopt-foot { margin-top: 14px; }
+details.dopt-extra { margin: 0; border-radius: 12px; }
+details.dopt-extra > summary { cursor: pointer; font-size: 12.5px; font-weight: 650; }
 details.dopt-extra > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; border-radius: 3px; }
-details.dopt-extra[open] > summary { margin-bottom: 9px; }
-.dopt-extra-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; font-size: 12px; }
-.dopt-extra-grid > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding: 5px 0; border-top: 1px solid var(--cp-border); }
+details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; border-bottom: 1px solid var(--cp-border); }
+.dopt-extra-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; font-size: 12px; }
+.dopt-extra-grid > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-top: 1px solid var(--cp-border); }
 .dopt-extra-grid dt { color: var(--cp-text-muted); }
 .dopt-extra-grid dd { margin: 0; color: var(--cp-text); line-height: 1.5; }
-.dopt-extra-grid dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 2px; }
-.dopt-alt { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface-soft); }
-.dopt-alt h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 650; }
-.dopt-alt p { margin: 0 0 8px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+.dopt-extra-grid dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 3px; line-height: 1.45; }
+/* A supported alternative rather than a fourth tier, so it is set apart from
+   the cards above it and led by a rule in the accent. */
+.dopt-alt { margin-top: 14px; padding: 13px 15px; border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 12px; background: var(--cp-surface-soft); }
+.dopt-alt h4 { margin: 0 0 5px; font-size: 13px; font-weight: 650; }
+.dopt-alt p { margin: 0 0 9px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
 .dopt-alt .dopt-extra-grid > div:first-child, .dopt-alt .dopt-extra-grid > div:nth-child(2) { border-top: 0; }
-.dopt-verified { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 12px 0 0; font-size: 11.5px; color: var(--cp-text-muted); }
+.dopt-verified { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 14px 0 0; font-size: 11.5px; color: var(--cp-text-muted); }
 .dopt-verified a { color: var(--cp-link); }
 .dopt-verified a:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
 @media (max-width: 900px) {
@@ -483,8 +513,11 @@ details.dopt-extra[open] > summary { margin-bottom: 9px; }
 }
 @media (max-width: 620px) {
   .dopt-tabs { grid-template-columns: 1fr; }
-  .dopt-rows > div, .dopt-extra-grid > div { grid-template-columns: 1fr; gap: 1px; }
-  .dopt-rows dt, .dopt-extra-grid dt { font-size: 11px; }
+  .dopt-rows > div, .dopt-extra-grid > div { grid-template-columns: 1fr; gap: 2px; }
+  .dopt-rows dt, .dopt-extra-grid dt { font-size: 11px; font-weight: 600; }
+  /* Stacked cards are their own height, so there is no slack to share and
+     stretching the rows would only make them tall for no reason. */
+  .dopt-card > .dopt-rows > div { flex: none; }
 }
 
 .opt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 13px; }

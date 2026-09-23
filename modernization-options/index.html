@@ -424,13 +424,17 @@ details.acc[open] summary { margin-bottom: 9px; }
    only moved out of sight, with the focus ring drawn on the label instead.
    Expanding sections are <details>, matching the accordions elsewhere. */
 .dopt-radio { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-.dopt-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
-.dopt-tab { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border: 1px solid var(--cp-border); border-radius: 10px; background: var(--cp-surface); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--cp-text); line-height: 1.35; }
-.dopt-tab span { font-weight: 400; font-size: 11px; color: var(--cp-text-muted); }
-.dopt-tab:hover { border-color: var(--cp-accent); }
+.dopt-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 16px; }
+.dopt-tab { display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 11px; align-items: center; padding: 12px 14px; border: 1px solid var(--cp-border); border-radius: 10px; background: var(--cp-surface); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--cp-text); line-height: 1.3; transition: border-color .12s, background .12s, box-shadow .12s; }
+.dopt-tab .dopt-tab-logo { grid-column: 1; grid-row: 1 / span 2; align-self: center; width: 26px; height: 26px; display: block; }
+.dopt-tab b { grid-column: 2; font-weight: 650; }
+.dopt-tab span { grid-column: 2; font-weight: 400; font-size: 11px; color: var(--cp-text-muted); margin-top: 1px; }
+.dopt-tab:hover { border-color: var(--cp-border-strong); background: var(--cp-bg-elevated); }
+/* The selected offering is marked three ways rather than by colour alone:
+   a heavier border, a tinted ground, and a rule along the foot. */
 .dopt-vm:checked ~ .dopt-tabs .dopt-tab-vm,
 .dopt-mi:checked ~ .dopt-tabs .dopt-tab-mi,
-.dopt-db:checked ~ .dopt-tabs .dopt-tab-db { border-color: var(--cp-accent); background: var(--cp-accent-soft); box-shadow: inset 0 -2px 0 var(--cp-accent); }
+.dopt-db:checked ~ .dopt-tabs .dopt-tab-db { border-color: var(--cp-accent); background: var(--cp-accent-soft); box-shadow: inset 0 -3px 0 var(--cp-accent); }
 .dopt-vm:focus-visible ~ .dopt-tabs .dopt-tab-vm,
 .dopt-mi:focus-visible ~ .dopt-tabs .dopt-tab-mi,
 .dopt-db:focus-visible ~ .dopt-tabs .dopt-tab-db { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
@@ -438,43 +442,69 @@ details.acc[open] summary { margin-bottom: 9px; }
 .dopt-vm:checked ~ .dopt-panels > .dopt-panel-vm,
 .dopt-mi:checked ~ .dopt-panels > .dopt-panel-mi,
 .dopt-db:checked ~ .dopt-panels > .dopt-panel-db { display: block; }
-.dopt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-/* Equal-height cards with the disclosure pinned to the foot, so the three
-   controls line up instead of floating wherever the content happens to end. */
-.dopt-card { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 14px; }
-.dopt-card > .dopt-rows { flex: 1; }
-.dopt-card > h4 { margin: 0; font-size: 13.5px; font-weight: 650; color: var(--cp-text); }
-.dopt-card > h4 em { display: block; font-style: normal; font-size: 11px; font-weight: 400; color: var(--cp-text-muted); margin-top: 2px; }
-.dopt-when { margin: 7px 0 10px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+
+.dopt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.dopt-card { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); overflow: hidden; }
+/* These cards are read across, not down, so the four bands have to line up
+   between them: identity, when to consider it, the figures, and the
+   disclosure. Subgrid gives each card the row track of the panel, so a
+   two-line title in one card pushes the others' rows down with it rather
+   than leaving that column out of step. Without subgrid the flex rules
+   above still stack the same bands in the same order, just unaligned. */
+@supports (grid-template-rows: subgrid) {
+  /* The 14px gap is between columns only. Once rows are tracked it would also
+     open a gap between each band and slice the card into four floating
+     pieces, so the row gap is closed. */
+  .dopt-grid { grid-template-rows: auto auto 1fr auto; column-gap: 14px; row-gap: 0; }
+  .dopt-card { display: grid; grid-row: span 4; grid-template-rows: subgrid; }
+}
+/* Identity sits on its own tinted band so the eye separates which option this
+   is from what it costs you, and the three bands line up across the row. The
+   band is sized by the tallest title in the row, so shorter ones centre in it
+   rather than hanging from the top. */
+.dopt-card > h4 { display: grid; align-content: center; margin: 0; padding: 12px 15px 11px; background: var(--cp-surface-soft); border-bottom: 1px solid var(--cp-border); font-size: 14px; font-weight: 650; letter-spacing: -.01em; color: var(--cp-text); }
+.dopt-card > h4 em { display: block; font-style: normal; font-size: 11px; font-weight: 400; color: var(--cp-text-muted); margin-top: 3px; }
+.dopt-when { margin: 0; padding: 11px 15px 12px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+/* Cards in a row are the same height so their feet align, but the content
+   rarely is. The rows share that spare height between them instead of
+   leaving it pooled in one void above the disclosure. */
+.dopt-card > .dopt-rows { flex: 1; display: flex; flex-direction: column; }
+.dopt-card > .dopt-rows > div { flex: 1; }
 .dopt-rows { margin: 0; font-size: 12px; }
-.dopt-rows > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-top: 1px solid var(--cp-border); }
-.dopt-rows dt { color: var(--cp-text-muted); }
+.dopt-rows > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; padding: 8px 15px; border-top: 1px solid var(--cp-border); }
+.dopt-rows dt { color: var(--cp-text-muted); line-height: 1.5; }
 .dopt-rows dd { margin: 0; color: var(--cp-text); line-height: 1.5; overflow-wrap: anywhere; }
 /* An eligibility condition belongs beside the option it qualifies, not in a
    footnote the reader meets after they have already decided. */
-.dopt-rows dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 2px; }
-.dopt-flag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--cp-warning); color: var(--cp-warning); margin-left: 4px; vertical-align: 1px; }
-.dopt-flag.region { border-color: var(--cp-border-strong); color: var(--cp-text-muted); }
-details.dopt-more { margin: 10px 0 0; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; padding: 8px 0 0; background: none; }
-details.dopt-more > summary { cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--cp-link); }
-details.dopt-more > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; border-radius: 3px; }
-details.dopt-more[open] > summary { margin-bottom: 7px; }
+.dopt-rows dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 3px; line-height: 1.45; }
+.dopt-flag { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1.5px 7px; border-radius: 999px; border: 1px solid currentColor; color: var(--cp-warning); margin-left: 5px; vertical-align: 1px; white-space: nowrap; }
+.dopt-flag.region { color: var(--cp-text-soft); }
+/* The disclosure reads as the foot of the card rather than one more row, so
+   it is full width against a tinted ground with no rule above the label. */
+details.dopt-more { margin: 0; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; padding: 0; background: var(--cp-surface-soft); }
+details.dopt-more > summary { cursor: pointer; padding: 10px 15px; font-size: 11.5px; font-weight: 650; color: var(--cp-link); }
+details.dopt-more > summary:hover { background: var(--cp-accent-soft); }
+details.dopt-more > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: -2px; }
+details.dopt-more[open] > summary { margin-bottom: 0; border-bottom: 1px solid var(--cp-border); }
+details.dopt-more .dopt-rows { background: var(--cp-surface); }
 details.dopt-more .dopt-rows > div:first-child { border-top: 0; }
-.dopt-foot { margin-top: 12px; }
-details.dopt-extra { margin: 0; }
-details.dopt-extra > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+.dopt-foot { margin-top: 14px; }
+details.dopt-extra { margin: 0; border-radius: 12px; }
+details.dopt-extra > summary { cursor: pointer; font-size: 12.5px; font-weight: 650; }
 details.dopt-extra > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; border-radius: 3px; }
-details.dopt-extra[open] > summary { margin-bottom: 9px; }
-.dopt-extra-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; font-size: 12px; }
-.dopt-extra-grid > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding: 5px 0; border-top: 1px solid var(--cp-border); }
+details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; border-bottom: 1px solid var(--cp-border); }
+.dopt-extra-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 26px; font-size: 12px; }
+.dopt-extra-grid > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-top: 1px solid var(--cp-border); }
 .dopt-extra-grid dt { color: var(--cp-text-muted); }
 .dopt-extra-grid dd { margin: 0; color: var(--cp-text); line-height: 1.5; }
-.dopt-extra-grid dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 2px; }
-.dopt-alt { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface-soft); }
-.dopt-alt h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 650; }
-.dopt-alt p { margin: 0 0 8px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+.dopt-extra-grid dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 3px; line-height: 1.45; }
+/* A supported alternative rather than a fourth tier, so it is set apart from
+   the cards above it and led by a rule in the accent. */
+.dopt-alt { margin-top: 14px; padding: 13px 15px; border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 12px; background: var(--cp-surface-soft); }
+.dopt-alt h4 { margin: 0 0 5px; font-size: 13px; font-weight: 650; }
+.dopt-alt p { margin: 0 0 9px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
 .dopt-alt .dopt-extra-grid > div:first-child, .dopt-alt .dopt-extra-grid > div:nth-child(2) { border-top: 0; }
-.dopt-verified { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 12px 0 0; font-size: 11.5px; color: var(--cp-text-muted); }
+.dopt-verified { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 14px 0 0; font-size: 11.5px; color: var(--cp-text-muted); }
 .dopt-verified a { color: var(--cp-link); }
 .dopt-verified a:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
 @media (max-width: 900px) {
@@ -484,8 +514,11 @@ details.dopt-extra[open] > summary { margin-bottom: 9px; }
 }
 @media (max-width: 620px) {
   .dopt-tabs { grid-template-columns: 1fr; }
-  .dopt-rows > div, .dopt-extra-grid > div { grid-template-columns: 1fr; gap: 1px; }
-  .dopt-rows dt, .dopt-extra-grid dt { font-size: 11px; }
+  .dopt-rows > div, .dopt-extra-grid > div { grid-template-columns: 1fr; gap: 2px; }
+  .dopt-rows dt, .dopt-extra-grid dt { font-size: 11px; font-weight: 600; }
+  /* Stacked cards are their own height, so there is no slack to share and
+     stretching the rows would only make them tall for no reason. */
+  .dopt-card > .dopt-rows > div { flex: none; }
 }
 
 .opt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 13px; }
@@ -599,9 +632,9 @@ details.dopt-extra[open] > summary { margin-bottom: 9px; }
     <input type="radio" name="dopt" id="dopt-r-db" class="dopt-radio dopt-db">
 
     <div class="dopt-tabs">
-      <label class="dopt-tab dopt-tab-vm" for="dopt-r-vm">SQL Server on Azure VM<span>IaaS &middot; you configure the host</span></label>
-      <label class="dopt-tab dopt-tab-mi" for="dopt-r-mi">Azure SQL Managed Instance<span>PaaS &middot; instance scope</span></label>
-      <label class="dopt-tab dopt-tab-db" for="dopt-r-db">Azure SQL Database<span>PaaS &middot; database scope</span></label>
+      <label class="dopt-tab dopt-tab-vm" for="dopt-r-vm"><svg class="dopt-tab-logo" viewBox="0 0 18 18" role="img" aria-hidden="true" focusable="false"><defs><linearGradient id="tab-bf00b8fe-272d-44e3-922e-e394f4035f83" x1="9" y1="12.46" x2="9" y2="1.18" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0078d4" /><stop offset="0.82" stop-color="#5ea0ef" /></linearGradient><linearGradient id="tab-b2b35db0-3208-44e0-aaf4-68cf95a2719b" x1="9" y1="16.82" x2="9" y2="12.46" gradientUnits="userSpaceOnUse"><stop offset="0.15" stop-color="#ccc" /><stop offset="1" stop-color="#707070" /></linearGradient><radialGradient id="tab-f2829e12-820e-4175-930d-324517daee42" cx="9.43" cy="7.03" r="7.27" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f2f2f2" /><stop offset="0.58" stop-color="#eee" /><stop offset="1" stop-color="#e6e6e6" /></radialGradient></defs><g><g><rect x="0.54" y="1.18" width="16.91" height="11.27" rx="0.56" fill="url(#tab-bf00b8fe-272d-44e3-922e-e394f4035f83)" /><path d="M12.39,15.87c-1.67-.26-1.74-1.47-1.73-3.41H7.34c0,1.94-.06,3.15-1.73,3.41a1,1,0,0,0-.84,1h8.46A1,1,0,0,0,12.39,15.87Z" fill="url(#tab-b2b35db0-3208-44e0-aaf4-68cf95a2719b)" /></g><path d="M13.07,7.89V4.41h-1V8.66h2.53V7.89ZM5.73,6.17a2,2,0,0,1-.52-.31.45.45,0,0,1-.13-.34.36.36,0,0,1,.16-.31.69.69,0,0,1,.43-.11,1.66,1.66,0,0,1,1,.29V4.51a2.77,2.77,0,0,0-1-.17,1.73,1.73,0,0,0-1.13.35,1.12,1.12,0,0,0-.42.92A1.38,1.38,0,0,0,5,6.85a2.49,2.49,0,0,1,.63.37.41.41,0,0,1,.16.33.4.4,0,0,1-.16.32A.76.76,0,0,1,5.21,8a1.69,1.69,0,0,1-1.12-.44v1a2.27,2.27,0,0,0,1.1.24A2,2,0,0,0,6.4,8.41a1.12,1.12,0,0,0,.44-.94,1,1,0,0,0-.26-.72A2.54,2.54,0,0,0,5.73,6.17Zm5.34,1.64a2.4,2.4,0,0,0,.34-1.3,2.44,2.44,0,0,0-.26-1.13,1.85,1.85,0,0,0-.72-.77,2.05,2.05,0,0,0-1-.27,2.23,2.23,0,0,0-1.11.28,1.89,1.89,0,0,0-.76.8A2.47,2.47,0,0,0,7.25,6.6a2.44,2.44,0,0,0,.24,1.08,1.92,1.92,0,0,0,.71.76,2.06,2.06,0,0,0,1,.3l.88,1h1.24L10.11,8.58A1.78,1.78,0,0,0,11.07,7.81Zm-1-.26a.94.94,0,0,1-.78.36.92.92,0,0,1-.78-.37,1.55,1.55,0,0,1-.3-1,1.57,1.57,0,0,1,.3-1,1,1,0,0,1,.8-.37.9.9,0,0,1,.77.37,1.65,1.65,0,0,1,.28,1A1.5,1.5,0,0,1,10.11,7.55Z" fill="url(#tab-f2829e12-820e-4175-930d-324517daee42)" /></g></svg><b>SQL Server on Azure VM</b><span>IaaS &middot; you configure the host</span></label>
+      <label class="dopt-tab dopt-tab-mi" for="dopt-r-mi"><svg class="dopt-tab-logo" viewBox="0 0 18 18" role="img" aria-hidden="true" focusable="false"><defs><linearGradient id="tab-acf2da4b-8aca-4b58-b995-ca6956cf663e" x1="5.41" y1="17.33" x2="5.41" y2="0.61" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#949494" /><stop offset="0.53" stop-color="#a2a2a2" /><stop offset="1" stop-color="#b3b3b3" /></linearGradient><linearGradient id="tab-b152b416-25c2-4a4a-9d7f-a0bb2a13f84a" x1="10.04" y1="17.39" x2="10.04" y2="6.82" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0078d4" /><stop offset="0.16" stop-color="#1380da" /><stop offset="0.53" stop-color="#3c91e5" /><stop offset="0.82" stop-color="#559cec" /><stop offset="1" stop-color="#5ea0ef" /></linearGradient></defs><path d="M10.32,16.76a.58.58,0,0,1-.57.57H1.07a.57.57,0,0,1-.57-.57V1.18A.56.56,0,0,1,1.07.61H9.75a.57.57,0,0,1,.57.57Z" fill="url(#tab-acf2da4b-8aca-4b58-b995-ca6956cf663e)" /><path d="M1.94,6.47A1.07,1.07,0,0,1,3,5.41H7.9A1.07,1.07,0,0,1,9,6.47H9A1.07,1.07,0,0,1,7.9,7.54H3A1.07,1.07,0,0,1,1.94,6.47Z" fill="#003067" /><path d="M1.94,3.31A1.07,1.07,0,0,1,3,2.24H7.9A1.07,1.07,0,0,1,9,3.31H9A1.07,1.07,0,0,1,7.9,4.37H3A1.07,1.07,0,0,1,1.94,3.31Z" fill="#003067" /><circle cx="3.06" cy="3.31" r="0.72" fill="#50e6ff" /><circle cx="3.06" cy="6.47" r="0.72" fill="#50e6ff" /><path d="M17.5,14.08a3.36,3.36,0,0,0-2.91-3.22,4.22,4.22,0,0,0-4.35-4A4.32,4.32,0,0,0,6.1,9.64a4,4,0,0,0-3.52,3.85,4.06,4.06,0,0,0,4.2,3.9l.37,0H14l.17,0A3.39,3.39,0,0,0,17.5,14.08Z" fill="url(#tab-b152b416-25c2-4a4a-9d7f-a0bb2a13f84a)" /><path d="M13.61,14.45V11.09h-.93v4.12h2.45v-.76ZM6.51,12.8A2.23,2.23,0,0,1,6,12.49a.44.44,0,0,1-.12-.32.34.34,0,0,1,.15-.3.66.66,0,0,1,.42-.12,1.66,1.66,0,0,1,1,.29v-.86a2.89,2.89,0,0,0-1-.15,1.69,1.69,0,0,0-1.09.33,1.1,1.1,0,0,0-.41.89,1.34,1.34,0,0,0,.94,1.2,2.51,2.51,0,0,1,.61.36.42.42,0,0,1,.15.32.34.34,0,0,1-.15.3.75.75,0,0,1-.45.12,1.63,1.63,0,0,1-1.08-.42v.92A2.25,2.25,0,0,0,6,15.28,1.91,1.91,0,0,0,7.15,15a1.07,1.07,0,0,0,.43-.91,1,1,0,0,0-.25-.7A2.36,2.36,0,0,0,6.51,12.8Zm5.16,1.58A2.37,2.37,0,0,0,12,13.12,2.28,2.28,0,0,0,11.75,12a1.77,1.77,0,0,0-.69-.74A1.94,1.94,0,0,0,10,11,2.21,2.21,0,0,0,9,11.29a1.87,1.87,0,0,0-.73.77A2.52,2.52,0,0,0,8,13.2a2.26,2.26,0,0,0,.24,1.05,1.87,1.87,0,0,0,.68.74,2,2,0,0,0,1,.29l.85,1h1.2l-1.19-1.1A1.82,1.82,0,0,0,11.67,14.38Zm-.93-.25a.92.92,0,0,1-.76.35.91.91,0,0,1-.75-.36,1.5,1.5,0,0,1-.28-1,1.46,1.46,0,0,1,.29-1,.92.92,0,0,1,.77-.37.86.86,0,0,1,.74.37,1.54,1.54,0,0,1,.28,1A1.47,1.47,0,0,1,10.74,14.13Z" fill="#f2f2f2" /></svg><b>Azure SQL Managed Instance</b><span>PaaS &middot; instance scope</span></label>
+      <label class="dopt-tab dopt-tab-db" for="dopt-r-db"><svg class="dopt-tab-logo" viewBox="0 0 18 18" role="img" aria-hidden="true" focusable="false"><defs><linearGradient id="tab-ef16bf9d-a8b6-4181-b6cd-66fc5203f956" x1="2.59" y1="10.16" x2="15.41" y2="10.16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#005ba1" /><stop offset="0.07" stop-color="#0060a9" /><stop offset="0.36" stop-color="#0071c8" /><stop offset="0.52" stop-color="#0078d4" /><stop offset="0.64" stop-color="#0074cd" /><stop offset="0.82" stop-color="#006abb" /><stop offset="1" stop-color="#005ba1" /></linearGradient><radialGradient id="tab-bf3846c3-4d74-4743-ab9a-f334c248bd92" cx="9.36" cy="10.57" r="7.07" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#f2f2f2" /><stop offset="0.58" stop-color="#eee" /><stop offset="1" stop-color="#e6e6e6" /></radialGradient></defs><path d="M9,5.14c-3.54,0-6.41-1-6.41-2.32V15.18c0,1.27,2.82,2.3,6.32,2.32H9c3.54,0,6.41-1,6.41-2.32V2.82C15.41,4.11,12.54,5.14,9,5.14Z" fill="url(#tab-ef16bf9d-a8b6-4181-b6cd-66fc5203f956)" /><path d="M15.41,2.82c0,1.29-2.87,2.32-6.41,2.32s-6.41-1-6.41-2.32S5.46.5,9,.5s6.41,1,6.41,2.32" fill="#e8e8e8" /><path d="M13.92,2.63c0,.82-2.21,1.48-4.92,1.48S4.08,3.45,4.08,2.63,6.29,1.16,9,1.16s4.92.66,4.92,1.47" fill="#50e6ff" /><path d="M9,3a11.55,11.55,0,0,0-3.89.57A11.42,11.42,0,0,0,9,4.11a11.15,11.15,0,0,0,3.89-.58A11.84,11.84,0,0,0,9,3Z" fill="#198ab3" /><path d="M12.9,11.4V8H12v4.13h2.46V11.4ZM5.76,9.73a1.83,1.83,0,0,1-.51-.31.44.44,0,0,1-.12-.32.34.34,0,0,1,.15-.3.68.68,0,0,1,.42-.12,1.62,1.62,0,0,1,1,.29V8.11a2.58,2.58,0,0,0-1-.16,1.64,1.64,0,0,0-1.09.34,1.08,1.08,0,0,0-.42.89c0,.51.32.91,1,1.21a2.88,2.88,0,0,1,.62.36.42.42,0,0,1,.15.32.38.38,0,0,1-.16.31.81.81,0,0,1-.45.11,1.66,1.66,0,0,1-1.09-.42V12a2.17,2.17,0,0,0,1.07.24,1.88,1.88,0,0,0,1.18-.33A1.08,1.08,0,0,0,6.84,11a1.05,1.05,0,0,0-.25-.7A2.42,2.42,0,0,0,5.76,9.73ZM11,11.32a2.34,2.34,0,0,0,.33-1.26A2.32,2.32,0,0,0,11,9a1.81,1.81,0,0,0-.7-.75,2,2,0,0,0-1-.26,2.11,2.11,0,0,0-1.08.27A1.86,1.86,0,0,0,7.49,9a2.46,2.46,0,0,0-.26,1.14,2.26,2.26,0,0,0,.24,1,1.76,1.76,0,0,0,.69.74,2.06,2.06,0,0,0,1,.3l.86,1h1.21L10,12.08A1.79,1.79,0,0,0,11,11.32ZM10,11.07a.94.94,0,0,1-.76.35.92.92,0,0,1-.76-.36,1.52,1.52,0,0,1-.29-1,1.53,1.53,0,0,1,.29-1,1,1,0,0,1,.78-.37.87.87,0,0,1,.75.37,1.62,1.62,0,0,1,.27,1A1.46,1.46,0,0,1,10,11.07Z" fill="url(#tab-bf3846c3-4d74-4743-ab9a-f334c248bd92)" /></svg><b>Azure SQL Database</b><span>PaaS &middot; database scope</span></label>
     </div>
 
     <div class="dopt-panels">
