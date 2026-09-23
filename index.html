@@ -445,6 +445,79 @@ details.acc[open] summary { margin-bottom: 9px; }
   .map-compute-fork { display: none; }
   .map-compute-question { margin: 2px 0; justify-content: flex-start; }
 }
+/* ---------- deployment options explorer ----------
+   The guide page carries no application JavaScript, so the offering switch is a
+   radio group rather than scripted tabs. That is not a workaround: a radio group
+   already has the keyboard behaviour an ARIA tablist has to reimplement — arrow
+   keys move between offerings, the group is one tab stop, and the state is real
+   rather than mirrored into aria-selected. The radios stay focusable and are
+   only moved out of sight, with the focus ring drawn on the label instead.
+   Expanding sections are <details>, matching the accordions elsewhere. */
+.dopt-radio { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+.dopt-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
+.dopt-tab { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border: 1px solid var(--cp-border); border-radius: 10px; background: var(--cp-surface); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--cp-text); line-height: 1.35; }
+.dopt-tab span { font-weight: 400; font-size: 11px; color: var(--cp-text-muted); }
+.dopt-tab:hover { border-color: var(--cp-accent); }
+.dopt-vm:checked ~ .dopt-tabs .dopt-tab-vm,
+.dopt-mi:checked ~ .dopt-tabs .dopt-tab-mi,
+.dopt-db:checked ~ .dopt-tabs .dopt-tab-db { border-color: var(--cp-accent); background: var(--cp-accent-soft); box-shadow: inset 0 -2px 0 var(--cp-accent); }
+.dopt-vm:focus-visible ~ .dopt-tabs .dopt-tab-vm,
+.dopt-mi:focus-visible ~ .dopt-tabs .dopt-tab-mi,
+.dopt-db:focus-visible ~ .dopt-tabs .dopt-tab-db { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
+.dopt-panel { display: none; }
+.dopt-vm:checked ~ .dopt-panels > .dopt-panel-vm,
+.dopt-mi:checked ~ .dopt-panels > .dopt-panel-mi,
+.dopt-db:checked ~ .dopt-panels > .dopt-panel-db { display: block; }
+.dopt-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+/* Equal-height cards with the disclosure pinned to the foot, so the three
+   controls line up instead of floating wherever the content happens to end. */
+.dopt-card { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 14px; }
+.dopt-card > .dopt-rows { flex: 1; }
+.dopt-card > h4 { margin: 0; font-size: 13.5px; font-weight: 650; color: var(--cp-text); }
+.dopt-card > h4 em { display: block; font-style: normal; font-size: 11px; font-weight: 400; color: var(--cp-text-muted); margin-top: 2px; }
+.dopt-when { margin: 7px 0 10px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+.dopt-rows { margin: 0; font-size: 12px; }
+.dopt-rows > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-top: 1px solid var(--cp-border); }
+.dopt-rows dt { color: var(--cp-text-muted); }
+.dopt-rows dd { margin: 0; color: var(--cp-text); line-height: 1.5; overflow-wrap: anywhere; }
+/* An eligibility condition belongs beside the option it qualifies, not in a
+   footnote the reader meets after they have already decided. */
+.dopt-rows dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 2px; }
+.dopt-flag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--cp-warning); color: var(--cp-warning); margin-left: 4px; vertical-align: 1px; }
+.dopt-flag.region { border-color: var(--cp-border-strong); color: var(--cp-text-muted); }
+details.dopt-more { margin: 10px 0 0; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; padding: 8px 0 0; background: none; }
+details.dopt-more > summary { cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--cp-link); }
+details.dopt-more > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; border-radius: 3px; }
+details.dopt-more[open] > summary { margin-bottom: 7px; }
+details.dopt-more .dopt-rows > div:first-child { border-top: 0; }
+.dopt-foot { margin-top: 12px; }
+details.dopt-extra { margin: 0; }
+details.dopt-extra > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; }
+details.dopt-extra > summary:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; border-radius: 3px; }
+details.dopt-extra[open] > summary { margin-bottom: 9px; }
+.dopt-extra-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; font-size: 12px; }
+.dopt-extra-grid > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; padding: 5px 0; border-top: 1px solid var(--cp-border); }
+.dopt-extra-grid dt { color: var(--cp-text-muted); }
+.dopt-extra-grid dd { margin: 0; color: var(--cp-text); line-height: 1.5; }
+.dopt-extra-grid dd i { display: block; font-style: normal; font-size: 11px; color: var(--cp-text-muted); margin-top: 2px; }
+.dopt-alt { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface-soft); }
+.dopt-alt h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 650; }
+.dopt-alt p { margin: 0 0 8px; font-size: 12px; line-height: 1.55; color: var(--cp-text-muted); }
+.dopt-alt .dopt-extra-grid > div:first-child, .dopt-alt .dopt-extra-grid > div:nth-child(2) { border-top: 0; }
+.dopt-verified { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 12px 0 0; font-size: 11.5px; color: var(--cp-text-muted); }
+.dopt-verified a { color: var(--cp-link); }
+.dopt-verified a:focus-visible { outline: 2px solid var(--cp-accent); outline-offset: 2px; }
+@media (max-width: 900px) {
+  .dopt-grid { grid-template-columns: 1fr; }
+  .dopt-extra-grid { grid-template-columns: 1fr; }
+  .dopt-alt .dopt-extra-grid > div:nth-child(2) { border-top: 1px solid var(--cp-border); }
+}
+@media (max-width: 620px) {
+  .dopt-tabs { grid-template-columns: 1fr; }
+  .dopt-rows > div, .dopt-extra-grid > div { grid-template-columns: 1fr; gap: 1px; }
+  .dopt-rows dt, .dopt-extra-grid dt { font-size: 11px; }
+}
+
 .q { border-left: 3px solid var(--cp-accent); padding: 0 0 0 18px; margin: 0 0 4px; }
 .q-head { display: flex; align-items: baseline; gap: 10px; }
 .q-n {
