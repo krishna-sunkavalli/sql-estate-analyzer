@@ -356,7 +356,10 @@ details.acc[open] summary { margin-bottom: 9px; }
    Static explainer, no estate data. Reachable before anything is uploaded,
    because the first thing most customers need is not a number — it is to know
    that Managed Instance and serverless are not competing choices at all. */
-.modernization-map { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; padding: 12px; font-size: 12px; border-top: 3px solid var(--cp-accent); }
+/* Widened from 760: the destination text column has to hold a full sentence
+   beside the icon, and the narrower box left this section visibly out of step
+   with the full-width card beneath it. */
+.modernization-map { width: 100%; max-width: 1000px; margin-left: auto; margin-right: auto; padding: 14px 16px; font-size: 12px; border-top: 3px solid var(--cp-accent); }
 .map-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
 .map-eyebrow { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--cp-text-muted); }
 .map-heading h2 { font-size: 19px; font-weight: 650; letter-spacing: -.025em; margin: 0; }
@@ -369,8 +372,10 @@ details.acc[open] summary { margin-bottom: 9px; }
 .map-source { flex-shrink: 0; margin-top: 0; }
 .map-columns, .map-branch { display: grid; grid-template-columns: minmax(0, 1fr) 60px minmax(0, 1fr); }
 .map-columns { margin-bottom: 6px; color: var(--cp-text-soft); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-.map-decision { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 8px; }
-.map-step { flex: none; display: grid; place-items: center; width: 23px; height: 23px; font-size: 11px; font-weight: 700; border: 1px solid var(--cp-accent); color: var(--cp-accent); background: var(--cp-surface); border-radius: 6px; }
+.map-decision { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 10px; align-items: start; padding: 9px 11px; background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 8px; }
+/* The badge is taller than one line of the heading beside it, so it is nudged
+   up by half the difference to sit on that line's optical centre. */
+.map-step { width: 22px; height: 22px; margin-top: -2px; display: grid; place-items: center; font-size: 11px; font-weight: 700; border: 1px solid var(--cp-accent); color: var(--cp-accent); background: var(--cp-surface); border-radius: 6px; }
 .map-decision-body { min-width: 0; }
 .map-decision h3 { font-size: 13px; line-height: 1.35; margin-top: 0; }
 .map-signals { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
@@ -378,11 +383,15 @@ details.acc[open] summary { margin-bottom: 9px; }
 .map-yes { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: var(--cp-accent); font-size: 12px; font-weight: 600; padding: 0 10px; }
 .map-yes i { width: 100%; border-top: 2px solid var(--cp-accent); position: relative; }
 .map-yes i::after { content: ""; position: absolute; right: 0; top: -5px; width: 7px; height: 7px; border-right: 2px solid var(--cp-accent); border-top: 2px solid var(--cp-accent); transform: rotate(45deg); }
-.map-destination { padding: 8px 10px; border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 8px; background: var(--cp-accent-soft); }
-.map-destination-heading { display: flex; align-items: center; gap: 8px; }
-.map-destination h3 { font-size: 15px; letter-spacing: -.015em; line-height: 1.3; margin-top: 0; }
-.map-icon { width: 23px; height: 23px; flex: none; fill: none; stroke: var(--cp-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.map-tradeoff { margin: 4px 0 0; color: var(--cp-text-muted); font-size: 12px; }
+/* Destinations are a two-column grid rather than a heading row with text
+   beneath it, so the description lines up with the title instead of starting
+   back under the icon. */
+.map-destination { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 10px; align-items: center; padding: 9px 11px; border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-accent); border-radius: 8px; background: var(--cp-accent-soft); }
+.map-destination h3 { grid-column: 2; font-size: 14.5px; letter-spacing: -.015em; line-height: 1.3; margin-top: 0; }
+/* Official Azure product icons, used unmodified: no fill or stroke override,
+   and scaled proportionally from their own 18-unit viewBox. */
+.map-logo { grid-column: 1; width: 22px; height: 22px; display: block; }
+.map-tradeoff { grid-column: 2; margin: 3px 0 0; color: var(--cp-text-muted); font-size: 12px; line-height: 1.45; }
 .map-next { width: calc((100% - 60px) / 2); display: flex; align-items: center; flex-direction: row; justify-content: center; padding: 4px 8px; gap: 8px; color: var(--cp-text-muted); font-size: 11px; text-align: center; }
 .map-next i { height: 10px; border-left: 2px solid var(--cp-accent); position: relative; }
 .map-next i::after { content: ""; position: absolute; bottom: 0; left: -5px; width: 7px; height: 7px; border-right: 2px solid var(--cp-accent); border-bottom: 2px solid var(--cp-accent); transform: rotate(45deg); }
