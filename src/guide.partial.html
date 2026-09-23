@@ -92,9 +92,7 @@
             <dl class="dopt-rows">
               <div><dt>Deployment</dt><dd>Marketplace SQL image, or install onto your own VM</dd></div>
               <div><dt>Compute</dt><dd>Memory optimized for most production work. Ebdsv5 is the documented
-                starting point; Mbdsv3 and M-series for the largest workloads
-                <i>D-series and B-series are positioned for dev/test — their memory ratio sits below the
-                production recommendation</i></dd></div>
+                starting point; Mbdsv3 and M-series for the largest workloads</dd></div>
               <div><dt>Storage</dt><dd>Storage optimized L-series for I/O-heavy staging
                 <i>Its local NVMe is ephemeral — data there is lost when the VM is deallocated</i></dd></div>
               <div><dt>Licensing</dt><dd>Constrained vCore sizes cut the billable SQL core count while
@@ -157,9 +155,7 @@
               <div><dt>Database</dt><dd>Always On availability groups, with replicas across zones or
                 regions</dd></div>
               <div><dt>Instance</dt><dd>Failover cluster instance over shared storage</dd></div>
-              <div><dt>Placement</dt><dd>Availability zones, or an availability set
-                <i>Adding a VM to an availability set requires recreating it, which resets the licence
-                type to pay-as-you-go</i></dd></div>
+              <div><dt>Placement</dt><dd>Availability zones, or an availability set</dd></div>
               <div><dt>Recovery</dt><dd>Secondary replicas in another region, backup to blob storage, or
                 Azure Site Recovery</dd></div>
             </dl>
@@ -218,8 +214,7 @@
               budgeted for and a readable secondary is not required.</p>
             <dl class="dopt-rows">
               <div><dt>Deployment</dt><dd>Single instance, or an instance pool</dd></div>
-              <div><dt>Compute</dt><dd>4 to 80 vCores on all hardware
-                <i>2 vCores exist only inside an instance pool</i></dd></div>
+              <div><dt>Compute</dt><dd>4 to 80 vCores on all hardware</dd></div>
               <div><dt>Memory</dt><dd>5.1, 7 or 13.6 GB per vCore by hardware generation</dd></div>
               <div><dt>Storage</dt><dd>Up to 16 TB on remote page blobs, tied to vCore count</dd></div>
               <div><dt>Databases</dt><dd>Up to 100</dd></div>
@@ -248,16 +243,13 @@
             <p class="dopt-when">Consider when General Purpose fits the shape of the workload but the
               database count, storage ceiling or I/O has become the constraint.</p>
             <dl class="dopt-rows">
-              <div><dt>Deployment</dt><dd>Single instance only
-                <i>Instance pools are General Purpose only, so a pooled instance cannot use this
-                tier</i></dd></div>
+              <div><dt>Deployment</dt><dd>Single instance only</dd></div>
               <div><dt>Compute</dt><dd>4 to 80 vCores on standard-series, 4 to 128 on premium-series</dd></div>
               <div><dt>Memory</dt><dd>Same ratios, and memory can be set independently of vCores on
                 premium-series</dd></div>
               <div><dt>Storage</dt><dd>Up to 32 TB on Elastic SAN, with 3 IOPS included per GB</dd></div>
               <div><dt>Databases</dt><dd>Up to 500</dd></div>
-              <div><dt>Availability</dt><dd>Standby nodes, no readable secondary
-                <i>Zone redundancy on this tier is in preview</i><span class="dopt-flag">Preview</span></dd></div>
+              <div><dt>Availability</dt><dd>Standby nodes, no readable secondary</dd></div>
             </dl>
             <details class="dopt-more">
               <summary>Configuration details and limits</summary>
@@ -267,6 +259,7 @@
                 <div><dt>I/O</dt><dd>3 IOPS per GB reserved, a floor of 300 IOPS, and a per-vCore ceiling
                   reaching 80,000. Throughput is a thirtieth of IOPS with a 75 MB/s floor. IOPS beyond the
                   included allowance are billable</dd></div>
+                <div><dt>Zone redundancy</dt><dd>In preview on this tier<span class="dopt-flag">Preview</span></dd></div>
                 <div><dt>Flexible memory</dt><dd>Premium-series only. Generally available on locally
                   redundant instances; in preview on zone-redundant ones<span class="dopt-flag">Preview</span></dd></div>
                 <div><dt>Upgrading</dt><dd>Enabled in place on new or existing instances through the
@@ -285,8 +278,7 @@
               <div><dt>Deployment</dt><dd>Single instance only</dd></div>
               <div><dt>Compute</dt><dd>4 to 80 vCores on standard-series, 4 to 128 on premium-series</dd></div>
               <div><dt>Memory</dt><dd>5.1, 7 or 13.6 GB per vCore, on each replica</dd></div>
-              <div><dt>Storage</dt><dd>Up to 4 TB on standard-series; up to 16 TB on premium-series
-                <i>Smaller regions cap premium-series at 5.5 TB</i><span class="dopt-flag region">Regional</span></dd></div>
+              <div><dt>Storage</dt><dd>Up to 4 TB on standard-series; up to 16 TB on premium-series</dd></div>
               <div><dt>Databases</dt><dd>Up to 100</dd></div>
               <div><dt>Availability</dt><dd>Four replicas, one of them readable</dd></div>
             </dl>
@@ -477,17 +469,7 @@
     </div>
   </div>
 
-  <div class="note">
-    <b>Not every option combines with every other.</b> Hardware, service tier, compute tier and
-    deployment model constrain one another — serverless is standard-series only, instance pools are
-    General Purpose only, DC-series rules out zone redundancy. Availability also varies by region.
-    Confirm a specific combination in the Azure portal or the documentation before you design to it.
-  </div>
-  <p class="dopt-verified"><span>Last verified against Microsoft Learn on 22 September 2026.</span>
-    <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-iaas-vs-paas-what-is-overview?view=azuresql">Azure SQL overview</a>
-    &middot; <a href="https://learn.microsoft.com/en-us/azure/azure-sql/azure-sql-decision-tree?view=azuresql">Decision tree</a></p>
   <div style="margin-top:13px">
     <button class="primary" id="btnGuideBack">Scan my estate</button>
   </div>
-
 </div>
