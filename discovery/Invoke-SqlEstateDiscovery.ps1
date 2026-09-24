@@ -52,7 +52,7 @@
     .\Invoke-SqlEstateDiscovery.ps1 -FromCentralManagementServer CMS01 -OutputPath .\estate.csv
 
 .NOTES
-    Companion to https://krishna-sunkavalli.github.io/sql-modernization-azure/
+    Companion to https://krishna-sunkavalli.github.io/sql-modernization-azure/cost-estimator/
 #>
 #Requires -Version 5.1
 [CmdletBinding(DefaultParameterSetName = 'Explicit')]
@@ -404,7 +404,8 @@ if ($rowCount) {
     Write-Host "Inventory : $OutputPath" -ForegroundColor Green
     Write-Host "Run log   : $logPath"
     Write-Host ''
-    Write-Host 'Upload the inventory file to https://krishna-sunkavalli.github.io/sql-modernization-azure/' -ForegroundColor Cyan
+    Write-Host 'Total the Standard and Enterprise cores from this file, then enter them at' -ForegroundColor Cyan
+    Write-Host 'https://krishna-sunkavalli.github.io/sql-modernization-azure/cost-estimator/' -ForegroundColor Cyan
 } else {
     Write-Host ''
     Write-Warning "No rows collected. See $logPath for the per-instance reason."

@@ -29,7 +29,7 @@ jobs:
         run: |
           # Navigation links are fine; what must not happen is loading anything
           # external at runtime.
-          for f in index.html modernization-options/index.html; do
+          for f in cost-estimator/index.html deployment-options/index.html; do
             if grep -nEi 'fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB' "$f"; then
               echo "::error::$f makes a network or storage call"
               exit 1
@@ -50,7 +50,7 @@ jobs:
           New-Item -ItemType Directory -Path $tmp -Force | Out-Null
           ./src/build.ps1 -Root $tmp
           $stale = @()
-          foreach ($f in @('index.html', 'modernization-options/index.html', 'sqlmodernizationoptions/index.html')) {
+          foreach ($f in @('index.html', 'cost-estimator/index.html', 'deployment-options/index.html')) {
             $a = (Get-Content $f -Raw) -replace "`r", ''
             $b = (Get-Content (Join-Path $tmp $f) -Raw) -replace "`r", ''
             if ($a -ne $b) { $stale += $f }

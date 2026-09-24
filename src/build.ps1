@@ -1,8 +1,9 @@
 <#
-  build.ps1 — assembles both published pages from one source.
+  build.ps1 — assembles the published pages from one source.
 
-    /                         the core-based calculator, with list prices inlined
-    /modernization-options/   the decision guide, static, no application JavaScript
+    /                    redirect to the cost estimator
+    /cost-estimator/     the core-based calculator, with list prices inlined
+    /deployment-options/ the offering guide, static, no application JavaScript
 
   Both pages are self-contained: nothing is fetched at runtime.
 #>
@@ -14,7 +15,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $build = $PSScriptRoot
-if (-not $Output) { $Output = Join-Path $Root 'index.html' }
+if (-not $Output) { $Output = Join-Path $Root 'cost-estimator\index.html' }
 
 $template = Get-Content (Join-Path $build 'app.template.html') -Raw -Encoding UTF8
 $prices = Get-Content (Join-Path $build 'calculator-prices.json') -Raw -Encoding UTF8
@@ -56,13 +57,13 @@ $kb = [math]::Round((Get-Item $Output).Length / 1KB, 1)
 Write-Host "Built $Output ($kb KB)" -ForegroundColor Green
 
 <#
-  The decision guide, published at /modernization-options/.
+  The offering guide, published at /deployment-options/.
 
   Derived from these sources rather than maintained separately: the theme
-  variables and boot script are lifted straight out of app.template.html and the
-  content comes from guide.partial.html, so the guide cannot drift from the
-  product it links to. It carries no application JavaScript — the guide is
-  static content and needs none.
+  variables are lifted straight out of app.template.html and the content comes
+  from guide.partial.html, so the guide cannot drift from the product it links
+  to. It carries no application JavaScript — the guide is static content and
+  needs none.
 #>
 $styleMatch = [regex]::Match($template, '(?s)<style>(.*?)</style>')
 if (-not $styleMatch.Success) { throw 'Could not extract <style> block for the guide' }
@@ -73,10 +74,11 @@ if (-not (Test-Path $guidePartial)) { throw "Missing guide partial: $guidePartia
 $guideBody = Get-Content $guidePartial -Raw -Encoding UTF8
 
 # The partial's closing call to action is a button; as a page it becomes a link.
+# The two pages are siblings, so the link climbs out and back down.
 $guideBody = [regex]::Replace(
   $guideBody,
   '<button class="primary" id="btnGuideBack">[^<]*</button>',
-  '<a class="btn primary" href="../">Cost estimator &rarr;</a>')
+  '<a class="btn primary" href="../cost-estimator/">Cost estimator &rarr;</a>')
 
 $headMatch = [regex]::Match($template, '(?s)<head>(.*?)<style>')
 $favicon   = [regex]::Match($headMatch.Groups[1].Value, '<link rel="icon"[^>]*>').Value
@@ -107,7 +109,7 @@ $css
       </div>
     </div>
     <div class="spacer"></div>
-    <a class="btn primary" href="../">Cost estimator</a>
+    <a class="btn primary" href="../cost-estimator/">Cost estimator</a>
   </header>
   <section>
 $guideBody
@@ -117,27 +119,29 @@ $guideBody
 </html>
 "@
 
-$guideDir = Join-Path $Root 'modernization-options'
+$guideDir = Join-Path $Root 'deployment-options'
 if (-not (Test-Path $guideDir)) { New-Item -ItemType Directory -Path $guideDir -Force | Out-Null }
 $guideOut = Join-Path $guideDir 'index.html'
 Set-Content -Path $guideOut -Value $guidePage -Encoding UTF8
 $gkb = [math]::Round((Get-Item $guideOut).Length / 1KB, 1)
 Write-Host "Built $guideOut ($gkb KB)" -ForegroundColor Green
 
-# /sqlmodernizationoptions/ was published briefly. Keep it alive as a redirect so
-# any link already shared still lands on the guide.
-$legacyDir = Join-Path $Root 'sqlmodernizationoptions'
-if (-not (Test-Path $legacyDir)) { New-Item -ItemType Directory -Path $legacyDir | Out-Null }
-Set-Content -Path (Join-Path $legacyDir 'index.html') -Encoding UTF8 -Value @"
+# Both pages are named, so the root is a redirect rather than a page. The
+# estimator is the usual entry point, so that is where a bare link lands.
+# Written as a meta refresh with a canonical link, because GitHub Pages serves
+# static files and cannot issue a real redirect.
+Set-Content -Path (Join-Path $Root 'index.html') -Encoding UTF8 -Value @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SQL Modernization on Azure - Deployment Options</title>
-<link rel="canonical" href="../modernization-options/">
-<meta http-equiv="refresh" content="0; url=../modernization-options/">
+<title>SQL Modernization on Azure</title>
+<link rel="canonical" href="cost-estimator/">
+<meta http-equiv="refresh" content="0; url=cost-estimator/">
 </head>
-<body><p>This page has moved to <a href="../modernization-options/">SQL Modernization on Azure - Deployment Options</a>.</p></body>
+<body><p>SQL Modernization on Azure:
+<a href="cost-estimator/">Cost Estimator</a> &middot;
+<a href="deployment-options/">Deployment Options</a></p></body>
 </html>
 "@
-Write-Host "Built $legacyDir\index.html (redirect)" -ForegroundColor DarkGray
+Write-Host "Built $Root\index.html (redirect to cost-estimator)" -ForegroundColor DarkGray
