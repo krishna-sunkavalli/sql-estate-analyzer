@@ -79,7 +79,6 @@ $guideBody = [regex]::Replace(
   '<a class="btn primary" href="../">Calculate costs &rarr;</a>')
 
 $headMatch = [regex]::Match($template, '(?s)<head>(.*?)<style>')
-$themeBoot = [regex]::Match($headMatch.Groups[1].Value, '(?s)<script>.*?</script>').Value
 $favicon   = [regex]::Match($headMatch.Groups[1].Value, '<link rel="icon"[^>]*>').Value
 
 $guidePage = @"
@@ -90,10 +89,9 @@ $guidePage = @"
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Azure SQL modernization options &mdash; which one fits?</title>
 <meta name="description" content="Choosing between SQL Server on Azure VM, Azure SQL Managed Instance, Azure SQL Database and serverless.">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="theme-color" content="#0078d4">
 $favicon
-$themeBoot
 <style>
 $css
 </style>
@@ -110,18 +108,11 @@ $css
     </div>
     <div class="spacer"></div>
     <a class="btn primary" href="../">Calculate costs</a>
-    <button id="btnTheme" class="ghost" title="Toggle light/dark">&#9680;</button>
   </header>
   <section>
 $guideBody
   </section>
 </div>
-<script>
-  document.getElementById("btnTheme").onclick = () => {
-    const d = document.documentElement;
-    d.setAttribute("data-theme", d.getAttribute("data-theme") === "dark" ? "light" : "dark");
-  };
-</script>
 </body>
 </html>
 "@

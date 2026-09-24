@@ -5,22 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Azure SQL modernization options &mdash; which one fits?</title>
 <meta name="description" content="Choosing between SQL Server on Azure VM, Azure SQL Managed Instance, Azure SQL Database and serverless.">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="light">
 <meta name="theme-color" content="#0078d4">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230078d4'/%3E%3Cellipse cx='32' cy='19' rx='19' ry='7' fill='%23fff'/%3E%3Cpath d='M13 19v26c0 3.9 8.5 7 19 7s19-3.1 19-7V19c0 3.9-8.5 7-19 7s-19-3.1-19-7z' fill='%23fff' opacity='.85'/%3E%3C/svg%3E">
-<script>
-  (() => {
-    const param = new URLSearchParams(window.location.search).get("scoutTheme");
-    const theme = param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    document.documentElement.setAttribute("data-theme", theme);
-  })();
-</script>
 <style>
 
 /* Microsoft Azure / Fluent palette
    Neutrals are the Fluent gray ramp; the accent is Azure communication blue
-   (#0078D4). Data-viz colours are fixed across themes so the stacked bars keep
-   white label text at >= 4.5:1 contrast in both light and dark. */
+   (#0078D4). Data-viz colours carry their own foreground so the stacked bars
+   keep white label text at >= 4.5:1 contrast. */
 :root {
   color-scheme: light;
   --cp-bg: #faf9f8;
@@ -63,43 +56,6 @@
   --cp-viz-blocked: #d13438; --cp-viz-blocked-fg: #ffffff;
   --cp-rec-banner: #7719aa;
   --cp-rec-tint: #faf7fd;
-}
-html[data-theme="dark"] {
-  color-scheme: dark;
-  --cp-bg: #1b1a19;
-  --cp-bg-elevated: #201f1e;
-  --cp-surface: #252423;
-  --cp-surface-soft: #2b2a29;
-  --cp-border: #3b3a39;
-  --cp-border-strong: #605e5c;
-  --cp-text: #ffffff;
-  --cp-text-muted: #c5c2c0;
-  --cp-text-soft: #d6d4d2;
-  --cp-accent: #2899f5;
-  --cp-accent-hover: #49a9f8;
-  --cp-accent-soft: rgba(40, 153, 245, 0.16);
-  --cp-accent-fg: #10161c;
-  --cp-success: #6bb700;
-  --cp-danger: #f1707b;
-  --cp-warning: #ffaa44;
-  --cp-link: #2899f5;
-  --cp-shadow: 0 6.4px 14.4px rgba(0, 0, 0, 0.42), 0 1.2px 3.6px rgba(0, 0, 0, 0.34);
-  --cp-shadow-sm: 0 0 2px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.45);
-  --cp-overlay: rgba(32, 31, 30, 0.88);
-  --cp-panel: rgba(37, 36, 35, 0.72);
-  --cp-panel-strong: rgba(37, 36, 35, 0.96);
-  --cp-sheen: rgba(255, 255, 255, 0.04);
-  --cp-highlight: rgba(40, 153, 245, 0.14);
-  --cp-brand-gradient: linear-gradient(135deg, #0078d4 0%, #0095e0 55%, #50e6ff 100%);
-  --cp-viz-1: #4da3e8; --cp-viz-1-fg: #10161c;
-  --cp-viz-2: #2b88d8; --cp-viz-2-fg: #ffffff;
-  --cp-viz-3: #1a6bb0; --cp-viz-3-fg: #ffffff;
-  --cp-viz-4: #797775; --cp-viz-4-fg: #ffffff;
-  --cp-viz-ready:   #359b35; --cp-viz-ready-fg:   #10161c;
-  --cp-viz-warn:    #d9722e; --cp-viz-warn-fg:    #10161c;
-  --cp-viz-blocked: #d9636b; --cp-viz-blocked-fg: #10161c;
-  --cp-rec-banner: #9a4dc7;
-  --cp-rec-tint: #2a2333;
 }
 
 * { box-sizing: border-box; }
@@ -563,7 +519,6 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
     </div>
     <div class="spacer"></div>
     <a class="btn primary" href="../">Calculate costs</a>
-    <button id="btnTheme" class="ghost" title="Toggle light/dark">&#9680;</button>
   </header>
   <section>
 <section class="card modernization-map" aria-labelledby="map-title">
@@ -1068,11 +1023,5 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
 
   </section>
 </div>
-<script>
-  document.getElementById("btnTheme").onclick = () => {
-    const d = document.documentElement;
-    d.setAttribute("data-theme", d.getAttribute("data-theme") === "dark" ? "light" : "dark");
-  };
-</script>
 </body>
 </html>
