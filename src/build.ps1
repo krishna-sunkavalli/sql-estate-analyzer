@@ -87,7 +87,7 @@ $guidePage = @"
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Azure SQL modernization options &mdash; which one fits?</title>
+<title>SQL Modernization Options on Azure</title>
 <meta name="description" content="Choosing between SQL Server on Azure VM, Azure SQL Managed Instance, Azure SQL Database and serverless.">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#0078d4">
@@ -102,7 +102,7 @@ $css
     <div class="brand">
       <div class="mark">SQL</div>
       <div>
-        <h1>Azure SQL modernization options</h1>
+        <h1>SQL Modernization Options on Azure</h1>
         <div class="sub">Which option fits, and why</div>
       </div>
     </div>
@@ -133,11 +133,11 @@ Set-Content -Path (Join-Path $legacyDir 'index.html') -Encoding UTF8 -Value @"
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Azure SQL modernization options</title>
+<title>SQL Modernization Options on Azure</title>
 <link rel="canonical" href="../modernization-options/">
 <meta http-equiv="refresh" content="0; url=../modernization-options/">
 </head>
-<body><p>This page has moved to <a href="../modernization-options/">Azure SQL modernization options</a>.</p></body>
+<body><p>This page has moved to <a href="../modernization-options/">SQL Modernization Options on Azure</a>.</p></body>
 </html>
 "@
 Write-Host "Built $legacyDir\index.html (redirect)" -ForegroundColor DarkGray
