@@ -22,7 +22,7 @@ $js = Get-Content (Join-Path $build 'calculator.js') -Raw -Encoding UTF8
 $calculator = Get-Content (Join-Path $build 'calculator.template.html') -Raw -Encoding UTF8
 $sharedHead = [regex]::Match($template, '(?s)<head>(.*?)</head>').Groups[1].Value
 if (-not $sharedHead) { throw 'Shared theme head not found.' }
-$sharedHead = [regex]::Replace($sharedHead, '<title>.*?</title>', '<title>SQL Renewal Optimizer</title>')
+$sharedHead = [regex]::Replace($sharedHead, '<title>.*?</title>', '<title>SQL Modernization on Azure - Cost Estimator</title>')
 $sharedHead = [regex]::Replace($sharedHead, '<meta name="description"[^>]*>', '<meta name="description" content="Compare SQL Standard and Enterprise core costs on-premises and on Azure using explicit planning assumptions.">')
 $calculator = $calculator.Replace('<!--SHARED_HEAD-->', $sharedHead)
 
@@ -76,7 +76,7 @@ $guideBody = Get-Content $guidePartial -Raw -Encoding UTF8
 $guideBody = [regex]::Replace(
   $guideBody,
   '<button class="primary" id="btnGuideBack">[^<]*</button>',
-  '<a class="btn primary" href="../">Calculate costs &rarr;</a>')
+  '<a class="btn primary" href="../">Cost estimator &rarr;</a>')
 
 $headMatch = [regex]::Match($template, '(?s)<head>(.*?)<style>')
 $favicon   = [regex]::Match($headMatch.Groups[1].Value, '<link rel="icon"[^>]*>').Value
@@ -87,7 +87,7 @@ $guidePage = @"
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SQL Modernization Options on Azure</title>
+<title>SQL Modernization on Azure - Deployment Options</title>
 <meta name="description" content="Choosing between SQL Server on Azure VM, Azure SQL Managed Instance, Azure SQL Database and serverless.">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#0078d4">
@@ -102,12 +102,12 @@ $css
     <div class="brand">
       <div class="mark">SQL</div>
       <div>
-        <h1>SQL Modernization Options on Azure</h1>
-        <div class="sub">Which option fits, and why</div>
+        <h1>SQL Modernization on Azure</h1>
+        <div class="sub">Deployment Options &middot; which option fits, and why</div>
       </div>
     </div>
     <div class="spacer"></div>
-    <a class="btn primary" href="../">Calculate costs</a>
+    <a class="btn primary" href="../">Cost estimator</a>
   </header>
   <section>
 $guideBody
@@ -133,11 +133,11 @@ Set-Content -Path (Join-Path $legacyDir 'index.html') -Encoding UTF8 -Value @"
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SQL Modernization Options on Azure</title>
+<title>SQL Modernization on Azure - Deployment Options</title>
 <link rel="canonical" href="../modernization-options/">
 <meta http-equiv="refresh" content="0; url=../modernization-options/">
 </head>
-<body><p>This page has moved to <a href="../modernization-options/">SQL Modernization Options on Azure</a>.</p></body>
+<body><p>This page has moved to <a href="../modernization-options/">SQL Modernization on Azure - Deployment Options</a>.</p></body>
 </html>
 "@
 Write-Host "Built $legacyDir\index.html (redirect)" -ForegroundColor DarkGray
