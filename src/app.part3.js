@@ -609,7 +609,7 @@ function boot() {
   $("#btnScript").onclick = () => {
     // Navigation only — no estate data is transmitted. Opens the repo folder
     // holding SqlEstateDiscovery.sql and Invoke-SqlEstateDiscovery.ps1.
-    window.open("https://github.com/krishna-sunkavalli/sql-estate-analyzer/tree/main/discovery", "_blank", "noopener");
+    window.open("https://github.com/krishna-sunkavalli/sql-modernization-azure/tree/main/discovery", "_blank", "noopener");
   };
 
   $("#tabs").onclick = e => {

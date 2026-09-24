@@ -1,13 +1,17 @@
-# SQL modernization cost calculator
+# SQL Modernization on Azure
+
+Two pages, both fully client-side and self-contained.
+
+**Cost Estimator:** https://krishna-sunkavalli.github.io/sql-modernization-azure/
+
+Compares the cost of renewing SQL Server on-premises against one chosen Azure
+target, using published Microsoft list prices.
+
+**Deployment Options:** https://krishna-sunkavalli.github.io/sql-modernization-azure/modernization-options/
+
+Which offering fits, and what you still configure inside it.
 
 **Local preview:** http://127.0.0.1:8793/ (when the local server is running).
-
-**Public URL:** https://krishna-sunkavalli.github.io/sql-estate-analyzer/
-
-The revised calculator is local, awaiting publication approval. The public URL
-does not yet represent these changes.
-
-**Decision guide:** https://krishna-sunkavalli.github.io/sql-estate-analyzer/modernization-options/
 
 Enter Standard cores, Enterprise cores, the same migration percentage for both
 editions, region, optional SQL Azure Hybrid Benefit (AHB) and one discount
