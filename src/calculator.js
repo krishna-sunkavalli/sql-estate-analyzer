@@ -948,7 +948,7 @@ if (typeof document !== "undefined") {
         ...(az.key === "dbProvisioned" ? ["At General Purpose this prices the same as Managed Instance: both bill against the Gen5 compute meter at the same storage rate."] : []),
         opsYear > 0 ? `Decommissioning the migrated servers removes about ${money(opsYear)} a year of hardware and facilities cost.`
           : `On-premises hardware is unchanged at this migration share.`,
-      ].slice(0, 3).map(x => `<li>${x}</li>`).join("");
+      ].slice(0, 3).map(x => `<li><span>${x}</span></li>`).join("");
 
       output.innerHTML = `
         <div class="opt-compare">

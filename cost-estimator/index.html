@@ -617,6 +617,8 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
 .opt-col.is-pending { padding: 18px; font-size: 12.5px; color: var(--cp-text-muted); }
 
 /* Lower row: chart, savings, takeaways */
+/* The chart is constrained by the row height, not its width, so the panel
+   stays wide: narrowing it only shrinks the chart further. */
 .opt-lower { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; flex: 1; min-height: 0; }
 /* The savings callout is gone, so the chart owns this panel outright. */
 .opt-chart-wrap { border: 1px solid var(--cp-border); border-radius: 12px; padding: 18px; background: var(--cp-surface); display: flex; flex-direction: column; min-height: 0; }
@@ -643,7 +645,11 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
 /* The list sits compactly at the top; spare height goes to the caveat at the
    foot of the panel rather than being spread between the points. */
 .opt-takeaways ol { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; counter-reset: t; }
+/* The row is a flex container so the counter sits beside the text. The text
+   therefore has to be one child: left bare, any markup inside it becomes a
+   separate flex item and the gap splits the sentence apart. */
 .opt-takeaways li { display: flex; gap: 11px; padding: 7px 0; font-size: 12px; line-height: 1.5; counter-increment: t; }
+.opt-takeaways li > span { min-width: 0; }
 .opt-takeaways li::before { content: counter(t); flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--cp-accent); color: #fff; font-size: 11px; font-weight: 700; }
 
 /* Assumptions */
@@ -659,12 +665,21 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
 .opt-assume[open] summary::after { content: "\25B4"; }
 .opt-assume-body { padding: 0 18px 18px; }
 .opt-assume-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
-.opt-assume-grid label { display: block; font-size: 11.5px; color: var(--cp-text-muted); }
+/* Labels wrap to different line counts, so the fields would otherwise sit at
+   different heights across the row. Each cell is a column with the field
+   pushed to its foot, which lines every input up regardless of label length.
+   Scoped to the fields it applies to: the checkbox label lays its box out
+   beside its text and must stay a row. */
+.opt-assume-grid label:has(input[type="number"]), .opt-assume-grid label:has(select) { display: flex; flex-direction: column; justify-content: flex-end; }
+.opt-assume-grid label { font-size: 11.5px; color: var(--cp-text-muted); }
 .opt-assume-grid input, .opt-assume-grid select { margin-top: 4px; }
 .opt-assume-body > p { margin: 14px 0 0; font-size: 11.5px; line-height: 1.6; color: var(--cp-text-muted); }
 
 .opt-error { margin: 14px 0 0; color: var(--cp-danger); font-size: 13px; }
-.opt-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--cp-border); font-size: 11.5px; color: var(--cp-text-muted); }
+/* Everything above sits inside a bordered panel, so its text starts one
+   border and one padding in. Matching that keeps the footer from hanging
+   out to the left of the whole page. */
+.opt-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 22px; padding: 16px 19px 0; border-top: 1px solid var(--cp-border); font-size: 11.5px; color: var(--cp-text-muted); }
 
 @media (max-width: 1180px) {
   .opt-body { grid-template-columns: 1fr; }
@@ -6261,7 +6276,7 @@ if (typeof document !== "undefined") {
         ...(az.key === "dbProvisioned" ? ["At General Purpose this prices the same as Managed Instance: both bill against the Gen5 compute meter at the same storage rate."] : []),
         opsYear > 0 ? `Decommissioning the migrated servers removes about ${money(opsYear)} a year of hardware and facilities cost.`
           : `On-premises hardware is unchanged at this migration share.`,
-      ].slice(0, 3).map(x => `<li>${x}</li>`).join("");
+      ].slice(0, 3).map(x => `<li><span>${x}</span></li>`).join("");
 
       output.innerHTML = `
         <div class="opt-compare">
