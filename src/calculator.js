@@ -951,7 +951,6 @@ if (typeof document !== "undefined") {
               ${chart(baseline.threeYear, az.threeYear,
                 `Renew on-prem|${int(inScope)} cores`,
                 `Modernize to Azure|${int(azCores)} ${az.key === "serverless" ? "database(s)" : t.unit}`)}
-              ${distribution && distribution.spreadPct >= 1 ? `<p class="opt-spread"><b>Server layout changes this.</b> The figure above assumes your cores consolidate onto a few large instances. Spread across many smaller servers, the same ${int(distribution.requiredCores)} vCores bill as up to ${int(distribution.worstCores)} &mdash; about ${distribution.spreadPct.toFixed(0)}% more compute &mdash; because every instance rounds up to a published size.</p>` : ""}
             </div>
             <div class="opt-save">
               <h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h3M8 16h3M15 12v5"/></svg> Estimated 3-year ${saving3 >= 0 ? "savings" : "increase"}</h4>
@@ -963,6 +962,7 @@ if (typeof document !== "undefined") {
           <div class="opt-takeaways">
             <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg> Key takeaways</h3>
             <ol>${takeaways}</ol>
+            ${distribution && distribution.spreadPct >= 1 ? `<p class="opt-spread"><b>Server layout changes this.</b> These figures assume your cores consolidate onto a few large instances. Spread across many smaller servers, the same ${int(distribution.requiredCores)} vCores bill as up to ${int(distribution.worstCores)} &mdash; about ${distribution.spreadPct.toFixed(0)}% more compute &mdash; because every instance rounds up to a published size.</p>` : ""}
           </div>
         </div>`;
     };

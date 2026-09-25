@@ -615,17 +615,21 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
 .opt-save b { display: block; font-size: 24px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
 .opt-save .vs { display: block; margin-top: 2px; font-size: 12px; color: var(--cp-text-muted); }
 .opt-save p { margin: 10px 0 0; font-size: 11px; line-height: 1.55; color: var(--cp-text-muted); }
-/* Sits under the chart, in the wider column, so the caveat reads at the same
-   width as the figure it qualifies instead of stretching the row. */
-.opt-spread { margin: 14px 0 0; padding: 10px 12px; border-left: 3px solid var(--cp-accent);
-  border-radius: 0 6px 6px 0; background: var(--cp-accent-soft);
+/* Sits at the foot of the takeaways panel so the caveat lands with the
+   conclusions it qualifies. margin-top:auto pushes it down, absorbing any
+   spare height instead of leaving gaps between the points above. */
+.opt-spread { margin: 16px 0 0; padding: 11px 13px; border-radius: 8px;
+  border: 1px solid var(--cp-border); background: var(--cp-surface);
   font-size: 11.5px; line-height: 1.6; color: var(--cp-text); }
+.opt-takeaways .opt-spread { margin-top: auto; }
 .opt-spread b { font-weight: 650; }
 /* This panel sits beside the taller chart panel, so the list spreads to fill
    the height instead of leaving the slack below the last point. */
 .opt-takeaways { display: flex; flex-direction: column; border: 1px solid var(--cp-border); border-radius: 12px; padding: 18px; background: var(--cp-accent-soft); }
 .opt-takeaways h3 { display: flex; align-items: center; gap: 8px; color: var(--cp-accent); margin-bottom: 12px; }
-.opt-takeaways ol { flex: 1; display: flex; flex-direction: column; justify-content: space-between; margin: 0; padding: 0; list-style: none; counter-reset: t; }
+/* The list sits compactly at the top; spare height goes to the caveat at the
+   foot of the panel rather than being spread between the points. */
+.opt-takeaways ol { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; counter-reset: t; }
 .opt-takeaways li { display: flex; gap: 11px; padding: 7px 0; font-size: 12px; line-height: 1.5; counter-increment: t; }
 .opt-takeaways li::before { content: counter(t); flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--cp-accent); color: #fff; font-size: 11px; font-weight: 700; }
 
@@ -6252,7 +6256,6 @@ if (typeof document !== "undefined") {
               ${chart(baseline.threeYear, az.threeYear,
                 `Renew on-prem|${int(inScope)} cores`,
                 `Modernize to Azure|${int(azCores)} ${az.key === "serverless" ? "database(s)" : t.unit}`)}
-              ${distribution && distribution.spreadPct >= 1 ? `<p class="opt-spread"><b>Server layout changes this.</b> The figure above assumes your cores consolidate onto a few large instances. Spread across many smaller servers, the same ${int(distribution.requiredCores)} vCores bill as up to ${int(distribution.worstCores)} &mdash; about ${distribution.spreadPct.toFixed(0)}% more compute &mdash; because every instance rounds up to a published size.</p>` : ""}
             </div>
             <div class="opt-save">
               <h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h3M8 16h3M15 12v5"/></svg> Estimated 3-year ${saving3 >= 0 ? "savings" : "increase"}</h4>
@@ -6264,6 +6267,7 @@ if (typeof document !== "undefined") {
           <div class="opt-takeaways">
             <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg> Key takeaways</h3>
             <ol>${takeaways}</ol>
+            ${distribution && distribution.spreadPct >= 1 ? `<p class="opt-spread"><b>Server layout changes this.</b> These figures assume your cores consolidate onto a few large instances. Spread across many smaller servers, the same ${int(distribution.requiredCores)} vCores bill as up to ${int(distribution.worstCores)} &mdash; about ${distribution.spreadPct.toFixed(0)}% more compute &mdash; because every instance rounds up to a published size.</p>` : ""}
           </div>
         </div>`;
     };
