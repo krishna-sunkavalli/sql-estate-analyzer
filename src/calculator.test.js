@@ -366,8 +366,12 @@ test("live MI table class mapping regression: GP East US Gen5 per-core rates", (
   near(p.payg.included,1.008736/4); near(p.payg.base,0.608872/4);
   near(p.sp1.included,0.80696/4); near(p.sp1.base,0.48708/4);
   near(p.ri1.included,0.795744/4);
-  near(p.ri1.base,(0.795744-(1.008736-0.608872))/4);
-  near(p.ri3.included,0.673824/4); near(p.ri3.base,0.27396/4);
+  near(p.ri3.included,0.673824/4);
+  // Reserved base rates come from the reservation term total rather than the
+  // page's rounded display value, so they carry full precision. Both figures
+  // match the rates the Azure pricing calculator itself is served.
+  near(p.ri1.base,867/8760);
+  near(p.ri3.base,1800/26280);
   assert.equal(p.sp3,undefined);
 });
 test("live VM discounts retain Windows uplift and public SQL PAYG licensing", () => {

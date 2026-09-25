@@ -59,7 +59,7 @@ function Get-TierRates([string]$Html, [string]$H2, [string]$H3, [string]$MustMat
 
 # Builds the per-vCore plan table for one service tier. Tiers that publish no
 # Azure Hybrid Benefit cell (Hyperscale) simply omit the base rate.
-function Build-TierPlans($Rates, [string]$Slug) {
+function Build-TierPlans($Rates, [string]$Slug, $ReservedBase) {
     $c = $Rates.cells; $u = $Rates.units
     $inc0 = $c['webdirect-price'].regional.$Slug
     $bas0 = $c['ahb-visible'].regional.$Slug
@@ -87,6 +87,19 @@ function Build-TierPlans($Rates, [string]$Slug) {
             $plan.baseDerived = $true
         }
         $plans['ri1'] = $plan
+    }
+    # The pricing page rounds reserved rates to five decimals for display, which
+    # is enough to drift a few cents a year on a large reserved estate. The
+    # retail API publishes the reservation as a term total, so dividing it by the
+    # term's hours recovers the exact rate. Verified against the calculator's own
+    # rate feed, which carries the same unrounded value.
+    if ($ReservedBase) {
+        foreach ($term in @('ri1','ri3')) {
+            if ($plans[$term] -and $null -ne $ReservedBase[$term]) {
+                $plans[$term].base = $ReservedBase[$term]
+                $plans[$term].Remove('baseDerived')
+            }
+        }
     }
     return $plans
 }
@@ -135,6 +148,23 @@ function Get-RetailItems([string]$Filter) {
         $url = $response.NextPageLink
     } while ($url)
 }
+# Reserved rates are published as a term total rather than an hourly rate, so
+# dividing by the term's hours recovers the exact per-vCore figure without the
+# rounding the pricing page applies for display.
+$RESERVATION_HOURS = @{ri1 = 8760; ri3 = 26280}
+function Get-ReservedBase([string]$ProductName, [string]$Region) {
+    $filter = "serviceName eq 'SQL Managed Instance' and armRegionName eq '$Region' and productName eq '$ProductName' and skuName eq 'vCore' and type eq 'Reservation'"
+    $items = @(Get-RetailItems $filter | Where-Object { $_.meterName -eq 'vCore' -and $_.unitOfMeasure -eq '1 Hour' })
+    $out = @{}
+    foreach ($pair in @(@('ri1','1 Year'), @('ri3','3 Years'))) {
+        $match = @($items | Where-Object { $_.reservationTerm -eq $pair[1] })
+        if ($match.Count -eq 1 -and $match[0].retailPrice -gt 0) {
+            $out[$pair[0]] = $match[0].retailPrice / $RESERVATION_HOURS[$pair[0]]
+        }
+    }
+    return $out
+}
+
 function Get-UniqueRate($Items, [string]$Label) {
     $values = @($Items | ForEach-Object { $_.retailPrice } | Sort-Object -Unique)
     if ($values.Count -ne 1 -or $values[0] -le 0) { throw "Missing or ambiguous price: $Label." }
@@ -196,8 +226,8 @@ foreach ($key in $regionMap.Keys) {
         $r.vm.$sku.windows = $w
         $r.vm.$sku.linux = $l
     }
-    $miPlans = Build-TierPlans $miGp $name
-    $miBcPlans = Build-TierPlans $miBc $name
+    $miPlans = Build-TierPlans $miGp $name (Get-ReservedBase 'SQL Managed Instance General Purpose - Compute Gen5' $key)
+    $miBcPlans = Build-TierPlans $miBc $name (Get-ReservedBase 'SQL Managed Instance Business Critical - Compute Gen5' $key)
     $hsPlans = Build-TierPlans $hsProv $name
     $hsServerlessPerSecond = $hsSrv.cells['webdirect-price'].regional.$name
     if (-not $hsServerlessPerSecond) { throw "Missing Hyperscale serverless rate for $key." }
