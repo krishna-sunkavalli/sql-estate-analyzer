@@ -42,7 +42,9 @@ test("four alternatives: PAYG VM/MI includes SQL/storage; unconfigured serverles
   const [vm,mi,s] = r.scenarios;
   assert.equal(r.scenarios.length, 3);
   near(vm.monthly, 16 * 0.1 * 730 + 16 * 0.1 * 730 + 10);
-  near(mi.monthly, 16 * 0.25 * 730 + 32 * 0.1);
+  // A 16-vCore instance with unspecified storage sits at the 32 GB floor, which
+  // Managed Instance includes at no charge, so compute is the whole bill.
+  near(mi.monthly, 16 * 0.25 * 730);
   // Serverless is directional rather than blank when its inputs are unset.
   assert.equal(s.status, "ready");
   assert.ok(s.monthly > 0);
@@ -910,6 +912,35 @@ test("an unpriced purchase model explains why rather than repeating the prompt",
   assert.throws(() => run({purchaseModel: "dtu"}), /bundles compute, storage and I\/O/);
   assert.throws(() => run({purchaseModel: "dtu"}), /vCore model/);
   assert.throws(() => run({purchaseModel: "nonsense"}), /Choose a priced purchase model/);
+});
+
+test("Managed Instance does not bill the included first 32 GB per instance", () => {
+  // Learn: "The minimum amount of storage available in an instance is 32 GB...
+  // First 32 GB are free of charge." The allowance is per instance and applies
+  // to both tiers. It is absent from the rate card, so it has to be applied here.
+  const rate = fixture.regions.test.storage.mi_gp_per_gb_mo;
+  const atFloor = run({standard: 0, enterprise: 16, storageGB: 0}).scenarios[1];
+  assert.equal(atFloor.status, "ready");
+  assert.equal(atFloor.storage, 0, "a 32 GB instance is entirely within the allowance");
+
+  // 64 GB reserved bills 32 GB, not 64
+  const above = run({standard: 0, enterprise: 16, storageGB: 64}).scenarios[1];
+  assert.equal(Math.round(above.storage), Math.round(32 * rate));
+
+  // the allowance is per instance, so it scales with instance count
+  const many = run({standard: 0, enterprise: 16, storageGB: 256, instanceCount: 4}).scenarios[1];
+  const perInstance = 256 / 4;
+  assert.equal(Math.round(many.storage), Math.round((perInstance - 32) * 4 * rate));
+});
+
+test("Azure SQL Database bills all storage, with no Managed Instance allowance", () => {
+  // The included 32 GB is a Managed Instance feature. SQL Database bills from
+  // the first gigabyte and is configurable in 1 GB steps, not 32 GB blocks.
+  const rate = fixture.regions.test.storage.db_gp_per_gb_mo;
+  const db = run({standard: 0, enterprise: 16, storageGB: 40, purchaseModel: "provisioned"}).scenarios[2];
+  assert.equal(db.status, "ready");
+  assert.ok(db.storage > 0, "SQL Database storage is never free");
+  assert.equal(Math.round(db.storage), Math.round(40 * rate), "billed on the exact size, not rounded to a 32 GB multiple");
 });
 
 test("the distribution search stays fast on the largest estate the form accepts", () => {

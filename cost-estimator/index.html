@@ -5430,6 +5430,14 @@ const MI_POOL_MAX_INSTANCES = 40;
 // Published per-instance reserved storage limits inside a pool.
 const MI_POOL_STORAGE_CAP = {2: 640, 4: 2048, 8: 8192};
 
+// Managed Instance includes the first 32 GB of reserved storage per instance at
+// no charge, in both service tiers and for each instance inside a pool. The
+// allowance is not in the rate card: the retail price API returns one flat tier
+// from zero, because the resource provider subtracts it from the metered
+// quantity instead. It therefore has to be applied here explicitly.
+// https://learn.microsoft.com/en-us/azure/azure-sql/managed-instance/frequently-asked-questions-faq
+const MI_FREE_STORAGE_GB = 32;
+
 function packMiPool(required, instances, maxSize) {
   const sizes = MI_POOL_INSTANCE_SIZES.filter(s => s <= maxSize);
   const pools = MI_POOL_SIZES.filter(s => s <= maxSize);
@@ -5780,8 +5788,13 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
           : `Spread the estate across more instances, or review placement.`;
         return unavailable(key, name, `${miTierLabel} storage needs ${perUnit.toLocaleString()} GB per instance, above the ${limit.toLocaleString()} GB limit. ${remedy}`);
       }
-      storage = perUnit * units * positiveRate(miStorageRate, `${miTierLabel} storage`);
-      storageDetail = `${units} × ${perUnit} GB reserved storage (32 GB increments)`;
+      // Reserved size drives the published limits, but only the part above the
+      // included allowance is billed.
+      const billablePerUnit = Math.max(0, perUnit - MI_FREE_STORAGE_GB);
+      storage = billablePerUnit * units * positiveRate(miStorageRate, `${miTierLabel} storage`);
+      storageDetail = billablePerUnit > 0
+        ? `${units} × ${perUnit.toLocaleString()} GB reserved storage (32 GB increments), first ${MI_FREE_STORAGE_GB} GB per instance included`
+        : `${units} × ${perUnit.toLocaleString()} GB reserved storage, fully within the included ${MI_FREE_STORAGE_GB} GB per instance`;
     }
     return total({...base, key, name, plan, infrastructure, compute, sqlLicense, storage, storageDetail,
       sa: saMonthly(ahbBackingCores),
@@ -5852,7 +5865,13 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     if (mi.status !== "ready") {
       serverless = unavailable("dbProvisioned", "Azure SQL Database provisioned", mi.reason, mi.status);
     } else {
-      const perDb = Math.max(32, Math.ceil(input.storageGB / mi.deployments / 32) * 32);
+      // Azure SQL Database has no included-storage allowance and is configurable
+      // in 1 GB steps, unlike Managed Instance's free 32 GB and 32 GB
+      // increments. Unspecified storage falls back to the published 32 GB
+      // default maximum data size, which is itself billable.
+      const perDb = input.storageGB > 0
+        ? Math.max(1, Math.ceil(input.storageGB / mi.deployments))
+        : 32;
       const storage = perDb * mi.deployments * positiveRate(region.storage.db_gp_per_gb_mo, "SQL Database GP storage");
       serverless = total({...base, key: "dbProvisioned", name: "Azure SQL Database provisioned",
         plan: mi.plan, infrastructure, compute: mi.compute / discountFactor,
