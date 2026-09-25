@@ -188,7 +188,15 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
   if (!PRICED_TIERS.has(input.serviceTier)) throw new Error("Choose a priced service tier.");
-  if (!["serverless", "provisioned", "hyperscale", "hyperscaleServerless"].includes(input.purchaseModel)) throw new Error("Choose a priced purchase model.");
+  if (!["serverless", "provisioned", "hyperscale", "hyperscaleServerless"].includes(input.purchaseModel)) {
+    // The DTU model is a real Azure option and is offered so the reader knows it
+    // exists, but it bundles compute, storage and I/O into one unit that a core
+    // count cannot be converted into. Saying which and why beats telling someone
+    // to pick a priced model when they just picked the one on offer.
+    throw new Error(input.purchaseModel === "dtu"
+      ? "The DTU model bundles compute, storage and I/O into a single unit, so it cannot be sized from a core count. Compare using the vCore model, or see the deployment options guide for how DTU tiers map to vCores."
+      : "Choose a priced purchase model.");
+  }
   for (const key of ["vmPlan", "miPlan"]) {
     if (input[key] !== "auto" && !Object.hasOwn(PLANS, input[key])) throw new Error(`Invalid ${key}.`);
   }
@@ -583,15 +591,20 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     .reduce((a, b) => a + b, 0);
   // Beyond one instance per smallest purchasable size the layout stops being a
   // distribution and becomes empty capacity, so the search stops there rather
-  // than reporting a spread no real estate would produce.
-  const smallestInstance = Math.min(...MI_SIZES);
+  // than reporting a spread no real estate would produce. Only the billed total
+  // matters here, so each candidate is arithmetic rather than a built layout:
+  // constructing one array per instance count would make this quadratic and
+  // freeze the page on a large estate.
+  const usableLadder = MI_SIZES.filter(s => s <= input.unitCores).sort((a, b) => a - b);
+  const smallestInstance = usableLadder.length ? usableLadder[0] : Math.min(...MI_SIZES);
   const maxPlausibleInstances = Math.max(1, Math.floor(totalRequired / smallestInstance));
   let worstCores = consolidatedCores;
   let worstInstances = null;
   for (let n = 1; n <= maxPlausibleInstances; n += 1) {
-    const list = sizePerInstance(totalRequired, n, input.unitCores, MI_SIZES);
-    if (!list) continue;
-    const billed = list.reduce((a, b) => a + b, 0);
+    const share = Math.ceil(totalRequired / n);
+    const size = usableLadder.find(s => s >= share);
+    if (!size) continue;
+    const billed = size * n;
     if (billed > worstCores) { worstCores = billed; worstInstances = n; }
   }
   const distribution = {
@@ -803,6 +816,9 @@ if (typeof document !== "undefined") {
         error.textContent = e.message;
         error.hidden = false;
         output.innerHTML = "";
+        // The forced height belongs to results that no longer exist; leaving it
+        // reserves a tall blank area under the message.
+        output.style.height = "";
         return;
       }
       error.hidden = true;

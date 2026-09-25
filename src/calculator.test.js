@@ -903,6 +903,26 @@ test("the reference deployment size reaches the whole published Managed Instance
   assert.throws(() => run({unitCores: 12}), /Choose 4, 8, 16, 24, 32, 40, 64, 80/);
 });
 
+test("an unpriced purchase model explains why rather than repeating the prompt", () => {
+  // The dropdown offers DTU, so "choose a priced purchase model" tells the
+  // reader to do the thing they just did. The message has to say what is
+  // different about DTU and where to go instead.
+  assert.throws(() => run({purchaseModel: "dtu"}), /bundles compute, storage and I\/O/);
+  assert.throws(() => run({purchaseModel: "dtu"}), /vCore model/);
+  assert.throws(() => run({purchaseModel: "nonsense"}), /Choose a priced purchase model/);
+});
+
+test("the distribution search stays fast on the largest estate the form accepts", () => {
+  // The form accepts up to 100,000 cores per edition. Measuring the spread by
+  // building a layout for every candidate instance count made this quadratic,
+  // which froze the page for tens of seconds at that size.
+  const started = Date.now();
+  const r = run({standard: 0, enterprise: 100000, storageGB: 1000000});
+  const elapsed = Date.now() - started;
+  assert.ok(r.distribution.spreadPct > 0);
+  assert.ok(elapsed < 2000, `largest supported estate took ${elapsed}ms; the search has gone superlinear again`);
+});
+
 test("the distribution spread is measured against plausible layouts, not degenerate ones", () => {
   const r = run({standard: 0, enterprise: 200, rightSizePct: 0});
   const d = r.distribution;
