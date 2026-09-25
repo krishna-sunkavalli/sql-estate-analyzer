@@ -27,12 +27,17 @@
   --cp-text-soft: #5b5856;
   --cp-accent: #0078d4;
   --cp-accent-hover: #106ebe;
+  /* Accent text on the soft accent tint: the base accent lands at 4.07:1
+     there, under the 4.5:1 needed for body-size text. */
+  --cp-accent-ink: #106ebe;
   --cp-accent-soft: rgba(0, 120, 212, 0.08);
   --cp-accent-fg: #ffffff;
   --cp-success: #107c10;
   --cp-danger: #a4262c;
   --cp-warning: #b35900;
-  --cp-link: #0078d4;
+  /* #0078d4 only reaches 4.54:1 on plain white and drops to 4.07:1 over the
+     soft accent tint, so link and accent text use the darker ink instead. */
+  --cp-link: #106ebe;
   --cp-shadow: 0 6.4px 14.4px rgba(0, 0, 0, 0.13), 0 1.2px 3.6px rgba(0, 0, 0, 0.11);
   --cp-shadow-sm: 0 0 2px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.14);
   --cp-overlay: rgba(255, 255, 255, 0.8);
@@ -591,7 +596,7 @@ details.dopt-extra[open] > summary { margin-bottom: 11px; padding-bottom: 10px; 
 .opt-col-head { display: flex; align-items: flex-start; gap: 13px; min-height: 76px; padding: 16px 18px; }
 .opt-col.is-azure .opt-col-head { background: var(--cp-accent-soft); }
 .opt-col-head svg { flex: none; color: var(--cp-accent); margin-top: 2px; }
-.opt-col-head h3 { margin: 0; font-size: 15px; font-weight: 650; color: var(--cp-accent); }
+.opt-col-head h3 { margin: 0; font-size: 15px; font-weight: 650; color: var(--cp-accent-ink); }
 .opt-col-head h3 span { color: var(--cp-text-muted); font-weight: 400; }
 /* A single line, so a long service name and a short one keep the same head. */
 .opt-col-head p { margin: 3px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--cp-text-muted); }
