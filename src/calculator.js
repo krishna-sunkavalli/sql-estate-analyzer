@@ -778,6 +778,7 @@ if (typeof document !== "undefined") {
     // The conversion ratio shown on the card is read from the published rules
     // table rather than written out, so the caption cannot drift from the maths.
     const ratioText = (key, tier, editions) => {
+      if (key === "hyperscale" || key === "hyperscaleServerless") return "Not available for new Hyperscale databases";
       if (AHB_INELIGIBLE.has(key)) return "Not available on the serverless compute tier";
       const unit = key === "vm" ? "vCPU" : "vCore";
       return editions.map(ed => {
@@ -835,6 +836,7 @@ if (typeof document !== "undefined") {
       if (az.status !== "ready") {
         output.innerHTML = `<div class="opt-compare"><div class="opt-col is-pending">
           <b>${esc(t.label)} cannot be priced with these inputs.</b><p>${esc(az.reason)}</p></div></div>`;
+        syncHeight();
         return;
       }
 
@@ -897,29 +899,40 @@ if (typeof document !== "undefined") {
             `${money(azHosting)} / month &middot; ${esc(PLANS[az.plan])}`),
       ].join("");
 
-      const ahbApplies = az.key !== "serverless";
-      const badge = !ahbApplies ? {cls: " is-off", text: "AHB n/a for serverless"}
+      // Three columns cannot draw the benefit, for two different published
+      // reasons, and the wording has to say which.
+      const ahbApplies = !AHB_INELIGIBLE.has(az.key);
+      const ahbReason = az.key === "serverless"
+        ? "serverless"
+        : az.key === "hyperscale" || az.key === "hyperscaleServerless" ? "hyperscale" : null;
+      const badge = !ahbApplies ? {cls: " is-off", text: ahbReason === "hyperscale" ? "AHB n/a for Hyperscale" : "AHB n/a for serverless"}
         : input.ahb ? {cls: "", text: "AHB applied &#10003;"}
         : {cls: " is-off", text: "AHB off"};
 
+      // The savings callout used to carry this figure. With that box removed so
+      // the results column can sit flush with the form, the headline number
+      // leads the takeaways instead. Ordered by value and capped, because the
+      // column has a fixed height to fill and overflowing it would push the
+      // form out of alignment.
       const takeaways = [
+        saving3 > 0 ? `Estimated <b>${money(saving3)}</b> lower over three years, about ${savingPct.toFixed(0)}% against renewing.`
+          : `This configuration costs <b>${money(-saving3)}</b> more over three years than renewing.`,
         `Right-sizing at ${input.rightSizePct}% takes ${int(inScope)} source cores to ${int(az.azureCores)} ${t.unit}.`,
-        // Moved out of the card heading, which is now a single line, but the
-        // parity is worth stating: the two services are not priced differently
-        // at this tier, so the choice is about management model, not cost.
-        ...(az.key === "dbProvisioned" ? ["At General Purpose this prices the same as Managed Instance: both bill against the Gen5 compute meter at the same storage rate."] : []),
-        ...(az.topology === "pool" ? [`Instance pools are cheaper here: a two-vCore instance only exists inside a pool, and the pool is the billable unit, so these ${int(input.instanceCount)} servers avoid the four-vCore single-instance minimum.`] : []),
         !ahbApplies
-          ? `Azure Hybrid Benefit does not apply to serverless, so its SQL licence is included in the hourly rate instead.`
+          ? (ahbReason === "hyperscale"
+            ? `Azure Hybrid Benefit is not available for new Hyperscale databases, and Hyperscale carries no separate SQL licence charge.`
+            : `Azure Hybrid Benefit does not apply to serverless, so its SQL licence is included in the hourly rate instead.`)
           : input.ahb && az.licenseCores < inScope
           ? `Azure Hybrid Benefit keeps Software Assurance on ${int(az.licenseCores)} cores instead of ${int(inScope)}.`
           : input.ahb ? `Azure Hybrid Benefit is applied, but this footprint still needs Software Assurance on ${int(az.licenseCores)} cores.`
           : `Azure Hybrid Benefit is switched off, so the Azure SQL licence meter is paid instead.`,
+        // Whichever of these applies is more specific than the generic operating
+        // saving, so the conditional ones are offered first.
+        ...(az.topology === "pool" ? [`Instance pools are cheaper here: a two-vCore instance only exists inside a pool, so these ${int(input.instanceCount)} servers avoid the four-vCore single-instance minimum.`] : []),
+        ...(az.key === "dbProvisioned" ? ["At General Purpose this prices the same as Managed Instance: both bill against the Gen5 compute meter at the same storage rate."] : []),
         opsYear > 0 ? `Decommissioning the migrated servers removes about ${money(opsYear)} a year of hardware and facilities cost.`
           : `On-premises hardware is unchanged at this migration share.`,
-        saving3 > 0 ? `Estimated ${money(saving3)} lower over three years, about ${savingPct.toFixed(0)}% against renewing.`
-          : `This configuration costs ${money(-saving3)} more over three years than renewing.`,
-      ].map(x => `<li>${x}</li>`).join("");
+      ].slice(0, 3).map(x => `<li>${x}</li>`).join("");
 
       output.innerHTML = `
         <div class="opt-compare">
@@ -951,12 +964,7 @@ if (typeof document !== "undefined") {
               ${chart(baseline.threeYear, az.threeYear,
                 `Renew on-prem|${int(inScope)} cores`,
                 `Modernize to Azure|${int(azCores)} ${az.key === "serverless" ? "database(s)" : t.unit}`)}
-            </div>
-            <div class="opt-save">
-              <h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h3M8 16h3M15 12v5"/></svg> Estimated 3-year ${saving3 >= 0 ? "savings" : "increase"}</h4>
-              <b>${money(Math.abs(saving3))}</b>
-              <span class="vs">${saving3 >= 0 ? "lower" : "higher"} than renewing on-premises &middot; ${Math.abs(savingPct).toFixed(0)}%</span>
-              <p>Based on the inputs and assumptions below. Actual cost varies with your agreement, workload profile and region.</p>
+              <p class="opt-chart-foot">Based on the inputs and assumptions below. Actual cost varies with your agreement, workload profile and region.</p>
             </div>
           </div>
           <div class="opt-takeaways">
@@ -965,7 +973,43 @@ if (typeof document !== "undefined") {
             ${distribution && distribution.spreadPct >= 1 ? `<p class="opt-spread"><b>Server layout changes this.</b> These figures assume your cores consolidate onto a few large instances.</p>` : ""}
           </div>
         </div>`;
+      syncHeight();
     };
+
+    // The results column has to finish flush with the form beside it. A grid row
+    // sizes to its tallest item, so stretching alone can only grow the shorter
+    // column, never shrink the taller one. The form's measured height is applied
+    // to the results column instead, and the chart flexes into whatever is left.
+    // Below the single-column breakpoint the two are stacked, so height is left
+    // to the content.
+    const matchFormHeight = () => {
+      output.style.height = "";
+      if (window.matchMedia("(max-width: 1180px)").matches) return;
+      // The results column starts lower than the form, under its own heading,
+      // so matching heights would leave it hanging below by that offset. The
+      // target is the distance from where this column starts to where the form
+      // ends, which makes the two finish on the same line.
+      const target = form.getBoundingClientRect().bottom - output.getBoundingClientRect().top;
+      if (target > 0) output.style.height = `${Math.round(target)}px`;
+    };
+    // Measuring once is not enough. Changing target swaps the form's qualifier
+    // and its explanatory note, and that reflow can land after the render it
+    // triggered, so a single reading latches a height that is already wrong.
+    // Re-reading on the next frame lets the layout settle first.
+    const syncHeight = () => { matchFormHeight(); requestAnimationFrame(matchFormHeight); };
+    let resizePending = false;
+    window.addEventListener("resize", () => {
+      if (resizePending) return;
+      resizePending = true;
+      requestAnimationFrame(() => { resizePending = false; syncHeight(); });
+    });
+    // The form's own height moves with the target: each service shows a
+    // different qualifier and explanatory note. Those reflows can land after the
+    // render that triggered them, so measuring once would latch a stale height.
+    // Watching the form instead keeps the two columns flush whatever changes.
+    if (typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(() => syncHeight()).observe(form);
+    }
 
     // The assumptions panel spans both columns, so it sits outside the form and
     // needs its own listener.

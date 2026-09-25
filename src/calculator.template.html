@@ -20,7 +20,16 @@
 .opt-nav a { font-size: 13px; text-decoration: none; }
 
 /* Two-pane body */
-.opt-body { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 22px; align-items: start; }
+/* The results column is sized by the form beside it: the row stretches, the
+   form keeps its natural height, and the lower panels absorb whatever is
+   left so the two columns finish flush. The takeaway list is capped for the
+   same reason, since overflowing here would push the form out of line. */
+.opt-body { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 22px; align-items: stretch; }
+.opt-body > form.opt-pane { align-self: start; }
+#optOutput { display: flex; flex-direction: column; min-height: 0; }
+/* When a target cannot be priced this panel is the only content, so it takes
+   the whole column rather than leaving the card floating at the top. */
+#optOutput > .opt-compare:only-child { flex: 1; }
 .opt-pane { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; padding: 20px; }
 
 /* Left: input groups */
@@ -99,18 +108,17 @@
 .opt-col.is-pending { padding: 18px; font-size: 12.5px; color: var(--cp-text-muted); }
 
 /* Lower row: chart, savings, takeaways */
-.opt-lower { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; }
-.opt-chart-wrap { border: 1px solid var(--cp-border); border-radius: 12px; padding: 18px; background: var(--cp-surface); display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); gap: 18px; }
+.opt-lower { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; flex: 1; min-height: 0; }
+/* The savings callout is gone, so the chart owns this panel outright. */
+.opt-chart-wrap { border: 1px solid var(--cp-border); border-radius: 12px; padding: 18px; background: var(--cp-surface); display: flex; flex-direction: column; min-height: 0; }
+.opt-chart-wrap > div { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.opt-chart-foot { margin: 0; padding-top: 12px; font-size: 11px; line-height: 1.55; color: var(--cp-text-muted); }
 .opt-chart-wrap h3, .opt-takeaways h3 { margin: 0 0 3px; font-size: 14px; font-weight: 650; }
 .opt-chart-wrap > div > p { margin: 0 0 12px; font-size: 11.5px; color: var(--cp-text-muted); }
-.opt-chart { width: 100%; height: auto; }
-/* A callout beside a taller chart. Centring splits the spare height above and
-   below it rather than stranding all of it underneath. */
-.opt-save { align-self: center; padding: 16px; border-radius: 10px; background: var(--cp-accent-soft); }
-.opt-save h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 12.5px; font-weight: 650; color: var(--cp-accent); }
-.opt-save b { display: block; font-size: 24px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
-.opt-save .vs { display: block; margin-top: 2px; font-size: 12px; color: var(--cp-text-muted); }
-.opt-save p { margin: 10px 0 0; font-size: 11px; line-height: 1.55; color: var(--cp-text-muted); }
+/* The chart scales to whatever height the row leaves rather than dictating
+   it: the SVG carries a viewBox, so letting it flex keeps the aspect ratio
+   while the column stays flush with the form. */
+.opt-chart { flex: 1; min-height: 110px; width: 100%; height: 100%; }
 /* Sits at the foot of the takeaways panel so the caveat lands with the
    conclusions it qualifies. margin-top:auto pushes it down, absorbing any
    spare height instead of leaving gaps between the points above. */
@@ -154,6 +162,9 @@
 @media (max-width: 1180px) {
   .opt-body { grid-template-columns: 1fr; }
   .opt-lower, .opt-chart-wrap { grid-template-columns: 1fr; }
+  /* Stacked, the chart spans the full page width, so its aspect ratio would
+     otherwise make it far taller than it needs to be. */
+  .opt-chart { max-height: 300px; }
 }
 @media (max-width: 760px) {
   .opt-compare { grid-template-columns: 1fr; }
