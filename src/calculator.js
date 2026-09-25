@@ -21,10 +21,10 @@ function bestVmPlan(region, sizes) {
   return best?.plan ?? null;
 }
 
-function bestMiPlan(region) {
+function bestMiPlan(plans, field = "base") {
   let best = null;
   for (const plan of PLAN_PREFERENCE) {
-    const rate = region.miPlans?.[plan]?.base;
+    const rate = plans?.[plan]?.[field];
     if (!Number.isFinite(rate) || rate <= 0) continue;
     if (!best || rate < best.rate) best = {plan, rate};
   }
@@ -69,11 +69,15 @@ const AHB_RATIOS = {
     enterprise: {enterprise: 1, standard: 0.25},
   },
 };
-// Business Critical ratios are recorded above for completeness, but only
-// General Purpose is priced in this snapshot, so it is the only tier accepted.
-const PRICED_TIERS = new Set(["gp"]);
+// Business Critical and General Purpose are both priced from the published
+// Standard-series (Gen 5) tables. Next-generation General Purpose is an
+// architecture change rather than a billed tier: Microsoft states the invoice
+// still reads General Purpose, so it prices as "gp" and only alters the limits.
+const PRICED_TIERS = new Set(["gp", "bc"]);
 
-const AHB_INELIGIBLE = new Set(["serverless"]);
+// Azure Hybrid Benefit is not available for serverless, and not available at all
+// for new Hyperscale databases, so those columns never draw on entitlement.
+const AHB_INELIGIBLE = new Set(["serverless", "hyperscale", "hyperscaleServerless"]);
 // Each virtual machine consumes at least four core licences, whatever its size.
 const AHB_MIN_VM_LICENCES = 4;
 
@@ -154,7 +158,10 @@ function positiveRate(value, name) {
 }
 
 function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
-  const input = {rightSizePct: 20, unitCores: 16, onPremPerCoreMonth: 37.5, avoidablePct: 100,
+  // The reference deployment size defaults to the largest published Standard-
+  // series instance so the shipped form is never capped below what Azure sells.
+  // Tests and callers may still pin a smaller ceiling deliberately.
+  const input = {rightSizePct: 20, unitCores: Math.max(...MI_SIZES), onPremPerCoreMonth: 37.5, avoidablePct: 100,
     storageGB: 0, licenseBasis: "existing", discountPct: 0, ahb: true,
     vmPlan: "auto", miPlan: "auto", migrationPct: 100, instanceCount: null, serviceTier: "gp",
     purchaseModel: "serverless",
@@ -170,18 +177,34 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     ["discountPct", 100], ["onPremPerCoreMonth", 10000], ["storageGB", 10000000]]) {
     if (!Number.isFinite(input[key]) || input[key] < 0 || input[key] > max) throw new Error(`Invalid ${key}.`);
   }
-  if (![4, 8, 16].includes(input.unitCores)) throw new Error("Choose 4, 8 or 16 cores per reference deployment.");
+  // The published Managed Instance ladder runs well beyond sixteen vCores. The
+  // reference deployment size has to be able to reach it, or an estate needing a
+  // larger instance fails with advice the reader cannot act on.
+  if (!MI_SIZES.includes(input.unitCores)) {
+    throw new Error(`Choose ${MI_SIZES.slice().sort((a, b) => a - b).join(", ")} cores per reference deployment.`);
+  }
   if (!["refresh", "existing"].includes(input.licenseBasis)) throw new Error("Choose a license-refresh or existing-license scenario.");
   for (const key of ["ahb"]) {
     if (typeof input[key] !== "boolean") throw new Error(`Confirm ${key}.`);
   }
   if (!PRICED_TIERS.has(input.serviceTier)) throw new Error("Choose a priced service tier.");
-  if (!["serverless", "provisioned"].includes(input.purchaseModel)) throw new Error("Choose a priced purchase model.");
+  if (!["serverless", "provisioned", "hyperscale", "hyperscaleServerless"].includes(input.purchaseModel)) throw new Error("Choose a priced purchase model.");
   for (const key of ["vmPlan", "miPlan"]) {
     if (input[key] !== "auto" && !Object.hasOwn(PLANS, input[key])) throw new Error(`Invalid ${key}.`);
   }
   const region = prices.regions[input.region];
   if (!region) throw new Error("Choose a region with published prices.");
+  // Managed Instance tiers share one code path and differ only in which
+  // published rate table, storage meter and storage ceiling they use.
+  const miTier = input.serviceTier === "bc" ? "bc" : "gp";
+  const miTierPlans = miTier === "bc" ? region.miBcPlans : region.miPlans;
+  const miTierLabel = miTier === "bc" ? "MI BC Gen5" : "MI GP Gen5";
+  const miStorageRate = miTier === "bc"
+    ? region.storage?.mi_bc_per_gb_mo
+    : region.storage?.mi_gp_per_gb_mo;
+  // Business Critical stores data on local SSD and tops out well below General
+  // Purpose on Standard-series hardware.
+  const miStorageCeiling = miTier === "bc" ? 4096 : null;
   const source = {standard: input.standard, enterprise: input.enterprise};
   const moved = Object.fromEntries(Object.entries(source).map(([e, n]) => [e, Math.floor(n * input.migrationPct / 100)]));
   const retained = Object.fromEntries(Object.entries(source).map(([e, n]) => [e, n - moved[e]]));
@@ -273,18 +296,23 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     ...base, key, name, status, reason, infrastructure, scopedCores: sum(moved), monthly: null, threeYear: null,
   });
   const buildScenario = (key, {allowPool = false} = {}) => {
-    const name = key === "vm" ? "SQL Server on Azure VM" : "SQL Managed Instance GP";
+    const name = key === "vm" ? "SQL Server on Azure VM"
+      : `SQL Managed Instance ${miTier === "bc" ? "BC" : "GP"}`;
     const layout = packs(key, allowPool);
     if (Object.values(layout).some(v => v === null)) {
       const worst = editions.find(e => layout[e] === null);
-      return unavailable(key, name, `${input.instanceCount} instance(s) puts about ${Math.ceil(required[worst] / instancesPer[worst])} ${key === "vm" ? "vCPU" : "vCore"} on each ${worst} instance, above the ${input.unitCores}-core maximum. Raise the largest deployment size or split the workload across more instances.`);
+      // The cap that actually bites is the smaller of the requested reference
+      // size and the largest size the target publishes, so the advice names a
+      // real limit rather than one the reader cannot see.
+      const ladderMax = Math.min(input.unitCores, Math.max(...(key === "vm" ? VM_SIZES : MI_SIZES)));
+      return unavailable(key, name, `${input.instanceCount} instance(s) puts about ${Math.ceil(required[worst] / instancesPer[worst])} ${key === "vm" ? "vCPU" : "vCore"} on each ${worst} instance, above the ${ladderMax}-core maximum. Split the workload across more instances.`);
     }
     const sizes = [...layout.standard, ...layout.enterprise];
     const requested = input[`${key}Plan`];
     const plan = requested === "auto"
-      ? (key === "vm" ? bestVmPlan(region, sizes) : bestMiPlan(region))
+      ? (key === "vm" ? bestVmPlan(region, sizes) : bestMiPlan(miTierPlans))
       : requested;
-    if (!plan) return unavailable(key, name, `No published ${key === "vm" ? "VM" : "MI GP Gen5"} rate for ${input.region} in this snapshot.`);
+    if (!plan) return unavailable(key, name, `No published ${key === "vm" ? "VM" : miTierLabel} rate for ${input.region} in this snapshot.`);
     const deployments = sizes.length;
     const azureCores = sizes.reduce((t, s) => t + s, 0);
     const vmRateFor = size => {
@@ -309,8 +337,8 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       if (key === "vm") {
         const missing = [...new Set(sizes)].find(s => !region.vmPlans?.[`Standard_E${s}bds_v5`]?.rates?.[plan]);
         if (missing && plan !== "payg") return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} Standard_E${missing}bds_v5 rate in this snapshot. Select a supported plan.`);
-      } else if (!region.miPlans?.[plan] && plan !== "payg") {
-        return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} MI GP Gen5 rate in this snapshot. Select a supported plan.`);
+      } else if (!miTierPlans?.[plan] && plan !== "payg") {
+        return unavailable(key, name, `${PLANS[plan]} unavailable: no verified ${input.region} ${miTierLabel} rate in this snapshot. Select a supported plan.`);
       }
     }
     let compute = 0, sqlLicense = 0, coveredCores = 0;
@@ -355,12 +383,12 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       for (const size of sizeList) {
         const takes = claim(size, edition);
         if (takes) covered += size;
-        const rate = key === "vm" ? vmRateFor(size) : positiveRate(region.miPlans?.[plan]?.base, `MI GP ${plan} base`);
+        const rate = key === "vm" ? vmRateFor(size) : positiveRate(miTierPlans?.[plan]?.base, `${miTierLabel} ${plan} base`);
         if (key === "vm") {
           compute += positiveRate(rate, `${input.region} Standard_E${size}bds_v5 ${plan}`) * HOURS;
           if (!takes) sqlLicense += positiveRate(prices.vmLicensePerCoreHour[edition], `${edition} VM license`) * size * HOURS;
         } else {
-          const included = positiveRate(region.miPlans?.[plan]?.included, `MI GP ${plan} license-included`);
+          const included = positiveRate(miTierPlans?.[plan]?.included, `${miTierLabel} ${plan} license-included`);
           if (included < rate) throw new Error("MI license-included rate is below its base rate.");
           compute += rate * size * HOURS;
           if (!takes) sqlLicense += (included - rate) * size * HOURS;
@@ -406,9 +434,17 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       const perUnit = Math.max(32, Math.ceil(input.storageGB / units / 32) * 32);
       const limit = layout.topology === "pool"
         ? (MI_POOL_STORAGE_CAP[layout.instanceSize] ?? 16384)
-        : (Math.min(...sizes) === 4 ? 2048 : 8192);
-      if (perUnit > limit) return unavailable(key, name, `MI storage needs ${perUnit} GB per instance, above this model's ${limit} GB limit. Increase deployment size or review placement.`);
-      storage = perUnit * units * positiveRate(region.storage.mi_gp_per_gb_mo, "MI GP storage");
+        : (miStorageCeiling ?? (Math.min(...sizes) === 4 ? 2048 : 8192));
+      if (perUnit > limit) {
+        // Storage is divided across instances, so the remedy is more instances,
+        // not larger ones: a bigger deployment size means fewer of them and
+        // therefore more storage on each.
+        const remedy = miTier === "bc"
+          ? `Business Critical stores data on local SSD and tops out at ${limit} GB per instance on Standard-series hardware. Spread the estate across more instances, or price General Purpose, which reserves storage separately.`
+          : `Spread the estate across more instances, or review placement.`;
+        return unavailable(key, name, `${miTierLabel} storage needs ${perUnit.toLocaleString()} GB per instance, above the ${limit.toLocaleString()} GB limit. ${remedy}`);
+      }
+      storage = perUnit * units * positiveRate(miStorageRate, `${miTierLabel} storage`);
       storageDetail = `${units} × ${perUnit} GB reserved storage (32 GB increments)`;
     }
     return total({...base, key, name, plan, infrastructure, compute, sqlLicense, storage, storageDetail,
@@ -417,11 +453,57 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
       topology: layout.topology, instanceSize: layout.instanceSize,
       allocation, coveredCores, azureCores, deployments, sizes, scopedCores: sum(moved)});
   };
-  const scenarios = [buildScenario("vm"), buildScenario("mi", {allowPool: true})];
+  // Instance pools are a General Purpose construct, so Business Critical is
+  // always costed on the single-instance topology.
+  const scenarios = [buildScenario("vm"), buildScenario("mi", {allowPool: miTier === "gp"})];
   const serverlessName = "Azure SQL Database serverless";
   const serverlessBase = {...base, key: "serverless", name: serverlessName, infrastructure, scopedCores: sum(moved), plan: "payg"};
   let serverless;
-  if (input.purchaseModel === "provisioned") {
+  if (input.purchaseModel === "hyperscale" || input.purchaseModel === "hyperscaleServerless") {
+    // Hyperscale separates compute from storage: compute is billed per vCore per
+    // replica and storage on what is actually allocated, with a 10 GB floor.
+    // Azure Hybrid Benefit is not available for new Hyperscale databases, so the
+    // column draws no entitlement, carries no SQL licence line, and attributes no
+    // Software Assurance to the migrated cores. Only the primary replica is
+    // priced: high-availability and named replicas each add a further vCore set.
+    const isServerless = input.purchaseModel === "hyperscaleServerless";
+    const hsKey = isServerless ? "hyperscaleServerless" : "hyperscale";
+    const hsName = `Azure SQL Database Hyperscale${isServerless ? " serverless" : ""}`;
+    const mi = buildScenario("mi");
+    if (mi.status !== "ready") {
+      serverless = unavailable(hsKey, hsName, mi.reason, mi.status);
+    } else {
+      const plan = isServerless ? "payg"
+        : (input.miPlan === "auto" ? bestMiPlan(region.hyperscalePlans, "included") : input.miPlan);
+      const rate = isServerless
+        ? region.hyperscaleServerlessPerCoreHour
+        : region.hyperscalePlans?.[plan]?.included;
+      if (!Number.isFinite(rate) || rate <= 0) {
+        serverless = unavailable(hsKey, hsName, `No verified ${input.region} Hyperscale ${isServerless ? "serverless" : PLANS[plan] ?? plan} rate in this snapshot. Select a supported plan.`);
+      } else {
+        const assumed = [];
+        let allocatedGB = input.storageGB;
+        if (allocatedGB <= 0) {
+          allocatedGB = 10;
+          assumed.push("10 GB allocated storage assumed: no migrated storage was entered, and Hyperscale bills allocated rather than reserved storage");
+        }
+        allocatedGB = Math.max(10, allocatedGB);
+        const storage = allocatedGB * positiveRate(region.storage?.db_hs_per_gb_mo, "SQL Database Hyperscale storage");
+        const compute = isServerless
+          ? mi.azureCores * HOURS * input.activePct / 100 * rate
+          : mi.azureCores * HOURS * rate;
+        if (isServerless) {
+          assumed.push("Hyperscale serverless has no auto-pause, so billing stops only when compute scales down");
+        }
+        serverless = total({...base, key: hsKey, name: hsName, plan, infrastructure,
+          compute, sqlLicense: 0, storage, sa: 0, licenseCores: 0, assumed,
+          allocation: [`${mi.azureCores} vCore(s) across ${mi.deployments} database(s)${isServerless ? `; ${input.activePct}% billable online time` : ""}; primary replica only, no high-availability or named replicas priced; Azure Hybrid Benefit does not apply`],
+          coveredCores: 0, azureCores: mi.azureCores, deployments: mi.deployments,
+          sizes: mi.sizes, scopedCores: sum(moved),
+          storageDetail: `${allocatedGB.toLocaleString()} GB allocated data storage`});
+      }
+    }
+  } else if (input.purchaseModel === "provisioned") {
     // Azure SQL Database General Purpose provisioned and Managed Instance
     // General Purpose bill against the same Gen5 compute meter: the published
     // per-vCore rates are identical in every captured region, so the already
@@ -489,6 +571,36 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
     }
   }
   scenarios.push(serverless);
+  // The same core total bills differently depending on how those cores sit
+  // across servers, because every instance rounds up to the published ladder.
+  // This tool deliberately does not ask how the estate is distributed, so the
+  // spread is measured rather than assumed: the consolidated layout is compared
+  // against the worst-fitting instance count the ladder allows. The effect is
+  // not monotonic. Twenty ten-core servers bill more than twenty-five eight-core
+  // ones, because ten rounds up to sixteen while eight lands exactly.
+  const totalRequired = sum(required);
+  const consolidatedCores = packDeployments(totalRequired, input.unitCores, MI_SIZES)
+    .reduce((a, b) => a + b, 0);
+  // Beyond one instance per smallest purchasable size the layout stops being a
+  // distribution and becomes empty capacity, so the search stops there rather
+  // than reporting a spread no real estate would produce.
+  const smallestInstance = Math.min(...MI_SIZES);
+  const maxPlausibleInstances = Math.max(1, Math.floor(totalRequired / smallestInstance));
+  let worstCores = consolidatedCores;
+  let worstInstances = null;
+  for (let n = 1; n <= maxPlausibleInstances; n += 1) {
+    const list = sizePerInstance(totalRequired, n, input.unitCores, MI_SIZES);
+    if (!list) continue;
+    const billed = list.reduce((a, b) => a + b, 0);
+    if (billed > worstCores) { worstCores = billed; worstInstances = n; }
+  }
+  const distribution = {
+    requiredCores: totalRequired,
+    consolidatedCores,
+    worstCores,
+    worstInstances,
+    spreadPct: consolidatedCores > 0 ? (worstCores / consolidatedCores - 1) * 100 : 0,
+  };
   for (const s of [baseline, ...scenarios]) {
     s.deltaMonthly = s.status === "ready" ? s.monthly - baseline.monthly : null;
     s.deltaThreeYear = s.status === "ready" ? s.threeYear - baseline.threeYear : null;
@@ -504,7 +616,7 @@ function calculateCoreOptions(raw, prices = CALCULATOR_PRICES) {
   };
   retainedContext.monthly = retainedContext.infrastructure + retainedContext.sa;
   retainedContext.threeYear = retainedContext.monthly * MONTHS + retainedContext.upfront;
-  return {input, source, moved, retained, required, baseline, scenarios, retainedContext};
+  return {input, source, moved, retained, required, baseline, scenarios, retainedContext, distribution};
 }
 
 if (typeof module !== "undefined" && module.exports) module.exports = {calculateCoreOptions};
@@ -542,13 +654,17 @@ if (typeof document !== "undefined") {
       mi: {label: "Service tier", groups: [
         {label: "vCore purchasing model", options: [
           {value: "gp", text: "General Purpose", priced: true, ahb: true},
-          {value: "bc", text: "Business Critical", priced: false, ahb: true},
+          {value: "bc", text: "Business Critical", priced: true, ahb: true},
         ]},
       ]},
-      db: {label: "Purchase model", groups: [
-        {label: "vCore \u2014 compute tier", options: [
+      db: {label: "Service tier and compute", groups: [
+        {label: "General Purpose", options: [
           {value: "provisioned", text: "Provisioned", priced: true, ahb: true},
           {value: "serverless", text: "Serverless", priced: true, ahb: false},
+        ]},
+        {label: "Hyperscale", options: [
+          {value: "hyperscale", text: "Provisioned", priced: true, ahb: false},
+          {value: "hyperscaleServerless", text: "Serverless", priced: true, ahb: false},
         ]},
         {label: "DTU \u2014 bundled compute, storage and I/O", options: [
           {value: "dtu", text: "Basic, Standard or Premium", priced: false, ahb: false},
@@ -586,12 +702,15 @@ if (typeof document !== "undefined") {
         select.value = optionsOf(q).find(o => o.priced).value;
       } else if (keep) select.value = keep;
       const chosen = optionsOf(q).find(o => o.value === select.value);
-      // Serverless is excluded from the benefit; the DTU model has no access to
-      // it at all. Saying only "does not apply" would conflate the two.
+      // Three different reasons a column can miss the benefit, and conflating
+      // them would misinform: serverless excludes it, Hyperscale no longer
+      // offers it on new databases, and DTU never had access to it.
       $("qualifierSub").textContent = chosen?.ahb
         ? "Azure Hybrid Benefit applies to this option."
         : chosen?.value === "serverless"
         ? "Azure Hybrid Benefit does not apply to the serverless compute tier; its SQL licence is included in the rate."
+        : chosen?.value === "hyperscale" || chosen?.value === "hyperscaleServerless"
+        ? "Azure Hybrid Benefit is not available for new Hyperscale databases; Hyperscale carries no separate SQL licence charge."
         : "Azure Hybrid Benefit is only offered on the vCore purchasing model.";
     };
 
@@ -686,7 +805,7 @@ if (typeof document !== "undefined") {
         return;
       }
       error.hidden = true;
-      const {source, moved, required, baseline, scenarios} = report;
+      const {source, moved, required, baseline, scenarios, distribution} = report;
       const total = source.standard + source.enterprise;
       const inScope = moved.standard + moved.enterprise;
 
@@ -838,6 +957,7 @@ if (typeof document !== "undefined") {
               <b>${money(Math.abs(saving3))}</b>
               <span class="vs">${saving3 >= 0 ? "lower" : "higher"} than renewing on-premises &middot; ${Math.abs(savingPct).toFixed(0)}%</span>
               <p>Based on the inputs and assumptions below. Actual cost varies with your agreement, workload profile and region.</p>
+              ${distribution && distribution.spreadPct >= 1 ? `<p class="opt-spread">This figure assumes your cores consolidate onto a few large instances. Spread across many smaller servers, the same ${int(distribution.requiredCores)} vCores bill as up to ${int(distribution.worstCores)} &mdash; about ${distribution.spreadPct.toFixed(0)}% more compute &mdash; because every instance rounds up to a published size. Confirm the server layout before quoting a number.</p>` : ""}
             </div>
           </div>
           <div class="opt-takeaways">

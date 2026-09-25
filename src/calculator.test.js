@@ -10,12 +10,18 @@ const fixture = {
   regions: {test: {
     miPlans: {payg: {base: 0.15, included: 0.25}, ri1: {base: 0.12, included: 0.22},
       ri3: {base: 0.08, included: 0.18}, sp1: {base: 0.12, included: 0.2}},
+    miBcPlans: {payg: {base: 0.30, included: 0.675}, ri1: {base: 0.24, included: 0.56},
+      ri3: {base: 0.16, included: 0.50}, sp1: {base: 0.24, included: 0.54}},
+    hyperscalePlans: {payg: {included: 0.18}, ri1: {included: 0.12},
+      ri3: {included: 0.08}, sp1: {included: 0.14}},
+    hyperscaleServerlessPerCoreHour: 0.378,
     vmPlans: Object.fromEntries([4,8,16].map(n => [`Standard_E${n}bds_v5`, {
       rates: {payg: n / 10, ri1: n * 0.08, ri3: n * 0.06, sp1: n * 0.09, sp3: n * 0.07},
       windowsLicensePerHour: n * 0.046,
     }])),
     serverless: {paygPerCoreHour: 0.5},
-    storage: {mi_gp_per_gb_mo: 0.1, db_gp_per_gb_mo: 0.12, premium_ssd_lrs_per_disk_mo: {
+    storage: {mi_gp_per_gb_mo: 0.1, mi_bc_per_gb_mo: 0.25, db_gp_per_gb_mo: 0.12,
+      db_hs_per_gb_mo: 0.25, premium_ssd_lrs_per_disk_mo: {
       P4: 3, P6: 5, P10: 10, P15: 20, P20: 40, P30: 80,
       P40: 160, P50: 320, P60: 640, P70: 1280, P80: 2560,
     }},
@@ -276,7 +282,10 @@ test("oversized MI storage only blocks MI; data storage costs are separate", () 
   for(let i=0;i<2;i++) assert.ok(high.scenarios[i].storage>low.scenarios[i].storage);
   const huge=run({standard:4,unitCores:4,storageGB:3000});
   assert.equal(huge.scenarios[1].status,"unavailable");
-  assert.match(huge.scenarios[1].reason,/MI storage/);
+  assert.match(huge.scenarios[1].reason,/MI GP Gen5 storage needs/);
+  // The remedy has to be the one that actually works: storage is divided across
+  // instances, so more instances lowers the per-instance figure.
+  assert.match(huge.scenarios[1].reason,/more instances/);
 });
 test("serverless gives directional guidance when count and storage are unset, and labels it", () => {
   // No database count: a capacity-equivalent count is assumed from right-sized
@@ -868,8 +877,94 @@ test("entitlement comes only from migrating cores, never from retained ones", ()
 });
 
 test("only priced service tiers are accepted", () => {
-  assert.throws(() => run({serviceTier: "bc"}), /priced service tier/);
   assert.throws(() => run({serviceTier: "hyperscale"}), /priced service tier/);
-  const gp = run({serviceTier: "gp"});
-  assert.equal(gp.scenarios[1].status, "ready");
+  assert.throws(() => run({serviceTier: "premium"}), /priced service tier/);
+  for (const tier of ["gp", "bc"]) {
+    assert.equal(run({serviceTier: tier}).scenarios[1].status, "ready");
+  }
+});
+
+test("Business Critical costs more than General Purpose and pools are General Purpose only", () => {
+  const args = {standard: 0, enterprise: 64, storageGB: 512};
+  const gp = run({...args, serviceTier: "gp"}).scenarios[1];
+  const bc = run({...args, serviceTier: "bc"}).scenarios[1];
+  assert.equal(gp.status, "ready");
+  assert.equal(bc.status, "ready");
+  assert.ok(bc.monthly > gp.monthly, "Business Critical should cost more than General Purpose");
+  assert.equal(bc.name, "SQL Managed Instance BC");
+  // Instance pools are published as a General Purpose construct.
+  assert.notEqual(bc.topology, "pool");
+});
+
+test("the reference deployment size reaches the whole published Managed Instance ladder", () => {
+  for (const size of [4, 8, 16, 24, 32, 40, 64, 80]) {
+    assert.equal(run({unitCores: size}).scenarios[1].status, "ready", `${size} vCores should be selectable`);
+  }
+  assert.throws(() => run({unitCores: 12}), /Choose 4, 8, 16, 24, 32, 40, 64, 80/);
+});
+
+test("the distribution spread is measured against plausible layouts, not degenerate ones", () => {
+  const r = run({standard: 0, enterprise: 200, rightSizePct: 0});
+  const d = r.distribution;
+  assert.equal(d.requiredCores, 200);
+  // Consolidating onto the ladder wastes nothing when the total lands on it.
+  assert.equal(d.consolidatedCores, 200);
+  // The worst fit is real but bounded: one instance per smallest purchasable
+  // size is empty capacity, not a distribution, so it is excluded.
+  assert.ok(d.worstCores > d.consolidatedCores, "a spread should exist");
+  assert.ok(d.spreadPct < 150, `spread should stay plausible, got ${d.spreadPct}`);
+  assert.ok(d.worstInstances <= 200 / 4, "never more instances than the 4-vCore minimum allows");
+});
+
+test("distribution spread is not monotonic in how uneven the estate is", () => {
+  // Twenty ten-core servers bill more than twenty-five eight-core ones: ten
+  // rounds up to sixteen while eight lands exactly on the ladder. A single
+  // "how uneven is it" question would therefore mislead, which is why the
+  // estimator measures the span instead of asking.
+  const cores = 200;
+  const billed = (instances) => {
+    const share = Math.ceil(cores / instances);
+    const size = [4, 8, 16, 24, 32, 40, 64, 80].find(s => s >= share);
+    return size * instances;
+  };
+  assert.equal(billed(25), 200);
+  assert.equal(billed(20), 320);
+  assert.ok(billed(20) > billed(25), "fewer, larger servers can cost more");
+});
+test("Hyperscale never draws Azure Hybrid Benefit, even when it is requested", () => {
+  const args = {standard: 0, enterprise: 64, storageGB: 512, ahb: true};
+  for (const purchaseModel of ["hyperscale", "hyperscaleServerless"]) {
+    const hs = run({...args, purchaseModel}).scenarios[2];
+    assert.equal(hs.status, "ready", purchaseModel);
+    // Azure Hybrid Benefit is not available for new Hyperscale databases, so no
+    // entitlement is consumed, no licence is billed and no Software Assurance
+    // is attributed to the migrated cores.
+    assert.equal(hs.licenseCores, 0, purchaseModel);
+    assert.equal(hs.sqlLicense, 0, purchaseModel);
+    assert.equal(hs.sa, 0, purchaseModel);
+  }
+});
+
+test("Hyperscale bills allocated storage with a 10 GB floor, not reserved storage", () => {
+  const args = {standard: 0, enterprise: 16, purchaseModel: "hyperscale"};
+  const none = run({...args, storageGB: 0}).scenarios[2];
+  // Managed Instance rounds up to a 32 GB reserved floor; Hyperscale does not.
+  assert.match(none.storageDetail, /10 GB allocated/);
+  assert.ok(none.assumed.some(a => /allocated/.test(a)));
+  const sized = run({...args, storageGB: 4096}).scenarios[2];
+  assert.match(sized.storageDetail, /4,096 GB allocated/);
+  const rate = fixture.regions.test.storage.db_hs_per_gb_mo;
+  assert.equal(Math.round(sized.storage), Math.round(4096 * rate));
+});
+
+test("Hyperscale serverless scales compute with billable online time", () => {
+  const args = {standard: 0, enterprise: 32, storageGB: 256, purchaseModel: "hyperscaleServerless"};
+  const quarter = run({...args, activePct: 25}).scenarios[2];
+  const full = run({...args, activePct: 100}).scenarios[2];
+  assert.equal(quarter.status, "ready");
+  assert.ok(Math.abs(full.compute / quarter.compute - 4) < 1e-6,
+    "compute should scale linearly with billable online time");
+  // Hyperscale serverless has no auto-pause; the model says so rather than
+  // implying the database can drop to zero.
+  assert.ok(full.assumed.some(a => /auto-pause/.test(a)));
 });
