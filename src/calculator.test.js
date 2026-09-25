@@ -302,12 +302,12 @@ test("serverless gives directional guidance when count and storage are unset, an
   assert.match(s.assumed[0], /5 database\(s\) assumed/);
   assert.match(s.assumed[1], /32 GB per database assumed/);
   // Storage is never dropped just because it was not entered.
-  near(s.storage, 5 * 32 * 0.12);
+  near(s.storage, 5 * 32 * 1.3 * 0.12);   // +30% log allowance
   // Supplying the real figures removes the assumptions entirely.
   const exact = run({standard: 40, enterprise: 0, migrationPct: 100, rightSizePct: 0,
     databaseCount: 5, storageGB: 160, onPremPerCoreMonth: 0});
   assert.equal(exact.scenarios[2].assumed.length, 0);
-  near(exact.scenarios[2].storage, 5 * 32 * 0.12);
+  near(exact.scenarios[2].storage, 5 * 32 * 1.3 * 0.12);   // +30% log allowance
   // An explicitly entered count is never overridden by the assumption.
   const explicit = run({...serverless, databaseCount: 7});
   assert.equal(explicit.scenarios[2].deployments, 7);
@@ -328,7 +328,7 @@ test("serverless 0/25/100 online percent bills online compute and all-month stor
   for(const activePct of [0,25,100]) {
     const s=run({...serverless,activePct,onPremPerCoreMonth:10,avoidablePct:50}).scenarios[2];
     near(s.compute,2*2*730*activePct/100*0.5);
-    near(s.storage,100*0.12);
+    near(s.storage,100*1.3*0.12);   // +30% log allowance
     near(s.infrastructure,80);
     near(s.monthly,s.compute+s.storage+80);
   }
@@ -343,7 +343,7 @@ test("serverless configured ranges and memory-normalized billing floor validated
 });
 test("serverless storage enforces conservative 1–1024 GB per DB and rounds up", () => {
   const s=run({...serverless,storageGB:1}).scenarios[2];
-  near(s.storage,2*0.12);
+  near(s.storage,2*1.3*0.12);   // +30% log allowance
   assert.equal(run({...serverless,storageGB:2048}).scenarios[2].status,"ready");
   const invalid=run({...serverless,storageGB:2049}).scenarios[2];
   assert.equal(invalid.status,"unavailable");
@@ -914,6 +914,29 @@ test("an unpriced purchase model explains why rather than repeating the prompt",
   assert.throws(() => run({purchaseModel: "nonsense"}), /Choose a priced purchase model/);
 });
 
+test("Azure SQL Database bills the 30% log allowance, and Hyperscale does not", () => {
+  // Learn: "When you configure maximum data size, an extra 30 percent of
+  // billable storage is automatically added for the log file." That applies to
+  // General Purpose and Business Critical. Hyperscale bills allocated data and
+  // charges nothing for log, so it must not carry the uplift.
+  const gpRate = fixture.regions.test.storage.db_gp_per_gb_mo;
+  const hsRate = fixture.regions.test.storage.db_hs_per_gb_mo;
+  const args = {standard: 0, enterprise: 16, storageGB: 100};
+
+  const provisioned = run({...args, purchaseModel: "provisioned"}).scenarios[2];
+  assert.equal(Math.round(provisioned.storage), Math.round(100 * 1.3 * gpRate));
+  assert.match(provisioned.storageDetail, /30% log allowance/);
+
+  const hyperscale = run({...args, purchaseModel: "hyperscale"}).scenarios[2];
+  assert.equal(Math.round(hyperscale.storage), Math.round(100 * hsRate), "Hyperscale charges no log storage");
+  assert.doesNotMatch(hyperscale.storageDetail, /log allowance/);
+
+  // Managed Instance covers data and log inside the reserved size, so no uplift
+  const mi = run({...args}).scenarios[1];
+  const miRate = fixture.regions.test.storage.mi_gp_per_gb_mo;
+  assert.equal(Math.round(mi.storage), Math.round((128 - 32) * miRate), "MI bills reserved size less the allowance, with no log uplift");
+});
+
 test("Managed Instance does not bill the included first 32 GB per instance", () => {
   // Learn: "The minimum amount of storage available in an instance is 32 GB...
   // First 32 GB are free of charge." The allowance is per instance and applies
@@ -940,7 +963,7 @@ test("Azure SQL Database bills all storage, with no Managed Instance allowance",
   const db = run({standard: 0, enterprise: 16, storageGB: 40, purchaseModel: "provisioned"}).scenarios[2];
   assert.equal(db.status, "ready");
   assert.ok(db.storage > 0, "SQL Database storage is never free");
-  assert.equal(Math.round(db.storage), Math.round(40 * rate), "billed on the exact size, not rounded to a 32 GB multiple");
+  assert.equal(Math.round(db.storage), Math.round(40 * 1.3 * rate), "billed on the exact size plus the log allowance, not rounded to a 32 GB multiple");
 });
 
 test("the distribution search stays fast on the largest estate the form accepts", () => {
