@@ -999,7 +999,11 @@ if (typeof document !== "undefined") {
     // Below the single-column breakpoint the two are stacked, so height is left
     // to the content.
     const matchFormHeight = () => {
+      // Clearing first matters: a stale height from a previous result must go
+      // even when there is nothing to measure against, or an error message
+      // inherits the space the old results occupied.
       output.style.height = "";
+      if (!output.firstElementChild) return;
       if (window.matchMedia("(max-width: 1180px)").matches) return;
       // The results column starts lower than the form, under its own heading,
       // so matching heights would leave it hanging below by that offset. The
